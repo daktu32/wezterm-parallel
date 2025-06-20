@@ -1,256 +1,232 @@
-# wezterm-parallel
+# WezTerm マルチプロセス並行開発フレームワーク
 
-A comprehensive starter kit for autonomous development with Claude Code, featuring multi-agent collaboration patterns and best practices for AI-driven software development.
+WezTermの機能を活用し、Claude Codeによるマルチプロセス並行開発環境を提供するフレームワークです。
 
-## Overview
+## 概要
 
-This starter kit provides a foundation for projects developed with Claude Code (claude.ai/code), including:
-- Pre-configured development guidelines for AI agents
-- Progress tracking templates
-- Architecture documentation templates
-- AWS CDK infrastructure scaffolding
-- Best practices for test-driven development
+このフレームワークは、WezTerm単体で完全なマルチプロセス開発環境を実現し、Claude Codeプロセスの統合管理、プロジェクト単位でのワークスペース管理、セッション永続化とプロセス間通信を提供します。
 
-## Quick Start
+### 主要機能
 
-### Prerequisites
+- **ワークスペース管理**: プロジェクト単位でのワークスペース自動生成・切り替え
+- **Claude Codeプロセス管理**: 複数のClaude Codeインスタンスの自動起動・監視
+- **タスク管理**: 並行実行タスクのキューイングと優先度制御
+- **プロセス間通信**: Unix Domain Socketによる効率的な通信
+- **状態永続化**: ワークスペース状態の保存と復元
 
-- Node.js 18+
-- AWS CLI v2 (optional, for cloud deployments)
+### アーキテクチャ
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     WezTerm Terminal                        │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
+│  │  Workspace A    │  │  Workspace B    │  │ Control Pane │ │
+│  │ ┌─────┬─────┬───┐│  │ ┌─────┬─────┐   │  │ ┌──────────┐ │ │
+│  │ │Pane1│Pane2│...││  │ │Pane1│Pane2│   │  │ │Dashboard │ │ │
+│  │ └─────┴─────┴───┘│  │ └─────┴─────┘   │  │ └──────────┘ │ │
+│  └─────────────────┘  └─────────────────┘  └──────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│                    Lua Configuration Layer                  │
+└─────────────────────────────────────────────────────────────┘
+            │                    │                    │
+            ▼                    ▼                    ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Workspace      │    │  Process        │    │  Communication │
+│  Manager        │    │  Manager        │    │  Hub            │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+            │                    │                    │
+            └────────────────────┼────────────────────┘
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   Backend Services      │
+                    │ ┌─────────────────────┐ │
+                    │ │ Claude Code         │ │
+                    │ │ Process Pool        │ │
+                    │ └─────────────────────┘ │
+                    │ ┌─────────────────────┐ │
+                    │ │ State Management    │ │
+                    │ └─────────────────────┘ │
+                    │ ┌─────────────────────┐ │
+                    │ │ IPC Server          │ │
+                    │ └─────────────────────┘ │
+                    └─────────────────────────┘
+```
+
+## 技術スタック
+
+- **フロントエンド**: WezTerm、Lua
+- **バックエンド**: Rust
+- **IPC**: Unix Domain Socket
+- **設定管理**: YAML/TOML
+- **状態管理**: JSON/YAML、SQLite（オプション）
+
+## セットアップ
+
+### 前提条件
+
+- WezTerm（最新安定版）
+- Rust 1.70+
+- Claude Code
 - Git
 
-### Setup
-
-#### Option 1: Interactive Setup Assistant (Recommended)
+### インストール
 
 ```bash
-# Clone the repository
+# リポジトリのクローン
 git clone https://github.com/daktu32/wezterm-parallel.git
 cd wezterm-parallel
 
-# Run the interactive setup assistant
-npm run setup
+# Rustプロジェクトのビルド（実装予定）
+cargo build --release
+
+# WezTerm設定のインストール（実装予定）
+./install-wezterm-config.sh
 ```
 
-The setup assistant will guide you through:
-- Project configuration (name, description, repository)
-- Development prompt selection based on your team and requirements
-- Technology stack choices
-- Automatic placeholder replacement and file customization
+### 設定
 
-#### Option 2: Manual Setup
+WezTerm設定ファイル (`~/.config/wezterm/wezterm.lua`) に以下を追加：
+
+```lua
+local wezterm = require 'wezterm'
+local multi_dev = require 'wezterm_parallel'
+
+local config = wezterm.config_builder()
+
+-- Multi-dev framework integration
+multi_dev.setup(config, {
+  config_path = wezterm.home_dir .. '/.config/wezterm-multi-dev/config.yaml',
+  auto_start = true,
+  debug = false
+})
+
+-- カスタムキーバインド
+config.keys = {
+  { key = 'n', mods = 'CTRL|SHIFT', action = multi_dev.actions.create_workspace },
+  { key = 'w', mods = 'CTRL|SHIFT', action = multi_dev.actions.switch_workspace },
+  { key = 'd', mods = 'CTRL|SHIFT', action = multi_dev.actions.show_dashboard },
+}
+
+return config
+```
+
+## 使用方法
+
+### ワークスペースの作成
+
+```
+Ctrl+Shift+N
+```
+
+新しいワークスペースを作成し、Claude Codeプロセスを自動起動します。
+
+### ワークスペースの切り替え
+
+```
+Ctrl+Shift+W
+```
+
+既存のワークスペース間を切り替えます。
+
+### ダッシュボード表示
+
+```
+Ctrl+Shift+D
+```
+
+全プロセスの状態とリソース使用量を表示します。
+
+## 開発
+
+### プロジェクト構造（予定）
+
+```
+wezterm-parallel/
+├── src/                    # Rustソースコード
+│   ├── process_manager/    # プロセス管理
+│   ├── communication/      # IPC通信
+│   ├── state/             # 状態管理
+│   └── main.rs            # エントリーポイント
+├── wezterm-config/        # WezTerm Lua設定
+│   ├── init.lua           # メイン設定
+│   ├── workspace.lua      # ワークスペース管理
+│   └── keybindings.lua    # キーバインド
+├── tests/                 # テストコード
+├── docs/                  # ドキュメント
+└── config/               # 設定テンプレート
+```
+
+### 開発コマンド（実装予定）
 
 ```bash
-# Clone the repository
-git clone https://github.com/daktu32/wezterm-parallel.git
-cd wezterm-parallel
+# ビルド
+cargo build
 
-# Follow the customization guide
-# See CUSTOMIZATION_GUIDE.md for detailed instructions
+# テスト実行
+cargo test
+
+# ドキュメント生成
+cargo doc --open
+
+# Luaスクリプトのチェック
+luacheck wezterm-config/
 ```
 
-### Project Structure
+## パフォーマンス目標
 
-```
-project-root/
-├── CLAUDE.md              # AI agent guidelines and project context
-├── PROGRESS.md            # Development progress tracking
-├── DEVELOPMENT_ROADMAP.md # Project roadmap and milestones
-├── infrastructure/        # Infrastructure as Code (AWS CDK)
-│   ├── lib/
-│   │   └── stacks/       # Cloud infrastructure stacks
-│   └── test/             # Infrastructure tests
-├── packages/             # Monorepo packages
-│   ├── frontend/         # Frontend application
-│   ├── backend/          # Backend services
-│   └── shared/           # Shared utilities
-├── docs/                 # Project documentation
-│   ├── ARCHITECTURE.md   # System architecture
-│   ├── prd.md           # Product requirements
-│   └── setup-guide.md   # Detailed setup instructions
-└── decisions/           # Architecture Decision Records (ADRs)
-```
+- ワークスペース起動時間: < 3秒
+- ペイン操作レスポンス: < 100ms
+- メモリ使用量: ベースライン < 50MB
+- CPU使用率（アイドル時）: < 1%
 
-## Key Files for AI Development
+## 開発フェーズ
 
-### CLAUDE.md
-The central configuration file that guides Claude Code's behavior when working on your project. Customize this with:
-- Project overview and goals
-- Technology stack specifications
-- Development workflow rules
-- Coding standards
-- Security guidelines
+### Phase 1: 基盤構築 (進行中)
+- [ ] Rustプロジェクトのセットアップ
+- [ ] 基本的なプロセス管理機能
+- [ ] WezTerm Lua設定の基礎実装
 
-### Development Prompts (`prompts/`)
-Choose from specialized prompts based on your project type:
-- **Basic Development** - Small projects, MVPs, learning
-- **Enterprise Development** - Large teams, compliance requirements
-- **Open Source Development** - Community-driven projects
-- **Startup Development** - Fast iteration, market validation
+### Phase 2: コア機能
+- [ ] ワークスペース管理システム
+- [ ] Claude Codeプロセスの自動起動
+- [ ] プロセス間通信の実装
 
-See [prompts/README.md](prompts/README.md) for detailed selection guide.
+### Phase 3: UI/UX機能
+- [ ] ペイン管理機能
+- [ ] ダッシュボード表示
+- [ ] キーボードショートカット
 
-### PROGRESS.md
-A living document that tracks:
-- Completed tasks
-- Current work in progress
-- Upcoming tasks
-- Blockers and issues
-- Team updates
+### Phase 4: 高度な機能
+- [ ] プラグインシステム
+- [ ] 設定のホットリロード
+- [ ] パフォーマンス最適化
 
-### DEVELOPMENT_ROADMAP.md
-Strategic planning document containing:
-- Phase-based development plan
-- Milestones and deliverables
-- Technical architecture decisions
-- Risk assessments
-- Success metrics
+## 貢献
 
-## Development Workflow
+このプロジェクトへの貢献を歓迎します。
 
-### 1. Task Planning
-- Define requirements in `docs/`
-- Update `DEVELOPMENT_ROADMAP.md` with new phases
-- Create entries in `PROGRESS.md`
+### 開発ガイドライン
 
-### 2. Test-Driven Development
-```bash
-# Write tests first
-npm test -- --watch
+1. **テストファースト開発**: 実装前にテストを作成
+2. **Git Worktree使用**: 機能開発は独立したワークツリーで行う
+3. **進捗追跡**: PROGRESS.mdを定期的に更新
+4. **品質チェック**: コミット前にlint、型チェック、テストを実行
 
-# Implement features
-npm run dev
+### セキュリティ
 
-# Verify all tests pass
-npm test
-```
+- プロセス分離によるセキュリティ確保
+- ファイルアクセス制御
+- プロセス間通信の暗号化（オプション）
 
-### 3. Quality Checks
-```bash
-# Type checking
-npm run type-check
+## ライセンス
 
-# Linting
-npm run lint
+MIT License
 
-# Build verification
-npm run build
-```
+## 参考資料
 
-### 4. Progress Updates
-- Update `PROGRESS.md` after each task
-- Mark milestones in `DEVELOPMENT_ROADMAP.md`
-- Commit with descriptive messages
-
-## Infrastructure
-
-This starter kit includes infrastructure templates for common architectures. See [docs/tech-stack.md](docs/tech-stack.md) for detailed technology choices and [infrastructure/](infrastructure/) for implementation.
-
-### Deployment
-
-```bash
-cd infrastructure
-
-# Deploy to development
-npm run deploy:dev
-
-# Deploy to production
-npm run deploy:prod
-```
-
-## Customization Guide
-
-### 1. Update Project Information
-- Edit `CLAUDE.md` with your project details
-- Customize `package.json` with your project name
-- Update this README with project-specific information
-
-### 2. Configure Technology Stack
-- Modify infrastructure stacks in `infrastructure/lib/stacks/`
-- Update dependencies in `package.json` files
-- Configure build tools and linters
-
-### 3. Set Development Rules
-- Customize workflow in `CLAUDE.md`
-- Add project-specific ADRs to `decisions/`
-- Configure CI/CD pipelines
-
-## Best Practices
-
-### For AI Agents
-1. Always update `PROGRESS.md` after completing tasks
-2. Follow TDD principles - write tests first
-3. Use git worktrees for feature development
-4. Never commit secrets or credentials
-5. Keep documentation in sync with code
-
-### For Human Developers
-1. Review AI-generated code thoroughly
-2. Validate architectural decisions
-3. Monitor costs and performance
-4. Maintain security best practices
-5. Provide clear context in `CLAUDE.md`
-
-## Common Commands
-
-```bash
-# Development
-npm run setup:dev    # Start development server
-npm run build        # Production build
-npm run test         # Run tests
-npm run lint         # Lint code
-npm run type-check   # TypeScript validation
-
-# Infrastructure commands are project-specific. Add your own scripts when needed.
-
-# Utilities
-npm run clean        # Clean build artifacts
-```
-
-## CI/CD Workflows
-
-This starter kit includes GitHub Actions workflows:
-
-### Available Workflows
-
-- **`.github/workflows/ci.yml`** - Comprehensive CI pipeline including:
-  - Linting and code style checks
-  - Type checking
-  - Unit and integration tests
-  - Build verification
-  - E2E tests
-  - Security scanning
-
-- **`.github/workflows/test.yml`** - E2E test runner (can be used standalone)
-
-- **`.github/workflows/deploy.yml.template`** - Deployment template (rename to `.yml` and customize)
-
-### Customizing Workflows
-
-1. Update the scripts in `package.json` to match your project:
-   ```json
-   "scripts": {
-     "lint": "your-linter",
-     "type-check": "your-type-checker",
-     "test": "your-test-runner",
-     "build": "your-build-command"
-   }
-   ```
-
-2. Configure environment secrets in GitHub repository settings
-
-3. Adjust Node.js versions in the matrix if needed
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on contributing to this starter kit.
-
-## Resources
-
-- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)
-- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/)
-- [Architecture Decision Records](https://adr.github.io/)
-
-## License
-
-This starter kit is provided as-is for use with wezterm-parallel projects. Customize the license as needed for your specific project.
+- [WezTerm公式ドキュメント](https://wezfurlong.org/wezterm/)
+- [Lua公式ドキュメント](https://www.lua.org/docs.html)
+- [Rust公式ドキュメント](https://doc.rust-lang.org/)
+- プロジェクト要求仕様書: docs/prd.md
+- アーキテクチャ仕様書: docs/ARCHITECTURE.md

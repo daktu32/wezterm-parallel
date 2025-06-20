@@ -1,107 +1,137 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+このファイルは、このリポジトリでのコード作業時にClaude Code (claude.ai/code) へのガイダンスを提供します。
 
-## Project Overview
+## プロジェクト概要
 
-wezterm-parallel - An interactive setup assistant that helps developers configure Claude Code projects with best practices, appropriate prompts, and standardized project structures.
+**WezTerm マルチプロセス並行開発フレームワーク** - WezTermの機能を活用し、Claude Codeによるマルチプロセス並行開発環境を提供するフレームワークです。
 
-## Commands
+### 主要機能
+- WezTerm単体での完全なマルチプロセス開発環境
+- Claude Codeプロセスの統合管理
+- プロジェクト単位でのワークスペース管理
+- セッション永続化とプロセス間通信
 
-### Root Level Commands
+## アーキテクチャ概要
+
+### コンポーネント構成
+1. **フロントエンドレイヤー (WezTerm + Lua)**
+   - WezTerm Terminal: ユーザーインターフェース
+   - Lua Configuration: 設定管理とイベントハンドリング
+   - Workspace Management: ワークスペースとペインの管理
+
+2. **バックエンドレイヤー (Rust/Go)**
+   - Process Manager: Claude Codeプロセスの管理
+   - Communication Hub: プロセス間通信の仲介
+   - State Management: アプリケーション状態の永続化
+
+### 技術スタック
+- **フロントエンド**: WezTerm、Lua
+- **バックエンド**: Rust または Go
+- **IPC**: Unix Domain Socket
+- **設定**: YAML/TOML
+- **状態管理**: JSON/YAML、SQLite（オプション）
+
+## 開発ワークフロー
+
+### 開発プラクティス
+1. **Git Worktree使用**: 機能開発は独立したワークツリーで行う
+2. **進捗追跡**: PROGRESS.mdとDEVELOPMENT_ROADMAP.mdを更新する
+3. **テストファースト開発**: 実装前にテストを作成する
+4. **品質チェック**: コミット前にlint、型チェック、テストを通す
+
+### ブランチ戦略
+- `main`: 本番環境相当
+- `develop`: 開発統合ブランチ
+- `feature/*`: 機能開発ブランチ
+- `hotfix/*`: 緊急修正ブランチ
+
+## コマンド
+
+### 開発用コマンド（実装予定）
 ```bash
-npm run setup          # Run the interactive setup assistant
-npm run setup:dry-run  # Preview mode without making changes
-npm run setup:dev      # Development mode (run directly with ts-node)
-npm run build          # Build TypeScript files
-npm run test           # Run all tests with Jest
-npm run lint           # Run ESLint with auto-fix
-npm run type-check     # Run TypeScript type checking
+# Rustプロジェクトのビルド
+cargo build
+
+# テストの実行
+cargo test
+
+# Luaスクリプトのチェック
+luacheck wezterm-config/
+
+# ドキュメント生成
+cargo doc --open
 ```
 
-### Scripts Directory Commands (from scripts/)
+### WezTerm設定関連
 ```bash
-cd scripts
-npm run build         # Compile TypeScript to JavaScript
-npm run dev           # Run directly with ts-node
-npm run test          # Run Jest tests for lib/**/*.test.ts
-npm run lint          # ESLint with auto-fix
-npm run type-check    # TypeScript validation only
+# WezTerm設定のリロード
+# Ctrl+Shift+R (設定内で定義予定)
+
+# 新規ワークスペース作成
+# Ctrl+Shift+N (設定内で定義予定)
+
+# ワークスペース切り替え
+# Ctrl+Shift+W (設定内で定義予定)
 ```
 
-### Running Single Tests
-```bash
-# Run a specific test file
-npm test -- lib/fileManager.test.ts
+## ディレクトリ構造（計画）
 
-# Run tests matching a pattern
-npm test -- --testNamePattern="should create backup"
-
-# Run tests with coverage for a specific file
-npm test -- --coverage lib/templateProcessor.test.ts
+```
+wezterm-parallel/
+├── src/                    # Rustソースコード
+│   ├── process_manager/    # プロセス管理モジュール
+│   ├── communication/      # IPC通信モジュール
+│   ├── state/             # 状態管理モジュール
+│   └── main.rs            # エントリーポイント
+├── wezterm-config/        # WezTerm Lua設定
+│   ├── init.lua           # メイン設定ファイル
+│   ├── workspace.lua      # ワークスペース管理
+│   └── keybindings.lua    # キーバインド定義
+├── tests/                 # テストコード
+├── docs/                  # ドキュメント
+└── config/               # 設定テンプレート
 ```
 
-## Architecture
+## 実装フェーズ
 
-### Setup Assistant Flow
-```
-[CLI Entry] → [Prompt Selection] → [User Input] → [Template Processing] → [File Generation]
-     ↓              ↓                    ↓                ↓                      ↓
-setup-assistant  promptSelector      inquirer      templateProcessor      fileManager
-```
+### Phase 1: 基盤構築
+- [ ] Rustプロジェクトのセットアップ
+- [ ] 基本的なプロセス管理機能
+- [ ] WezTerm Lua設定の基礎実装
 
-### Core Components
+### Phase 2: コア機能
+- [ ] ワークスペース管理システム
+- [ ] Claude Codeプロセスの自動起動
+- [ ] プロセス間通信の実装
 
-**scripts/setup-assistant.ts**
-- Main entry point that orchestrates the setup flow
-- Handles command-line arguments and mode selection
-- Integrates all components to create the final project structure
+### Phase 3: UI/UX機能
+- [ ] ペイン管理機能
+- [ ] ダッシュボード表示
+- [ ] キーボードショートカット
 
-**scripts/lib/promptSelector.ts**
-- Analyzes user requirements through interactive questions
-- Recommends appropriate development prompts based on project type
-- Maps user choices to specific prompt templates
+### Phase 4: 高度な機能
+- [ ] プラグインシステム
+- [ ] 設定のホットリロード
+- [ ] パフォーマンス最適化
 
-**scripts/lib/templateProcessor.ts**
-- Processes Mustache templates with user-provided variables
-- Handles template loading and variable substitution
-- Generates customized content for project files
+## パフォーマンス目標
 
-**scripts/lib/fileManager.ts**
-- Manages file operations with backup capabilities
-- Creates directory structures and writes processed templates
-- Handles dry-run mode for preview without changes
+- ワークスペース起動時間: < 3秒
+- ペイン操作レスポンス: < 100ms
+- メモリ使用量: ベースライン < 50MB
+- CPU使用率（アイドル時）: < 1%
 
-**scripts/lib/validator.ts**
-- Validates user inputs (project names, emails, URLs)
-- Ensures data integrity before template processing
-- Provides validation rules for different input types
+## セキュリティ考慮事項
 
-### Template System
+- プロセス分離によるセキュリティ確保
+- ファイルアクセス制御
+- プロセス間通信の暗号化（オプション）
 
-The project uses Mustache templates stored in `prompts/templates/`:
-- Templates use `{{variable}}` syntax for substitution
-- Variables are collected through the interactive CLI
-- Processed templates become project files (README.md, CLAUDE.md, etc.)
+## 参考資料
 
-### Development Workflow Integration
-
-This starter kit enforces specific development practices:
-1. **Git Worktree Usage**: Features must be developed in isolated worktrees
-2. **Progress Tracking**: PROGRESS.md and DEVELOPMENT_ROADMAP.md must be updated
-3. **Test-First Development**: Tests must be written before implementation
-4. **Quality Checks**: All code must pass lint, type-check, and tests before commit
-
-### Prompt Selection Logic
-
-The assistant recommends prompts based on:
-- Project type (startup, enterprise, open-source, etc.)
-- Team size and development methodology
-- Required features and compliance needs
-- Development philosophy preferences
-
-Each prompt type (`basic`, `enterprise`, `opensource`, `startup`) includes:
-- Customized CLAUDE.md with specific guidelines
-- Appropriate development workflows
-- Relevant documentation templates
-- Security and compliance considerations
+- [WezTerm公式ドキュメント](https://wezfurlong.org/wezterm/)
+- [Lua公式ドキュメント](https://www.lua.org/docs.html)
+- [Rust公式ドキュメント](https://doc.rust-lang.org/)
+- プロジェクト要求仕様書: docs/prd.md
+- アーキテクチャ仕様書: docs/ARCHITECTURE.md
