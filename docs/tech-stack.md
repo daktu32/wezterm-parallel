@@ -1,186 +1,208 @@
-# Technology Stack
+# WezTerm マルチプロセス並行開発フレームワーク - Technology Stack
 
-This document defines the technology stack for this project. Other documentation files reference this as the single source of truth.
+このドキュメントはプロジェクトの技術スタックを定義します。他のドキュメントはこれを技術選択の信頼できる情報源として参照します。
 
-## Frontend Technologies
+## フロントエンド技術
 
-### Framework
-- **Primary**: [e.g., Next.js, React, Vue.js, Angular]
-- **Version**: [Specify version requirements]
-- **Rationale**: [Why this choice was made]
+### UI Framework
+- **Primary**: WezTerm
+- **Version**: 最新安定版 (20240203-110809-5046fc22)
+- **Rationale**: 高度にカスタマイズ可能なターミナルで、Luaスクリプトによる豊富な機能拡張が可能
 
-### Language
-- **Primary**: [e.g., TypeScript, JavaScript]
-- **Version**: [Specify version requirements]
-- **Configuration**: [Link to config files]
+### 設定・スクリプト言語
+- **Primary**: Lua 5.4
+- **Version**: ≥5.4.0
+- **Configuration**: WezTerm組み込みLua環境
+- **Rationale**: WezTermのネイティブスクリプト言語で、パフォーマンスが良く軽量
 
-### Styling
-- **Framework**: [e.g., TailwindCSS, Styled Components, CSS Modules]
-- **Preprocessor**: [e.g., Sass, Less, PostCSS]
-- **Design System**: [e.g., Material-UI, Ant Design, Custom]
+### ユーザーインターフェース
+- **Framework**: WezTerm GUI API + カスタムLuaモジュール
+- **Component**: ペイン管理、タブ管理、ステータス表示
+- **Theming**: WezTerm Color Scheme API
 
-### State Management
-- **Solution**: [e.g., Redux, Zustand, Jotai, Context API]
-- **Middleware**: [e.g., Redux Toolkit, Redux Saga]
-
-## Backend Technologies
+## バックエンド技術
 
 ### Runtime Environment
-- **Platform**: [e.g., Node.js, Python, Go, Java]
-- **Version**: [Specify version requirements]
+- **Platform**: Rust
+- **Version**: ≥1.70.0
+- **Edition**: 2021
+- **Rationale**: メモリ安全性、高パフォーマンス、並行処理に優秀
 
-### Framework
-- **Primary**: [e.g., Express, FastAPI, Gin, Spring Boot]
-- **Additional**: [e.g., Socket.io for real-time features]
+### Framework & Libraries
+- **Async Runtime**: Tokio 1.x
+- **Serialization**: Serde + serde_json
+- **Process Management**: tokio::process
+- **IPC**: Unix Domain Sockets (tokio::net::UnixListener)
+- **Logging**: tracing + tracing-subscriber
+- **Configuration**: serde + toml/yaml
 
 ### API Design
-- **Style**: [REST, GraphQL, gRPC, or hybrid]
-- **Documentation**: [e.g., OpenAPI/Swagger, GraphQL Playground]
-- **Validation**: [e.g., Joi, Zod, Pydantic]
+- **Style**: カスタムIPC プロトコル (JSON over Unix Socket)
+- **Message Format**: JSON
+- **Validation**: Serde derive macros
 
-## Database Technologies
+## データストレージ
 
-### Primary Database
-- **Type**: [e.g., PostgreSQL, MongoDB, DynamoDB]
-- **Version**: [Specify version requirements]
-- **ORM/ODM**: [e.g., Prisma, TypeORM, Mongoose]
+### 設定ストレージ
+- **Type**: ファイルベース (YAML/TOML)
+- **Location**: `~/.config/wezterm-multi-dev/`
+- **Rationale**: シンプルで人間が読みやすく、バージョン管理可能
 
-### Caching
-- **Solution**: [e.g., Redis, Memcached, In-memory]
-- **Use Cases**: [Session storage, API caching, etc.]
+### 状態管理
+- **Primary**: JSON ファイル
+- **Backup**: SQLite (オプション)
+- **Location**: `~/.local/share/wezterm-multi-dev/`
+- **Rationale**: 軽量で依存関係が少ない
 
-### Search
-- **Engine**: [e.g., Elasticsearch, Algolia, built-in database search]
-- **Use Cases**: [Full-text search, analytics, etc.]
+### セッション永続化
+- **Format**: JSON
+- **Scope**: ワークスペース単位
+- **Auto-save**: 30秒間隔
 
-## Infrastructure
+## プロセス間通信
 
-### Cloud Provider
-- **Primary**: [e.g., AWS, Google Cloud, Azure, Vercel]
-- **Rationale**: [Why this provider was chosen]
+### IPC Protocol
+- **Transport**: Unix Domain Socket
+- **Format**: JSON messages
+- **Authentication**: ファイルシステム権限ベース
+- **Rationale**: 高速、セキュア、クロスプラットフォーム対応
 
-### Infrastructure as Code
-- **Tool**: [e.g., AWS CDK, Terraform, Pulumi, CloudFormation]
-- **Language**: [e.g., TypeScript, HCL, Python]
+### Message Types
+```rust
+pub enum Message {
+    WorkspaceCreate { name: String, template: String },
+    ProcessSpawn { workspace: String, command: String },
+    StatusUpdate { process_id: String, status: ProcessStatus },
+    TaskQueue { id: String, priority: u8, command: String },
+}
+```
 
-### Containerization
-- **Runtime**: [e.g., Docker, Podman]
-- **Orchestration**: [e.g., Kubernetes, Docker Compose, AWS ECS]
+## 開発・ビルドツール
 
-### Serverless
-- **Compute**: [e.g., AWS Lambda, Vercel Functions, CloudFlare Workers]
-- **Database**: [e.g., PlanetScale, FaunaDB, Supabase]
+### コード品質
+- **Linting**: Clippy (Rust), luacheck (Lua)
+- **Formatting**: rustfmt, stylua
+- **Type Checking**: Rust compiler (rustc)
 
-## DevOps & CI/CD
+### テスト
+- **Unit Testing**: Rust built-in test framework
+- **Integration Testing**: tokio-test
+- **Lua Testing**: busted (オプション)
+- **Performance Testing**: criterion.rs
 
-### Version Control
-- **Platform**: [e.g., GitHub, GitLab, Bitbucket]
-- **Workflow**: [e.g., GitFlow, GitHub Flow, custom]
+### ドキュメント
+- **Code Docs**: rustdoc
+- **API Docs**: 自動生成 (cargo doc)
+- **Project Docs**: Markdown
 
-### CI/CD Pipeline
-- **Platform**: [e.g., GitHub Actions, GitLab CI, Jenkins]
-- **Deployment**: [e.g., Blue-Green, Rolling, Canary]
+## セキュリティ
 
-### Monitoring & Observability
-- **Application Monitoring**: [e.g., Datadog, New Relic, Sentry]
-- **Infrastructure Monitoring**: [e.g., CloudWatch, Prometheus, Grafana]
-- **Logging**: [e.g., ELK Stack, Fluentd, cloud-native solutions]
-- **Tracing**: [e.g., Jaeger, AWS X-Ray, OpenTelemetry]
+### プロセス分離
+- **Method**: OS-level process isolation
+- **Sandboxing**: ファイルアクセス制限
+- **User permissions**: 実行ユーザーの権限内で動作
 
-## Development Tools
+### 通信セキュリティ
+- **IPC**: Unix socket file permissions (600)
+- **Data validation**: Serde type safety
+- **Access control**: プロセスID ベース認証
 
-### Code Quality
-- **Linting**: [e.g., ESLint, Pylint, golangci-lint]
-- **Formatting**: [e.g., Prettier, Black, gofmt]
-- **Type Checking**: [e.g., TypeScript, mypy, built-in]
+### データ保護
+- **Configuration**: ファイルシステム権限 (600)
+- **Secrets**: 環境変数または外部キーマネージャー
+- **Logging**: 機密情報のフィルタリング
 
-### Testing
-- **Unit Testing**: [e.g., Jest, pytest, Go testing]
-- **Integration Testing**: [e.g., Supertest, TestContainers]
-- **E2E Testing**: [e.g., Playwright, Cypress, Selenium]
-- **Performance Testing**: [e.g., k6, Artillery, JMeter]
+## 外部依存関係
 
-### Documentation
-- **API Docs**: [e.g., Swagger/OpenAPI, GraphQL docs]
-- **Code Docs**: [e.g., JSDoc, Sphinx, GoDoc]
-- **Project Docs**: [e.g., Markdown, GitBook, Notion]
+### Claude Code Integration
+- **Interface**: プロセス実行 + stdin/stdout
+- **Communication**: 標準入出力
+- **Process monitoring**: プロセスID追跡
+- **Rationale**: Claude Codeの標準的な利用方法
 
-## Security
+### System Dependencies
+- **Required**: WezTerm
+- **Optional**: luacheck (開発時)
+- **Platform**: macOS, Linux, Windows
 
-### Authentication
-- **Method**: [e.g., JWT, OAuth 2.0, SAML]
-- **Provider**: [e.g., Auth0, Cognito, Firebase Auth, custom]
-
-### Authorization
-- **Pattern**: [e.g., RBAC, ABAC, custom permissions]
-- **Implementation**: [e.g., CASL, Casbin, custom]
-
-### Data Protection
-- **Encryption**: [e.g., AES-256, TLS 1.3]
-- **Secrets Management**: [e.g., AWS Secrets Manager, HashiCorp Vault]
-
-## External Services
-
-### Communication
-- **Email**: [e.g., SendGrid, AWS SES, Postmark]
-- **SMS**: [e.g., Twilio, AWS SNS]
-- **Push Notifications**: [e.g., Firebase, OneSignal]
-
-### File Storage
-- **Service**: [e.g., AWS S3, Google Cloud Storage, Cloudinary]
-- **CDN**: [e.g., CloudFront, CloudFlare, Fastly]
-
-### Analytics
-- **Web Analytics**: [e.g., Google Analytics, Mixpanel, Amplitude]
-- **Error Tracking**: [e.g., Sentry, Bugsnag, Rollbar]
-
-### Payment Processing
-- **Provider**: [e.g., Stripe, PayPal, Square]
-- **Features**: [One-time payments, subscriptions, etc.]
-
-## Version Requirements
+## バージョン要件
 
 | Technology | Minimum Version | Recommended Version | Notes |
 |------------|----------------|-------------------|-------|
-| [Technology 1] | [Min version] | [Recommended version] | [Special notes] |
-| [Technology 2] | [Min version] | [Recommended version] | [Special notes] |
+| Rust | 1.70.0 | Latest stable | async/await, const generics |
+| WezTerm | 20240203 | Latest stable | Lua API compatibility |
+| Lua | 5.4 | 5.4.x | WezTerm embedded |
+| Claude Code | Latest | Latest | External dependency |
 
-## Decision Rationale
+## 技術選択の根拠
 
 ### Why These Technologies?
 
-1. **[Category]**: [Reasoning for choices in this category]
-2. **[Category]**: [Reasoning for choices in this category]
-3. **[Category]**: [Reasoning for choices in this category]
+1. **Rust**: メモリ安全性と高パフォーマンスを両立。並行プロセス管理に最適
+2. **WezTerm + Lua**: 強力なカスタマイズ性とスクリプト機能。ターミナル環境の完全制御が可能
+3. **Unix Domain Socket**: ローカルIPC通信で最高のパフォーマンスとセキュリティ
+4. **ファイルベース設定**: シンプルで透明性が高く、バージョン管理やバックアップが容易
 
-### Alternative Considerations
+### 代替案検討
 
-| Technology | Alternative Considered | Why Not Chosen |
-|------------|----------------------|----------------|
-| [Primary choice] | [Alternative] | [Reason] |
-| [Primary choice] | [Alternative] | [Reason] |
+| Primary Choice | Alternative Considered | Why Not Chosen |
+|----------------|----------------------|----------------|
+| Rust | Go | ガベージコレクションによる予測不能な停止が懸念 |
+| Unix Socket | TCP Socket | ローカル通信でオーバーヘッドが不要 |
+| JSON | MessagePack | 可読性とデバッグのしやすさを優先 |
+| WezTerm | Tmux + 外部UI | 統合されたUI/UX体験を実現するため |
 
-## Migration Path
+## アーキテクチャ決定
 
-### Current → Target
-If migrating from existing technologies:
+### ADR-001: Rust for Backend
+- **Status**: Accepted
+- **Rationale**: システムレベルプログラミング、メモリ安全性、並行処理性能
+- **Alternatives**: Go, C++
+- **Decision**: Rustの採用により、安全で高性能なプロセス管理を実現
 
-1. **Phase 1**: [Migration step]
-2. **Phase 2**: [Migration step]
-3. **Phase 3**: [Migration step]
+### ADR-002: Unix Domain Socket for IPC
+- **Status**: Accepted  
+- **Rationale**: ローカル通信の最適化、セキュリティ、クロスプラットフォーム対応
+- **Alternatives**: TCP/HTTP, Named Pipes
+- **Decision**: パフォーマンスとセキュリティの最適バランス
 
-## Dependencies
+### ADR-003: WezTerm as Primary UI
+- **Status**: Accepted
+- **Rationale**: ターミナル環境での完全な制御、Luaスクリプトによる柔軟性
+- **Alternatives**: 独自GUI、Web UI
+- **Decision**: 開発者体験とカスタマイズ性を最大化
+
+## 依存関係
 
 ### Critical Dependencies
-- [Dependency 1]: [Why it's critical]
-- [Dependency 2]: [Why it's critical]
+- **WezTerm**: フロントエンドUI環境
+- **Rust toolchain**: バックエンド開発・ビルド環境
+- **Claude Code**: 統合対象の外部プロセス
 
 ### Optional Dependencies
-- [Dependency 1]: [What it enables]
-- [Dependency 2]: [What it enables]
+- **luacheck**: Luaコードの静的解析
+- **stylua**: Luaコードフォーマッター
+- **criterion**: パフォーマンステスト
+
+## 開発フェーズ別技術導入
+
+### Phase 1: 基盤構築
+- Rust basic structure
+- WezTerm Lua basic integration
+- Simple IPC implementation
+
+### Phase 2: コア機能
+- Full IPC protocol
+- Process management
+- Workspace management
+
+### Phase 3: 高度機能
+- Performance optimization
+- Advanced monitoring
+- Plugin system
 
 ---
 
-**Last Updated**: [Date]  
-**Reviewed By**: [Team/Individual]  
-**Next Review**: [Date]
+**Last Updated**: 2025-06-20  
+**Reviewed By**: Claude Code Assistant  
+**Next Review**: TBD
