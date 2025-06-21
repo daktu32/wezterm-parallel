@@ -2,7 +2,7 @@
 -- Handles workspace creation, switching, and management
 
 local wezterm = require 'wezterm'
-local json = require 'json'  -- Note: may need to install lua-json
+local json = require 'lua.utils.json'
 
 local WorkspaceManager = {}
 
@@ -41,14 +41,26 @@ end
 function WorkspaceManager.send_to_backend(message)
   local message_json = json.encode(message)
   
-  -- TODO: Implement actual Unix socket communication
-  -- For now, just log the message
-  wezterm.log_info("Sending to backend: " .. message_json)
+  -- Use WezTerm's run_child_process to communicate with backend
+  local success, stdout, stderr = wezterm.run_child_process({
+    'echo', message_json, '|', 'nc', '-U', config.socket_path
+  })
+  
+  if success then
+    wezterm.log_info("Message sent to backend: " .. message_json)
+    -- Try to parse response
+    local ok, response = pcall(json.decode, stdout)
+    if ok and response then
+      return response
+    end
+  else
+    wezterm.log_error("Failed to send message: " .. (stderr or "unknown error"))
+  end
   
   return {
     StatusUpdate = {
       process_id = "lua_client",
-      status = "Message sent successfully"
+      status = "Message sent: " .. (success and "success" or "failed")
     }
   }
 end

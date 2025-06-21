@@ -4,6 +4,9 @@
 local wezterm = require 'wezterm'
 local workspace_manager = require 'lua.workspace.manager'
 local ui_manager = require 'lua.ui.manager'
+local dashboard = require 'lua.ui.dashboard'
+local pane_manager = require 'lua.ui.pane_manager'
+local keybindings = require 'lua.config.keybindings'
 
 local config = wezterm.config_builder()
 
@@ -14,11 +17,47 @@ local framework_config = {
   max_workspaces = 8,
   max_processes_per_workspace = 16,
   debug_mode = false,
+  
+  -- Dashboard configuration
+  dashboard = {
+    update_interval = 2.0,
+    width_percentage = 30,
+    position = "right",
+    theme = {
+      background = "#1e1e2e",
+      foreground = "#cdd6f4",
+      border = "#45475a",
+      header = "#89b4fa",
+      success = "#a6e3a1",
+      warning = "#f9e2af",
+      error = "#f38ba8",
+      info = "#89dceb",
+    }
+  },
+  
+  -- Pane manager configuration
+  pane_manager = {
+    auto_balance = true,
+    focus_follows_process = true,
+    pane_titles_enabled = true,
+  },
+  
+  -- Keybindings configuration
+  keybindings = {
+    leader_key = { key = 'Space', mods = 'CTRL|SHIFT' },
+    workspace_prefix = 'CTRL|SHIFT',
+    process_prefix = 'CTRL|ALT',
+    pane_prefix = 'ALT',
+    dashboard_prefix = 'CTRL|SHIFT',
+  }
 }
 
 -- Initialize framework modules
 workspace_manager.init(framework_config)
 ui_manager.init(framework_config)
+dashboard.init(framework_config)
+pane_manager.init(framework_config)
+keybindings.init(framework_config)
 
 -- Basic WezTerm configuration
 config.color_scheme = 'Dark+'
@@ -30,60 +69,9 @@ config.tab_bar_at_bottom = true
 config.use_fancy_tab_bar = false
 config.tab_and_split_indices_are_zero_based = true
 
--- Workspace-specific keybindings
-config.keys = {
-  -- Framework specific keybindings
-  {
-    key = 'n',
-    mods = 'CTRL|SHIFT',
-    action = wezterm.action_callback(function(window, pane)
-      workspace_manager.create_workspace_prompt(window, pane)
-    end),
-  },
-  {
-    key = 'w',
-    mods = 'CTRL|SHIFT',
-    action = wezterm.action_callback(function(window, pane)
-      workspace_manager.switch_workspace_prompt(window, pane)
-    end),
-  },
-  {
-    key = 'd',
-    mods = 'CTRL|SHIFT',
-    action = wezterm.action_callback(function(window, pane)
-      ui_manager.show_dashboard(window, pane)
-    end),
-  },
-  {
-    key = 'k',
-    mods = 'CTRL|SHIFT',
-    action = wezterm.action_callback(function(window, pane)
-      workspace_manager.kill_process_prompt(window, pane)
-    end),
-  },
-  
-  -- Standard WezTerm keybindings
-  {
-    key = 'c',
-    mods = 'CTRL|SHIFT',
-    action = wezterm.action.CopyTo 'Clipboard',
-  },
-  {
-    key = 'v',
-    mods = 'CTRL|SHIFT',
-    action = wezterm.action.PasteFrom 'Clipboard',
-  },
-  {
-    key = 't',
-    mods = 'CTRL|SHIFT',
-    action = wezterm.action.SpawnTab 'CurrentPaneDomain',
-  },
-  {
-    key = 'Enter',
-    mods = 'ALT',
-    action = wezterm.action.ToggleFullScreen,
-  },
-}
+-- Enhanced keybindings with comprehensive framework support
+config.keys = keybindings.build_keys(workspace_manager, pane_manager, dashboard)
+config.key_tables = keybindings.build_key_tables(workspace_manager, pane_manager, dashboard)
 
 -- Window events
 wezterm.on('gui-startup', function(cmd)
@@ -97,6 +85,39 @@ end)
 
 wezterm.on('window-config-reloaded', function(window, pane)
   ui_manager.show_notification(window, "Configuration reloaded", "info")
+  
+  -- Reinitialize modules with new config
+  workspace_manager.init(framework_config)
+  ui_manager.init(framework_config)
+  dashboard.init(framework_config)
+  pane_manager.init(framework_config)
+  keybindings.init(framework_config)
+end)
+
+-- Enhanced pane events
+wezterm.on('pane-event-notification', function(pane, event_name, ...)
+  pane_manager.handle_pane_event(event_name, pane, ...)
+  
+  -- Update dashboard if visible
+  if dashboard.is_visible() then
+    dashboard.handle_event({
+      type = event_name,
+      pane_id = pane:pane_id(),
+      timestamp = os.time(),
+    })
+  end
+end)
+
+-- Process events from backend
+wezterm.on('process-event', function(event)
+  -- Handle process events and update UI accordingly
+  if dashboard.is_visible() then
+    dashboard.handle_event(event)
+  end
+  
+  if event.type == "process_started" and framework_config.pane_manager.focus_follows_process then
+    pane_manager.focus_process_pane(event.process_id)
+  end
 end)
 
 -- Tab title customization for workspace indication

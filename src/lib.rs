@@ -1,5 +1,8 @@
 // WezTerm Multi-Process Development Framework - Library
 
+pub mod workspace;
+pub mod process;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
