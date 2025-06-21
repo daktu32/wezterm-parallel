@@ -1,0 +1,327 @@
+# WezTerm Multi-Process Development Framework Configuration
+# このファイルを ~/.config/wezterm-multi-dev/config.yaml にコピーしてください
+
+# ====================================================================================
+# フレームワーク基本設定
+# ====================================================================================
+
+framework:
+  version: "1.0.0"
+  auto_start: true                    # フレームワークサービスの自動起動
+  log_level: "info"                   # ログレベル: debug, info, warn, error
+  data_dir: "~/.local/share/wezterm-multi-dev"  # データディレクトリ
+  socket_path: "/tmp/wezterm-multi-dev.sock"    # IPC通信用ソケット
+  max_connections: 50                 # 最大接続数
+  connection_timeout: 30              # 接続タイムアウト（秒）
+
+# ====================================================================================
+# ダッシュボード設定
+# ====================================================================================
+
+dashboard:
+  enabled: true
+  theme: "catppuccin"                 # テーマ: catppuccin, nord, dark, light
+  update_interval: 3000               # 更新間隔（ミリ秒）
+  auto_refresh: true                  # 自動更新の有効化
+  
+  # 表示パネル設定
+  panels:
+    - system_metrics                  # システムメトリクス
+    - process_list                    # プロセス一覧
+    - log_viewer                      # ログビューア
+    - task_summary                    # タスクサマリー
+    - network_stats                   # ネットワーク統計（オプション）
+  
+  # システムメトリクス設定
+  metrics:
+    cpu_history_length: 60           # CPU履歴の保持期間（秒）
+    memory_history_length: 60        # メモリ履歴の保持期間（秒）
+    network_monitoring: true         # ネットワーク監視
+    disk_monitoring: true            # ディスク監視
+    process_monitoring: true         # プロセス監視
+    
+    # アラート設定
+    alerts:
+      cpu_threshold: 80              # CPU使用率アラート閾値（%）
+      memory_threshold: 85           # メモリ使用率アラート閾値（%）
+      disk_threshold: 90             # ディスク使用率アラート閾値（%）
+      
+  # UI設定
+  ui:
+    compact_mode: false              # コンパクト表示モード
+    show_timestamps: true            # タイムスタンプ表示
+    animation_enabled: true          # アニメーション有効化
+    chart_style: "line"              # グラフスタイル: line, bar, area
+
+# ====================================================================================
+# ペイン管理設定
+# ====================================================================================
+
+pane_management:
+  enabled: true
+  auto_sync: false                   # 自動同期の無効化（安全のため）
+  layout_persistence: true          # レイアウトの永続化
+  max_panes_per_tab: 8              # タブあたりの最大ペイン数
+  
+  # ペイン同期設定
+  sync:
+    enabled: true
+    broadcast_delay_ms: 50           # ブロードキャスト遅延（ミリ秒）
+    max_groups: 20                   # 最大同期グループ数
+    max_panes_per_group: 16          # グループあたりの最大ペイン数
+    visual_feedback: true            # 視覚的フィードバック
+    
+    # 除外パターン（同期しないコマンド）
+    exclude_patterns:
+      - "^exit$"
+      - "^logout$"
+      - "^reboot$"
+      - "^shutdown"
+      - "^rm -rf"
+      - "^sudo rm"
+      - "^mkfs"
+      - "^fdisk"
+      - "^dd if="
+      
+  # レイアウト管理設定
+  layouts:
+    enabled: true
+    auto_apply: true                 # 自動レイアウト適用
+    save_custom: true                # カスタムレイアウトの保存
+    max_custom_layouts: 50           # 最大カスタムレイアウト数
+    suggestions: true                # レイアウト提案機能
+    animation_duration_ms: 200       # アニメーション時間
+    
+  # 動的ペイン管理設定
+  dynamic_panes:
+    enabled: true
+    auto_create: true                # 自動ペイン作成
+    smart_positioning: true          # スマートポジショニング
+    process_aware_sizing: true       # プロセス認識サイジング
+    auto_close_empty: true           # 空ペインの自動削除
+    min_pane_size_percentage: 10     # 最小ペインサイズ（%）
+
+# ====================================================================================
+# タスク管理設定
+# ====================================================================================
+
+task_management:
+  enabled: true
+  auto_save: true                    # 自動保存
+  save_interval: 300                 # 保存間隔（秒）
+  max_tasks_per_project: 1000       # プロジェクトあたりの最大タスク数
+  max_projects: 50                   # 最大プロジェクト数
+  
+  # 時間追跡設定
+  time_tracking:
+    enabled: true
+    auto_start: false                # タスク開始時の自動時間追跡
+    reminder_interval: 1800          # リマインダー間隔（秒）
+    daily_goal_hours: 8              # 一日の目標時間
+    
+  # 通知設定
+  notifications:
+    enabled: true
+    deadline_notifications: true     # 締切通知
+    completion_celebrations: true    # 完了お祝い通知
+    daily_summary: true              # 日次サマリー
+    
+  # カンバンボード設定
+  kanban:
+    enabled: true
+    default_columns:
+      - "todo"
+      - "in_progress"
+      - "review"
+      - "completed"
+    custom_columns_allowed: true     # カスタムカラムの許可
+    drag_and_drop: true              # ドラッグ&ドロップ
+    
+  # UI設定
+  ui:
+    show_progress_bars: true         # プログレスバー表示
+    show_priority_colors: true       # 優先度カラー表示
+    compact_mode: false              # コンパクトモード
+    auto_expand_details: false       # 詳細の自動展開
+
+# ====================================================================================
+# ログ管理設定
+# ====================================================================================
+
+logging:
+  enabled: true
+  level: "info"                      # ログレベル
+  file: "~/.local/share/wezterm-multi-dev/logs/framework.log"
+  rotation: "daily"                  # ローテーション: daily, weekly, monthly
+  max_files: 7                       # 最大保持ファイル数
+  max_file_size: "100MB"            # 最大ファイルサイズ
+  
+  # ログ収集設定
+  collection:
+    enabled: true
+    buffer_size: 10000               # バッファサイズ
+    flush_interval: 1000             # フラッシュ間隔（ミリ秒）
+    realtime_streaming: true         # リアルタイムストリーミング
+    
+    # ログソース設定
+    sources:
+      - system                       # システムログ
+      - application                  # アプリケーションログ
+      - framework                    # フレームワークログ
+      
+  # ログビューア設定
+  viewer:
+    enabled: true
+    auto_scroll: true                # 自動スクロール
+    max_entries: 10000               # 最大エントリー数
+    search_enabled: true             # 検索機能
+    filter_enabled: true             # フィルター機能
+    export_enabled: true             # エクスポート機能
+
+# ====================================================================================
+# プロセス管理設定
+# ====================================================================================
+
+process_management:
+  enabled: true
+  auto_restart: true                 # プロセス自動再起動
+  health_check_interval: 30          # ヘルスチェック間隔（秒）
+  max_restart_attempts: 3           # 最大再起動試行回数
+  restart_delay: 5                   # 再起動遅延（秒）
+  
+  # Claude Code設定
+  claude_code:
+    auto_start: false                # Claude Codeの自動起動
+    instances: 1                     # インスタンス数
+    timeout: 300                     # タイムアウト（秒）
+    working_directory: "~"           # 作業ディレクトリ
+    
+  # 監視設定
+  monitoring:
+    cpu_limit: 80                    # CPU使用率制限（%）
+    memory_limit: 1024               # メモリ使用量制限（MB）
+    resource_monitoring: true       # リソース監視
+
+# ====================================================================================
+# ネットワーク設定
+# ====================================================================================
+
+network:
+  # WebSocket設定
+  websocket:
+    enabled: true
+    host: "127.0.0.1"               # バインドホスト
+    port: 8080                       # ポート番号
+    max_connections: 100             # 最大接続数
+    ping_interval: 30                # Ping間隔（秒）
+    
+  # HTTP設定
+  http:
+    enabled: true
+    host: "127.0.0.1"               # バインドホスト
+    port: 8081                       # ポート番号
+    static_files: true               # 静的ファイル配信
+    
+  # セキュリティ設定
+  security:
+    cors_enabled: false              # CORS有効化
+    allowed_origins: []              # 許可オリジン
+    rate_limiting: true              # レート制限
+    requests_per_minute: 1000        # 分あたりのリクエスト数制限
+
+# ====================================================================================
+# テーマ・外観設定
+# ====================================================================================
+
+themes:
+  current: "catppuccin"              # 現在のテーマ
+  
+  # Catppuccin テーマ
+  catppuccin:
+    colors:
+      primary: "#89b4fa"
+      secondary: "#a6e3a1"
+      warning: "#f9e2af"
+      error: "#f38ba8"
+      success: "#94e2d5"
+      background: "#1e1e2e"
+      foreground: "#cdd6f4"
+      surface: "#313244"
+      overlay: "#11111b"
+      
+    fonts:
+      ui: "JetBrains Mono"
+      size: 12
+      weight: "Medium"
+      
+  # Nord テーマ
+  nord:
+    colors:
+      primary: "#5e81ac"
+      secondary: "#a3be8c"
+      warning: "#ebcb8b"
+      error: "#bf616a"
+      success: "#8fbcbb"
+      background: "#2e3440"
+      foreground: "#d8dee9"
+      surface: "#3b4252"
+      overlay: "#434c5e"
+
+# ====================================================================================
+# プラグイン設定
+# ====================================================================================
+
+plugins:
+  enabled: true
+  auto_load: true                    # 自動ロード
+  plugin_directory: "~/.config/wezterm-multi-dev/plugins"
+  
+  # 有効なプラグイン
+  active_plugins:
+    - "git_integration"              # Git統合
+    - "productivity_analytics"       # 生産性分析
+    - "custom_commands"              # カスタムコマンド
+
+# ====================================================================================
+# 開発・デバッグ設定
+# ====================================================================================
+
+development:
+  debug_mode: false                  # デバッグモード
+  hot_reload: true                   # ホットリロード
+  profiling: false                   # プロファイリング
+  
+  # テスト設定
+  testing:
+    mock_data: false                 # モックデータ使用
+    test_websocket: false            # WebSocketテスト
+    
+  # ログ設定
+  debug_logging:
+    verbose: false                   # 詳細ログ
+    trace_requests: false            # リクエストトレース
+    performance_metrics: false      # パフォーマンスメトリクス
+
+# ====================================================================================
+# バックアップ・復元設定
+# ====================================================================================
+
+backup:
+  enabled: true
+  auto_backup: true                  # 自動バックアップ
+  backup_interval: 86400             # バックアップ間隔（秒）
+  max_backups: 30                    # 最大バックアップ数
+  backup_directory: "~/.local/share/wezterm-multi-dev/backups"
+  
+  # バックアップ対象
+  include:
+    - tasks                          # タスクデータ
+    - projects                       # プロジェクトデータ
+    - layouts                        # レイアウト設定
+    - preferences                    # 設定データ
+    
+  # 圧縮設定
+  compression:
+    enabled: true
+    format: "gzip"                   # 圧縮形式: gzip, zip
+    level: 6                         # 圧縮レベル（1-9）
