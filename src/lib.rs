@@ -2,6 +2,9 @@
 
 pub mod workspace;
 pub mod process;
+pub mod config;
+pub mod metrics;
+pub mod dashboard;
 
 use serde::{Deserialize, Serialize};
 
