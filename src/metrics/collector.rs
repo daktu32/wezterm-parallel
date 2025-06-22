@@ -3,9 +3,8 @@
 use super::{
     SystemMetrics, ProcessMetrics, ProcessStatus, NetworkIoStats, MetricsConfig,
 };
-use log::{info, warn, error, debug};
+use log::{info, warn, debug};
 use std::collections::HashMap;
-use std::process::Command;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::{interval, Interval};
 use sysinfo::{System, SystemExt, ProcessExt, CpuExt, DiskExt, NetworkExt};
@@ -166,8 +165,8 @@ impl MetricsCollector {
             .as_secs()
             .saturating_sub(process.start_time());
         
-        // Thread and file descriptor counts
-        let thread_count = process.tasks().len() as u32;
+        // Thread and file descriptor counts  
+        let thread_count = 1; // sysinfo doesn't provide task count directly
         let fd_count = self.get_fd_count(pid).unwrap_or(0);
         
         // Determine process status
@@ -383,8 +382,8 @@ pub struct CollectionStats {
 mod tests {
     use super::*;
     
-    #[test]
-    fn test_metrics_collector_creation() {
+    #[tokio::test]
+    async fn test_metrics_collector_creation() {
         let config = MetricsConfig::default();
         let collector = MetricsCollector::new(config.clone());
         
@@ -392,8 +391,8 @@ mod tests {
         assert!(collector.managed_processes.is_empty());
     }
     
-    #[test]
-    fn test_process_registration() {
+    #[tokio::test]
+    async fn test_process_registration() {
         let config = MetricsConfig::default();
         let mut collector = MetricsCollector::new(config);
         

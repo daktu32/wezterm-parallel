@@ -2,9 +2,9 @@
 
 use super::{
     SystemMetrics, ProcessMetrics, WorkspaceMetrics, FrameworkMetrics, 
-    PerformanceSummary, SystemHealthStatus, MetricsConfig,
+    PerformanceSummary, MetricsConfig,
 };
-use log::{info, warn, debug};
+use log::{info, debug};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
@@ -110,7 +110,8 @@ impl MetricsAggregator {
         
         // Trim history to max points
         if history.len() > self.config.max_history_points {
-            history.drain(0..history.len() - self.config.max_history_points);
+            let excess = history.len() - self.config.max_history_points;
+            history.drain(0..excess);
         }
         
         // Update framework metrics
@@ -155,7 +156,7 @@ impl MetricsAggregator {
         
         // Update workspace metrics
         for (workspace_name, processes) in workspace_processes {
-            let mut workspace_metric = workspace_metrics
+            let workspace_metric = workspace_metrics
                 .entry(workspace_name.clone())
                 .or_insert_with(|| WorkspaceMetrics::new(workspace_name));
             
@@ -391,7 +392,7 @@ impl MetricsAggregator {
     }
     
     /// Update configuration
-    pub async fn update_config(&self, config: MetricsConfig) {
+    pub async fn update_config(&self, _config: MetricsConfig) {
         info!("Updating metrics aggregator configuration");
         // Note: self.config is not mutable in this design
         // In practice, you might want to make it RwLock<MetricsConfig>

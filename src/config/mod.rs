@@ -314,7 +314,7 @@ impl Default for LoggingConfig {
             level: "info".to_string(),
             file_path: Some(PathBuf::from("~/.config/wezterm-multi-dev/logs/framework.log")),
             console: true,
-            max_file_size: 10,
+            max_file_size: 104857600, // 100MB in bytes
             max_files: 5,
             format: "plain".to_string(),
         }

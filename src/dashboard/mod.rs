@@ -6,7 +6,6 @@ pub mod handlers;
 pub mod broadcast;
 
 use crate::metrics::{FrameworkMetrics, SystemMetrics, ProcessMetrics, WorkspaceMetrics};
-use crate::message::Message;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -465,7 +464,7 @@ impl MetricsUpdate {
     /// Create a priority update
     pub fn priority(
         processes: Vec<ProcessMetrics>,
-        alert: Option<AlertNotification>,
+        _alert: Option<AlertNotification>,
     ) -> Self {
         Self {
             timestamp: SystemMetrics::current_timestamp(),

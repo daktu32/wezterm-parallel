@@ -2,15 +2,38 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::path::Path;
 use std::sync::Arc;
+use std::env;
 use tracing::{info, error, warn};
 use wezterm_multi_dev::{Message, workspace::WorkspaceManager};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Check for version flag
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 && (args[1] == "--version" || args[1] == "-v") {
+        println!("wezterm-multi-dev {}", VERSION);
+        return Ok(());
+    }
+    
+    if args.len() > 1 && (args[1] == "--help" || args[1] == "-h") {
+        println!("WezTerm Multi-Process Development Framework v{}", VERSION);
+        println!("Usage: wezterm-multi-dev [OPTIONS]");
+        println!();
+        println!("Options:");
+        println!("  -h, --help     Show this help message");
+        println!("  -v, --version  Show version information");
+        println!();
+        println!("The framework provides multi-process development environment");
+        println!("with real-time dashboard and workspace management for WezTerm.");
+        return Ok(());
+    }
+    
     // Initialize tracing
     tracing_subscriber::fmt::init();
     
-    info!("Starting WezTerm Multi-Process Development Framework");
+    info!("Starting WezTerm Multi-Process Development Framework v{}", VERSION);
     
     // Initialize workspace manager
     let workspace_manager = Arc::new(WorkspaceManager::new(None)?);

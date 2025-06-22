@@ -1,7 +1,7 @@
 // Metrics storage and retrieval for historical data
 
 use super::{SystemMetrics, ProcessMetrics, WorkspaceMetrics, FrameworkMetrics};
-use log::{info, warn, error, debug};
+use log::{info, warn, debug};
 use serde_json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -19,6 +19,7 @@ pub struct MetricsStorage {
     cache: Arc<RwLock<MetricsCache>>,
     
     /// Maximum number of files to keep per metric type
+    #[allow(dead_code)]
     max_files_per_type: usize,
     
     /// Maximum file size in bytes before rotation

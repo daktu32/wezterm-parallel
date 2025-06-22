@@ -25,6 +25,7 @@ pub struct ManagedProcess {
     child: Option<Child>,
     output_monitor: Option<tokio::task::JoinHandle<()>>,
     health_monitor: Option<tokio::task::JoinHandle<()>>,
+    #[allow(dead_code)]
     restart_policy: RestartPolicy,
 }
 

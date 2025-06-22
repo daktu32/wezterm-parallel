@@ -21,6 +21,7 @@ pub struct ProcessPool {
 struct QueuedTask {
     task: TaskState,
     assigned_process: Option<String>,
+    #[allow(dead_code)]
     queued_at: SystemTime,
 }
 

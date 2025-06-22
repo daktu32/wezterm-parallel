@@ -1,12 +1,12 @@
 // Configuration loading and parsing functionality
 
-use super::{Config, ServerConfig, WorkspaceConfig, ProcessConfig, UiConfig, LoggingConfig};
+use super::Config;
 use serde_yaml;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tokio::fs as async_fs;
-use log::{info, warn, error, debug};
+use log::{info, warn, debug};
 
 /// Configuration loader with support for multiple sources
 pub struct ConfigLoader {
@@ -72,7 +72,7 @@ impl ConfigLoader {
         
         // Add default search paths
         if let Ok(home) = std::env::var("HOME") {
-            search_paths.push(PathBuf::from(home).join(".config/wezterm-multi-dev/config.yaml"));
+            search_paths.push(PathBuf::from(home.clone()).join(".config/wezterm-multi-dev/config.yaml"));
             search_paths.push(PathBuf::from(home).join(".wezterm-multi-dev.yaml"));
         }
         
@@ -359,17 +359,34 @@ impl Default for ConfigLoader {
 mod tests {
     use super::*;
     use tempfile::NamedTempFile;
+    use serial_test::serial;
     
     #[test]
+    #[serial]
     fn test_load_default_config() {
-        let loader = ConfigLoader::new();
+        // Backup and clean environment variables
+        let original_value = std::env::var("WEZTERM_MULTI_DEV_SOCKET_PATH").ok();
+        unsafe {
+            std::env::remove_var("WEZTERM_MULTI_DEV_SOCKET_PATH");
+        }
+        
+        let loader = ConfigLoader::with_search_paths(vec![]); // Empty search paths to force default
         let config = loader.load().unwrap();
         
         assert_eq!(config.server.socket_path, "/tmp/wezterm-multi-dev.sock");
         assert_eq!(config.workspace.max_workspaces, 8);
+        
+        // Restore environment variable
+        unsafe {
+            match original_value {
+                Some(value) => std::env::set_var("WEZTERM_MULTI_DEV_SOCKET_PATH", value),
+                None => std::env::remove_var("WEZTERM_MULTI_DEV_SOCKET_PATH"),
+            }
+        }
     }
     
     #[test]
+    #[serial]
     fn test_save_and_load_config() {
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path();
@@ -379,21 +396,39 @@ mod tests {
         
         loader.save_config(&config, path).unwrap();
         
-        let mut loader_with_path = ConfigLoader::with_search_paths(vec![path.to_path_buf()]);
+        let loader_with_path = ConfigLoader::with_search_paths(vec![path.to_path_buf()]);
         let loaded_config = loader_with_path.load().unwrap();
         
         assert_eq!(config.server.socket_path, loaded_config.server.socket_path);
     }
     
     #[test]
+    #[serial]
     fn test_env_overrides() {
-        std::env::set_var("WEZTERM_MULTI_DEV_SOCKET_PATH", "/tmp/test.sock");
+        // 現在の値を保存
+        let original_value = std::env::var("WEZTERM_MULTI_DEV_SOCKET_PATH").ok();
         
-        let loader = ConfigLoader::new();
+        // Clear any existing environment to start clean
+        unsafe {
+            std::env::remove_var("WEZTERM_MULTI_DEV_SOCKET_PATH");
+        }
+        
+        // Set the test environment variable
+        unsafe {
+            std::env::set_var("WEZTERM_MULTI_DEV_SOCKET_PATH", "/tmp/test.sock");
+        }
+        
+        let loader = ConfigLoader::with_search_paths(vec![]); // Empty search paths to force default
         let config = loader.load().unwrap();
         
         assert_eq!(config.server.socket_path, "/tmp/test.sock");
         
-        std::env::remove_var("WEZTERM_MULTI_DEV_SOCKET_PATH");
+        // 元の値を復元
+        unsafe {
+            match original_value {
+                Some(value) => std::env::set_var("WEZTERM_MULTI_DEV_SOCKET_PATH", value),
+                None => std::env::remove_var("WEZTERM_MULTI_DEV_SOCKET_PATH"),
+            }
+        }
     }
 }

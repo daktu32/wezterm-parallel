@@ -19,6 +19,7 @@ futures-util = "0.3"
 
 [dev-dependencies]
 tempfile = "3.0"
+serial_test = "3.0"
 
 [[bin]]
 name = "wezterm-multi-dev"
