@@ -9,7 +9,7 @@ local config = wezterm.config_builder()
 -- ====================================================================================
 
 -- フレームワークのLuaモジュールパスを追加
-local framework_path = wezterm.home_dir .. '/.config/wezterm-multi-dev/lua'
+local framework_path = wezterm.home_dir .. '/.config/wezterm-parallel/lua'
 package.path = package.path .. ';' .. framework_path .. '/?.lua'
 
 -- フレームワークモジュールの読み込み
@@ -299,7 +299,7 @@ end)
 
 wezterm.on('gui-startup', function(cmd)
   -- フレームワークサービスの起動確認
-  local success = os.execute('pgrep -f wezterm-multi-dev > /dev/null')
+  local success = os.execute('pgrep -f wezterm-parallel > /dev/null')
   if not success then
     -- フレームワークサービスが起動していない場合の警告
     wezterm.log_warn('WezTerm Multi-Dev framework service is not running. Please start it manually.')

@@ -120,7 +120,7 @@ local config = wezterm.config_builder()
 
 -- Multi-dev framework integration
 multi_dev.setup(config, {
-  config_path = wezterm.home_dir .. '/.config/wezterm-multi-dev/config.yaml',
+  config_path = wezterm.home_dir .. '/.config/wezterm-parallel/config.yaml',
   auto_start = true,
   debug = false
 })
@@ -227,7 +227,7 @@ cd wezterm-parallel
 
 1. **フレームワーク起動**
    ```bash
-   wezterm-multi-dev
+   wezterm-parallel
    ```
 
 2. **WezTermでワークスペースを作成**

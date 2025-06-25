@@ -31,7 +31,7 @@ impl WorkspaceManager {
     pub fn new(state_file_path: Option<PathBuf>) -> Result<Self, Box<dyn std::error::Error>> {
         let state_path = state_file_path.unwrap_or_else(|| {
             let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-            path.push("wezterm-multi-dev");
+            path.push("wezterm-parallel");
             path.push("workspaces.json");
             path
         });

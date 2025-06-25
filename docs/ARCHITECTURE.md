@@ -241,7 +241,7 @@ impl StateManager {
 **ストレージ**:
 - **Primary**: JSON/YAML ファイル
 - **Backup**: SQLite データベース（オプション）
-- **Location**: `~/.config/wezterm-multi-dev/`
+- **Location**: `~/.config/wezterm-parallel/`
 
 ## 3. データフロー設計
 
@@ -301,7 +301,7 @@ Auto Restart ← Alert System ← Communication Hub
 ### 4.1 設定ファイル構造
 
 ```yaml
-# ~/.config/wezterm-multi-dev/config.yaml
+# ~/.config/wezterm-parallel/config.yaml
 framework:
   version: "1.0.0"
   log_level: "info"
@@ -336,7 +336,7 @@ processes:
       
 communication:
   protocol: "unix_socket"
-  socket_path: "/tmp/wezterm-multi-dev.sock"
+  socket_path: "/tmp/wezterm-parallel.sock"
   message_timeout: 5000
   
 ui:
@@ -360,7 +360,7 @@ local config = wezterm.config_builder()
 
 -- Multi-dev framework integration
 multi_dev.setup(config, {
-  config_path = wezterm.home_dir .. '/.config/wezterm-multi-dev/config.yaml',
+  config_path = wezterm.home_dir .. '/.config/wezterm-parallel/config.yaml',
   auto_start = true,
   debug = false
 })

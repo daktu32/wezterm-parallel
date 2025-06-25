@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::env;
 use tracing::{info, error, warn};
-use wezterm_multi_dev::{Message, workspace::WorkspaceManager};
+use wezterm_parallel::{Message, workspace::WorkspaceManager};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -13,13 +13,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Check for version flag
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 && (args[1] == "--version" || args[1] == "-v") {
-        println!("wezterm-multi-dev {}", VERSION);
+        println!("wezterm-parallel {}", VERSION);
         return Ok(());
     }
     
     if args.len() > 1 && (args[1] == "--help" || args[1] == "-h") {
         println!("WezTerm Multi-Process Development Framework v{}", VERSION);
-        println!("Usage: wezterm-multi-dev [OPTIONS]");
+        println!("Usage: wezterm-parallel [OPTIONS]");
         println!();
         println!("Options:");
         println!("  -h, --help     Show this help message");
@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
           workspace_manager.get_workspace_count().await);
     
     // Unix Domain Socket path
-    let socket_path = "/tmp/wezterm-multi-dev.sock";
+    let socket_path = "/tmp/wezterm-parallel.sock";
     
     // Remove existing socket file if it exists
     if Path::new(socket_path).exists() {

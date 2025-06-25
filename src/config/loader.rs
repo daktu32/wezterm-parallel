@@ -72,16 +72,16 @@ impl ConfigLoader {
         
         // Add default search paths
         if let Ok(home) = std::env::var("HOME") {
-            search_paths.push(PathBuf::from(home.clone()).join(".config/wezterm-multi-dev/config.yaml"));
-            search_paths.push(PathBuf::from(home).join(".wezterm-multi-dev.yaml"));
+            search_paths.push(PathBuf::from(home.clone()).join(".config/wezterm-parallel/config.yaml"));
+            search_paths.push(PathBuf::from(home).join(".wezterm-parallel.yaml"));
         }
         
         // Add current directory
-        search_paths.push(PathBuf::from("./wezterm-multi-dev.yaml"));
+        search_paths.push(PathBuf::from("./wezterm-parallel.yaml"));
         search_paths.push(PathBuf::from("./config.yaml"));
         
         // Add system-wide config
-        search_paths.push(PathBuf::from("/etc/wezterm-multi-dev/config.yaml"));
+        search_paths.push(PathBuf::from("/etc/wezterm-parallel/config.yaml"));
         
         Self {
             search_paths,
@@ -373,7 +373,7 @@ mod tests {
         let loader = ConfigLoader::with_search_paths(vec![]); // Empty search paths to force default
         let config = loader.load().unwrap();
         
-        assert_eq!(config.server.socket_path, "/tmp/wezterm-multi-dev.sock");
+        assert_eq!(config.server.socket_path, "/tmp/wezterm-parallel.sock");
         assert_eq!(config.workspace.max_workspaces, 8);
         
         // Restore environment variable

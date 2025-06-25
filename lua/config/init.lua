@@ -12,7 +12,7 @@ local config = wezterm.config_builder()
 
 -- Framework configuration
 local framework_config = {
-  socket_path = "/tmp/wezterm-multi-dev.sock",
+  socket_path = "/tmp/wezterm-parallel.sock",
   auto_start_backend = true,
   max_workspaces = 8,
   max_processes_per_workspace = 16,

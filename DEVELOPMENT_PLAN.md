@@ -293,7 +293,7 @@ Unit Tests (70%)
 ### 即座に実行すべきタスク
 1. **Rustプロジェクト初期化**
    ```bash
-   cargo init --name wezterm-multi-dev
+   cargo init --name wezterm-parallel
    ```
 
 2. **基本依存関係追加**

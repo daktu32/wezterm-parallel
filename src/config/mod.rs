@@ -224,7 +224,7 @@ impl Default for Config {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            socket_path: "/tmp/wezterm-multi-dev.sock".to_string(),
+            socket_path: "/tmp/wezterm-parallel.sock".to_string(),
             max_connections: 100,
             connection_timeout: 30,
             enable_metrics: true,
@@ -238,9 +238,9 @@ impl Default for WorkspaceConfig {
         Self {
             max_workspaces: 8,
             default_template: "basic".to_string(),
-            state_path: PathBuf::from("~/.config/wezterm-multi-dev/workspaces.json"),
+            state_path: PathBuf::from("~/.config/wezterm-parallel/workspaces.json"),
             auto_save_interval: 30,
-            templates_dir: PathBuf::from("~/.config/wezterm-multi-dev/templates"),
+            templates_dir: PathBuf::from("~/.config/wezterm-parallel/templates"),
         }
     }
 }
@@ -312,7 +312,7 @@ impl Default for LoggingConfig {
     fn default() -> Self {
         Self {
             level: "info".to_string(),
-            file_path: Some(PathBuf::from("~/.config/wezterm-multi-dev/logs/framework.log")),
+            file_path: Some(PathBuf::from("~/.config/wezterm-parallel/logs/framework.log")),
             console: true,
             max_file_size: 104857600, // 100MB in bytes
             max_files: 5,

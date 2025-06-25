@@ -26,7 +26,7 @@ function WorkspaceManager.start_backend()
   end
   
   local success, process, err = wezterm.run_child_process({
-    'cargo', 'run', '--manifest-path', wezterm.home_dir .. '/.config/wezterm-multi-dev/Cargo.toml'
+    'cargo', 'run', '--manifest-path', wezterm.home_dir .. '/.config/wezterm-parallel/Cargo.toml'
   })
   
   if success then
