@@ -44,14 +44,14 @@
 ### 1.2 レイヤー構成
 
 #### フロントエンドレイヤー (WezTerm + Lua)
-- **WezTerm Terminal**: ユーザーインターフェース
-- **Lua Configuration**: 設定管理とイベントハンドリング
-- **Workspace Management**: ワークスペースとペインの管理
+- **WezTerm Terminal**: ユーザーインターフェース (🔄 Phase 2で統合予定)
+- **Lua Configuration**: 設定管理とイベントハンドリング (✅ 3,239行準備済み)
+- **Workspace Management**: ワークスペースとペインの管理 (✅ 実装済み)
 
-#### バックエンドレイヤー (Rust/Go)
-- **Process Manager**: Claude Codeプロセスの管理
-- **Communication Hub**: プロセス間通信の仲介
-- **State Management**: アプリケーション状態の永続化
+#### バックエンドレイヤー (Rust)
+- **Process Manager**: Claude Codeプロセスの管理 (✅ 実装済み)
+- **Communication Hub**: プロセス間通信の仲介 (✅ 実装済み)
+- **State Management**: アプリケーション状態の永続化 (✅ 実装済み)
 
 ## 2. コンポーネント詳細設計
 
@@ -82,7 +82,7 @@ end
 return WorkspaceManager
 ```
 
-**責務**:
+**責務**: (✅ 実装完了)
 - ワークスペースのライフサイクル管理
 - テンプレートベースのワークスペース作成
 - ワークスペース間の切り替え制御
@@ -129,7 +129,7 @@ impl ProcessManager {
 }
 ```
 
-**責務**:
+**責務**: (✅ 実装完了)
 - Claude Codeプロセスの起動・停止・再起動
 - プロセスのヘルスモニタリング
 - リソース使用量の監視
@@ -177,7 +177,7 @@ impl CommunicationHub {
 }
 ```
 
-**責務**:
+**責務**: (✅ 実装完了)
 - プロセス間通信の仲介
 - メッセージルーティング
 - ブロードキャスト通信
@@ -232,7 +232,7 @@ impl StateManager {
 }
 ```
 
-**責務**:
+**責務**: (✅ 実装完了)
 - アプリケーション状態の永続化
 - 状態の復元とマイグレーション
 - 設定管理
@@ -241,7 +241,7 @@ impl StateManager {
 **ストレージ**:
 - **Primary**: JSON/YAML ファイル
 - **Backup**: SQLite データベース（オプション）
-- **Location**: `~/.config/wezterm-parallel/`
+- **Location**: `~/.config/wezterm-parallel/` (✅ 実装済み)
 
 ## 3. データフロー設計
 

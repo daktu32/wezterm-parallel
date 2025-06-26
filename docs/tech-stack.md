@@ -45,13 +45,13 @@
 
 ### 設定ストレージ
 - **Type**: ファイルベース (YAML/TOML)
-- **Location**: `~/.config/wezterm-multi-dev/`
+- **Location**: `~/.config/wezterm-parallel/`
 - **Rationale**: シンプルで人間が読みやすく、バージョン管理可能
 
 ### 状態管理
 - **Primary**: JSON ファイル
 - **Backup**: SQLite (オプション)
-- **Location**: `~/.local/share/wezterm-multi-dev/`
+- **Location**: `~/.local/share/wezterm-parallel/`
 - **Rationale**: 軽量で依存関係が少ない
 
 ### セッション永続化
@@ -186,23 +186,23 @@ pub enum Message {
 
 ## 開発フェーズ別技術導入
 
-### Phase 1: 基盤構築
-- Rust basic structure
-- WezTerm Lua basic integration
-- Simple IPC implementation
+### Phase 1: 基盤構築 (✅ 完了)
+- ✅ Rust basic structure (6,734行実装済み)
+- ✅ WezTerm Lua basic integration (3,239行準備済み)
+- ✅ Simple IPC implementation (Unix Domain Socket実装済み)
 
-### Phase 2: コア機能
-- Full IPC protocol
-- Process management
-- Workspace management
+### Phase 2: コア機能 (🔄 実装中)
+- ✅ Full IPC protocol (実装完了)
+- ✅ Process management (実装完了)
+- ✅ Workspace management (実装完了)
 
-### Phase 3: 高度機能
-- Performance optimization
-- Advanced monitoring
-- Plugin system
+### Phase 3: 高度機能 (📅 計画中)
+- 📅 Performance optimization
+- 📅 Advanced monitoring
+- 📅 Plugin system
 
 ---
 
-**Last Updated**: 2025-06-20  
+**Last Updated**: 2025-06-26  
 **Reviewed By**: Claude Code Assistant  
-**Next Review**: TBD
+**Next Review**: Phase 2完了時
