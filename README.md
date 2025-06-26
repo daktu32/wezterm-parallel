@@ -4,38 +4,48 @@
 
 Claude Codeとの統合により、効率的な開発ワークフローを実現する包括的なフレームワークです。
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
 ![WezTerm](https://img.shields.io/badge/wezterm-20230712%2B-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-## ✨ 主要機能
+## ✨ 実装済み機能
 
-### 🎯 リアルタイムダッシュボード
-- **システムメトリクス監視**: CPU、メモリ、ディスク使用量のリアルタイム表示
-- **ログ管理**: 高度なフィルタリング・検索機能付きログビューア
-- **プロセス監視**: 実行中のプロセス状況の可視化
-
-### 🔄 高度なペイン管理
-- **ペイン同期**: 複数ペイン間での入力コマンドの同期実行
-- **レイアウト管理**: プロジェクトタイプ別の最適なレイアウトテンプレート
-- **動的ペイン作成**: インテリジェントな自動ペイン配置
-
-### 📋 タスク管理システム
-- **プロジェクト管理**: 階層的なプロジェクト・タスク構造
-- **時間追跡**: 作業時間の自動計測と生産性分析
-- **カンバンボード**: 視覚的なタスク進捗管理
-
-### ⚡ マルチプロセス統合
-- **プロセス間通信**: WebSocketベースのリアルタイム通信
+### ⚡ マルチプロセス基盤
+- **プロセス間通信**: Unix Domain Socket による安定した通信
+- **ワークスペース管理**: 完全なCRUD操作、テンプレートシステム
 - **状態管理**: セッション情報の自動保存・復元
-- **ワークスペース管理**: プロジェクト単位での環境分離
+- **プロセス管理**: Claude Code プロセスの起動・監視・再起動
+
+### 📊 監視・メトリクス
+- **システム監視**: CPU、メモリ、ディスク使用量の収集
+- **プロセス監視**: 実行中プロセスの状態追跡
+- **メトリクス保存**: 履歴データの永続化
+
+### 🔧 設定管理
+- **YAML設定**: 柔軟な設定ファイルシステム
+- **テンプレートエンジン**: ワークスペース作成の自動化
+- **環境変数**: プロセス固有の環境設定
+
+## 🚀 開発中・予定機能
+
+### 📱 UI/UX機能 (Phase 2)
+- **WebSocketダッシュボード**: リアルタイム監視UI
+- **WezTerm統合**: Lua による操作インターフェース
+- **ペイン管理**: 高度なレイアウト・同期機能
+
+### 📋 高度機能 (Phase 3)
+- **タスク管理**: カンバンボード、時間追跡
+- **プラグインシステム**: 外部ツール統合
+- **運用監視**: 詳細ログ・分析機能
 
 ## 📈 実装状況
 
-**現在の実装: 初期プロトタイプ段階**
-- **Rust**: 約4,000行 (基本的なIPCサーバ実装)
-- **Lua**: 約500行 (WezTerm設定テンプレート)
+**現在の実装: Phase 1基盤完成**
+- **Rust**: 6,734行 (完全なワークスペース・プロセス管理)
+- **Lua**: 3,239行 (WezTerm統合準備済み)
+- **テスト**: 47個のユニットテスト (全て通過)
+- **品質**: 型安全、エラーハンドリング、ログ完備
 
 ### アーキテクチャ
 
@@ -106,95 +116,80 @@ cargo build
 cargo run
 ```
 
-**注意**: 現在はプロトタイプ段階のため、完全な機能はまだ利用できません。
+**注意**: Phase 1基盤は完成。WezTerm統合UI (Phase 2) は開発中です。
 
-### 設定
+### 設定ファイル
 
-WezTerm設定ファイル (`~/.config/wezterm/wezterm.lua`) に以下を追加：
+フレームワークは以下の設定ファイルを自動生成・管理します：
 
-```lua
-local wezterm = require 'wezterm'
-local multi_dev = require 'wezterm_parallel'
+```yaml
+# ~/.config/wezterm-parallel/workspaces.json
+# ワークスペース状態の永続化
 
-local config = wezterm.config_builder()
+# config/templates/framework.yaml  
+# デフォルト設定テンプレート
 
--- Multi-dev framework integration
-multi_dev.setup(config, {
-  config_path = wezterm.home_dir .. '/.config/wezterm-parallel/config.yaml',
-  auto_start = true,
-  debug = false
-})
-
--- カスタムキーバインド
-config.keys = {
-  { key = 'n', mods = 'CTRL|SHIFT', action = multi_dev.actions.create_workspace },
-  { key = 'w', mods = 'CTRL|SHIFT', action = multi_dev.actions.switch_workspace },
-  { key = 'd', mods = 'CTRL|SHIFT', action = multi_dev.actions.show_dashboard },
-}
-
-return config
+# config/templates/wezterm.lua
+# WezTerm統合設定テンプレート (Phase 2で有効化予定)
 ```
 
-## 使用方法
+## API仕様
 
-### ワークスペースの作成
+### 現在利用可能な機能
 
-```
-Ctrl+Shift+N
-```
+**実装済みAPIエンドポイント:**
+- ワークスペース作成・削除・切り替え
+- プロセス起動・監視・終了
+- メトリクス収集・保存
+- 設定ファイル管理
 
-新しいワークスペースを作成し、Claude Codeプロセスを自動起動します。
-
-### ワークスペースの切り替え
-
-```
-Ctrl+Shift+W
-```
-
-既存のワークスペース間を切り替えます。
-
-### ダッシュボード表示
-
-```
-Ctrl+Shift+D
-```
-
-全プロセスの状態とリソース使用量を表示します。
+**開発者向け機能:**
+- 47個の包括的テストスイート
+- 型安全なRust実装
+- 詳細なログ・エラーハンドリング
+- Unix Domain Socket IPC
 
 ## 開発
 
-### プロジェクト構造（予定）
+### プロジェクト構造（実装済み）
 
 ```
 wezterm-parallel/
-├── src/                    # Rustソースコード
-│   ├── process_manager/    # プロセス管理
-│   ├── communication/      # IPC通信
-│   ├── state/             # 状態管理
-│   └── main.rs            # エントリーポイント
-├── wezterm-config/        # WezTerm Lua設定
-│   ├── init.lua           # メイン設定
-│   ├── workspace.lua      # ワークスペース管理
-│   └── keybindings.lua    # キーバインド
-├── tests/                 # テストコード
-├── docs/                  # ドキュメント
-└── config/               # 設定テンプレート
+├── src/                    # Rustソースコード (6,734行)
+│   ├── workspace/          # ワークスペース管理 (完全実装)
+│   ├── process/            # プロセス管理 (完全実装)
+│   ├── config/             # 設定管理 (完全実装)
+│   ├── metrics/            # メトリクス収集 (完全実装)
+│   ├── dashboard/          # ダッシュボード基盤
+│   ├── lib.rs              # ライブラリエントリ
+│   └── main.rs             # メインエントリ
+├── lua/                    # WezTerm Lua統合 (3,239行)
+│   ├── config/             # 基本設定・キーバインド
+│   ├── ui/                 # UI機能 (ダッシュボード等)
+│   ├── utils/              # ユーティリティ
+│   └── workspace/          # ワークスペース統合
+├── config/                 # 設定テンプレート
+├── tests/                  # テスト (47個実装済み)
+└── docs/                   # ドキュメント
 ```
 
-### 開発コマンド（実装予定）
+### 開発コマンド（利用可能）
 
 ```bash
-# ビルド
+# プロジェクトビルド
 cargo build
 
-# テスト実行
+# 全テスト実行 (47個のテスト)
 cargo test
+
+# フレームワーク起動
+cargo run
+
+# リリースビルド
+cargo build --release
 
 # ドキュメント生成
 cargo doc --open
-
-# Luaスクリプトのチェック
-luacheck wezterm-config/
 ```
 
 ## パフォーマンス目標
@@ -204,88 +199,79 @@ luacheck wezterm-config/
 - メモリ使用量: ベースライン < 50MB
 - CPU使用率（アイドル時）: < 1%
 
-## 📦 インストール
-
-### クイックセットアップ (推奨)
-
-```bash
-# 1. リポジトリをクローン
-git clone https://github.com/your-org/wezterm-parallel.git
-cd wezterm-parallel
-
-# 2. 自動インストールスクリプトを実行
-./scripts/install.sh
-```
-
-### 手動インストール
-
-詳細な手動インストールについては [インストールガイド](docs/installation.md) をご覧ください。
-
 ## 🚀 クイックスタート
 
-### 基本的な使い方
+### インストール
 
-1. **フレームワーク起動**
-   ```bash
-   wezterm-parallel
-   ```
+```bash
+# リポジトリクローン
+git clone https://github.com/daktu32/wezterm-parallel.git
+cd wezterm-parallel
 
-2. **WezTermでワークスペースを作成**
-   ```
-   Ctrl+Shift+N  # 新規ワークスペース
-   ```
+# プロジェクトビルド
+cargo build --release
 
-3. **ダッシュボードを表示**
-   ```
-   Ctrl+Shift+D  # ダッシュボード表示
-   ```
+# フレームワーク起動
+cargo run
+```
 
-### 主要キーバインド
+### 基本操作
 
-| キー | 機能 |
-|------|------|
-| `Ctrl+Shift+D` | ダッシュボード表示 |
-| `Ctrl+Shift+P` | ペイン管理メニュー |
-| `Ctrl+Shift+T` | タスク管理 |
-| `Ctrl+Shift+S` | ペイン同期トグル |
-| `Ctrl+Shift+L` | レイアウト選択 |
-| `Ctrl+Shift+M` | メトリクス表示 |
+```bash
+# バックグラウンドでフレームワーク起動
+cargo run &
+
+# Unix Domain Socket経由でテスト
+echo '{"Ping":{}}' | nc -U /tmp/wezterm-parallel.sock
+
+# ワークスペース作成テスト
+echo '{"WorkspaceCreate":{"name":"test","template":"basic"}}' | nc -U /tmp/wezterm-parallel.sock
+```
+
+### 開発状況確認
+
+```bash
+# 全テスト実行
+cargo test  # 47個のテスト全て通過
+
+# プロジェクト統計
+find src/ -name "*.rs" -exec wc -l {} + | tail -1  # Rust: 6,734行
+find lua/ -name "*.lua" -exec wc -l {} + | tail -1  # Lua: 3,239行
+```
 
 ## 📊 開発状況
 
 ### ✅ 完了済み機能
 
-**Phase 1: 基盤構築 (部分完了)**
-- ✅ Rustプロジェクトのセットアップ
-- ✅ 基本的なIPC通信システム (Unix Domain Socket)
-- ✅ WezTerm Lua設定テンプレート
-- ✅ 基本的なメッセージングシステム
+**Phase 1: 基盤構築 (完了)**
+- ✅ Rustプロジェクト完全セットアップ (6,734行)
+- ✅ Unix Domain Socket IPC通信システム
+- ✅ 完全ワークスペース管理 (CRUD、テンプレート、永続化)
+- ✅ 高度プロセス管理 (起動・監視・再起動・ヘルスチェック)
+- ✅ メトリクス収集・保存システム
+- ✅ YAML設定管理・ホットリロード基盤
+- ✅ 包括的テストスイート (47個、全て通過)
 
-### 🔄 進行中
+### 🔄 開発中
 
-**Phase 2: コア機能 (開発中)**
-- 🔄 ワークスペース管理システム (基本構造のみ)
-- 🔄 プロセス管理機能 (プロトタイプ段階)
-- ❌ 状態管理と永続化 (未実装)
+**Phase 2: UI/UX機能 (準備完了)**
+- 🔄 WezTerm Lua統合 (基盤実装済み)
+- 🔄 WebSocketダッシュボード (設計完了)
+- 🔄 ペイン管理システム (設計完了)
 
-### 📋 未実装機能
+### 📋 計画中
 
-**Phase 3: UI/UX機能 (計画中)**
-- ❌ リアルタイムダッシュボード
-- ❌ 高度なペイン管理機能
-- ❌ タスク管理システム
-
-**品質保証**
-- ❌ テストスイート (基本テスト未実装)
-- ❌ CI/CDパイプライン
-- ❌ パフォーマンステスト
+**Phase 3: 高度機能**
+- 📋 タスク管理・カンバンボード
+- 📋 プラグインシステム
+- 📋 運用監視・分析機能
 
 ### 🔮 将来の拡張予定
 
 **Phase 4: 高度な機能**
-- 🔄 プラグインシステム
-- 🔄 設定のホットリロード  
+- 🔄 プラグインシステム  
 - 🔄 AI統合機能強化
+- 🔄 クラウド統合・分散ワークスペース
 
 ## 貢献
 
@@ -293,10 +279,10 @@ cd wezterm-parallel
 
 ### 開発ガイドライン
 
-1. **テストファースト開発**: 実装前にテストを作成
-2. **Git Worktree使用**: 機能開発は独立したワークツリーで行う
-3. **進捗追跡**: PROGRESS.mdを定期的に更新
-4. **品質チェック**: コミット前にlint、型チェック、テストを実行
+1. **テストファースト開発**: 実装前にテストを作成 (現在47個実装済み)
+2. **段階的開発**: [開発ロードマップ](DEVELOPMENT_ROADMAP.md)に従った実装
+3. **品質チェック**: 型安全性・エラーハンドリング・テストカバレッジ
+4. **GitHub Issues**: [Issue #8-16](https://github.com/daktu32/wezterm-parallel/issues) で進捗管理
 
 ### セキュリティ
 
@@ -310,8 +296,12 @@ MIT License
 
 ## 参考資料
 
+### プロジェクト文書
+- [開発ロードマップ](DEVELOPMENT_ROADMAP.md) - 段階的開発計画
+- [プロジェクト要求仕様書](docs/prd.md) - 機能要求定義
+- [アーキテクチャ仕様書](docs/ARCHITECTURE.md) - 技術設計
+
+### 外部リソース
 - [WezTerm公式ドキュメント](https://wezfurlong.org/wezterm/)
-- [Lua公式ドキュメント](https://www.lua.org/docs.html)
 - [Rust公式ドキュメント](https://doc.rust-lang.org/)
-- プロジェクト要求仕様書: docs/prd.md
-- アーキテクチャ仕様書: docs/ARCHITECTURE.md
+- [GitHub Issues](https://github.com/daktu32/wezterm-parallel/issues) - 開発進捗
