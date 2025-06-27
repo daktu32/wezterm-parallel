@@ -1,19 +1,5 @@
 # WezTerm マルチプロセス開発補助ツール - アーキテクチャ仕様書
 
-## MVP機能 (Issue #17 & #18)
-
-### Claude Code複数プロセス協調システム (Issue #17)
-- **ProcessCoordinator**: プロセス間通信・負荷分散・障害処理
-- **TaskDistributor**: タスク分散・依存関係管理
-- **FileSyncManager**: ファイル同期・競合検出
-- **MergeManager**: 成果物統合・コンフリクト解決
-
-### WezTermペイン分割・レイアウトテンプレート (Issue #18)
-- **template_loader.lua**: YAMLテンプレート解析
-- **layout_engine.lua**: 動的レイアウト・ペイン配置
-- **実用テンプレート**: claude-dev, web-dev, rust-dev, research
-- **template_manager.lua**: テンプレート管理・検索・履歴
-
 ## 1. システム全体アーキテクチャ
 
 ### 1.1 アーキテクチャ概要
