@@ -220,6 +220,12 @@ pub struct ProcessManager {
 - 使用例を含める
 - 設定オプションを文書化
 
+**ドキュメント体系の維持**:
+- [DOCUMENTATION-MAP.md](DOCUMENTATION-MAP.md)のメンテナンスガイドに従う
+- Single Source of Truthの原則を守る
+- 更新時は関連ドキュメントも同時更新
+- 実装状況は正確に記載（過大評価禁止）
+
 ## 5. テスト
 
 ### 5.1 テスト作成
