@@ -9,6 +9,7 @@ pub mod task;
 pub mod monitoring;
 
 use serde::{Deserialize, Serialize};
+use std::time::SystemTime;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Message {
@@ -19,6 +20,79 @@ pub enum Message {
     Ping,
     Pong,
 }
+
+// プロセス間協調メッセージ
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CoordinationMessage {
+    pub sender_id: String,
+    pub receiver_id: String,
+    pub timestamp: SystemTime,
+    pub event: CoordinationEvent,
+}
+
+impl CoordinationMessage {
+    pub fn new(sender_id: String, receiver_id: String, event: CoordinationEvent) -> Self {
+        Self {
+            sender_id,
+            receiver_id,
+            timestamp: SystemTime::now(),
+            event,
+        }
+    }
+}
+
+// 協調イベントの種類
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum CoordinationEvent {
+    // タスクの割り当て
+    TaskAssignment {
+        task_id: String,
+        description: String,
+    },
+    // ステータスの更新
+    StatusUpdate {
+        status: workspace::state::ProcessStatus,
+        cpu_usage: f64,
+        memory_usage: u64,
+    },
+    // グローバルコマンド
+    GlobalCommand {
+        command: String,
+        parameters: Vec<String>,
+    },
+    // タスクの完了通知
+    TaskCompleted {
+        task_id: String,
+        result: String,
+    },
+    // エラー通知
+    ErrorOccurred {
+        error_type: String,
+        message: String,
+    },
+}
+
+// 協調レスポンスの種類
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum CoordinationResponse {
+    // 受信確認
+    Acknowledged {
+        process_id: String,
+    },
+    // エラー応答
+    Error {
+        process_id: String,
+        error: String,
+    },
+    // データ応答
+    Data {
+        process_id: String,
+        payload: serde_json::Value,
+    },
+}
+
+// ProcessStatusを再エクスポート
+pub use workspace::state::ProcessStatus;
 
 #[cfg(test)]
 mod tests {
