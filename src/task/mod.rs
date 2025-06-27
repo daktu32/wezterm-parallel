@@ -168,9 +168,14 @@ pub fn generate_task_id() -> String {
     Uuid::new_v4().to_string()
 }
 
-/// Get current timestamp
+/// Get current timestamp in seconds
 pub fn current_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+}
+
+/// Get current timestamp in milliseconds
+pub fn current_timestamp_millis() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
 }
 
 /// Format duration for display

@@ -534,14 +534,16 @@ mod tests {
         board_manager.initialize().await.unwrap();
         
         // Create test tasks
-        let mut task1 = crate::task::Task::new("Task 1".to_string(), TaskCategory::Development);
-        task1.update_status(TaskStatus::Todo);
+        let task1 = crate::task::Task::new("Task 1".to_string(), TaskCategory::Development);
+        let task2 = crate::task::Task::new("Task 2".to_string(), TaskCategory::Development);
         
-        let mut task2 = crate::task::Task::new("Task 2".to_string(), TaskCategory::Development);
-        task2.update_status(TaskStatus::InProgress);
+        let task1_id = task_manager.create_task(task1).await.unwrap();
+        let task2_id = task_manager.create_task(task2).await.unwrap();
         
-        task_manager.create_task(task1).await.unwrap();
-        task_manager.create_task(task2).await.unwrap();
+        // Update task2 status after creation
+        let mut task2_stored = task_manager.get_task(&task2_id).await.unwrap();
+        task2_stored.update_status(TaskStatus::InProgress);
+        task_manager.update_task(task2_stored).await.unwrap();
         
         // Get board state
         let board_state = board_manager.get_board_state("default").await.unwrap();

@@ -741,13 +741,13 @@ mod tests {
         assert_eq!(active_sessions.len(), 1);
         assert_eq!(active_sessions[0].task_id, task_id);
         
-        // Small delay to ensure time difference
-        sleep(TokioDuration::from_millis(50)).await;
+        // Wait 1 second to ensure measurable time difference
+        sleep(TokioDuration::from_secs(1)).await;
         
         // Stop tracking
         let duration = tracker.stop_task(&task_id).await;
         assert!(duration.is_some());
-        assert!(duration.unwrap().as_millis() >= 10);
+        assert!(duration.unwrap().as_secs() >= 1);
         
         let active_sessions = tracker.get_active_sessions().await;
         assert_eq!(active_sessions.len(), 0);
@@ -804,7 +804,7 @@ mod tests {
         
         // Start and stop a session
         tracker.start_task(&task_id).await;
-        sleep(TokioDuration::from_millis(50)).await;
+        sleep(TokioDuration::from_secs(1)).await; // Use 1 second for measurable difference
         tracker.stop_task(&task_id).await;
         
         let metrics = tracker.get_productivity_metrics(&task_id).await;
@@ -813,7 +813,7 @@ mod tests {
         let metrics = metrics.unwrap();
         assert_eq!(metrics.task_id, task_id);
         assert_eq!(metrics.total_sessions, 1);
-        assert!(metrics.total_tracked_time > 0);
+        assert!(metrics.total_tracked_time >= 1); // At least 1 second
         assert!(metrics.average_productivity_score > 0.0);
     }
 
@@ -828,11 +828,11 @@ mod tests {
         assert!(timer.is_running());
         assert!(timer.elapsed().is_some());
         
-        sleep(TokioDuration::from_millis(50)).await;
+        sleep(TokioDuration::from_secs(1)).await;
         
         let duration = timer.stop();
         assert!(duration.is_some());
-        assert!(duration.unwrap().as_millis() >= 10);
+        assert!(duration.unwrap().as_secs() >= 1);
         assert!(!timer.is_running());
     }
 
