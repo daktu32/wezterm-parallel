@@ -15,6 +15,7 @@ graph TB
     subgraph "設計層"
         ARCH[ARCHITECTURE.md<br/>システム設計]
         TECH[tech-stack.md<br/>技術選定]
+        FEAT[FEATURE-SPEC.md<br/>機能仕様書]
         API[API.md<br/>インターフェース仕様]
         FLOW[DATA-FLOW.md<br/>データフロー設計]
         SEC[SECURITY.md<br/>セキュリティ設計]
@@ -37,13 +38,17 @@ graph TB
     
     PRD --> ARCH
     PRD --> TECH
+    PRD --> FEAT
     ARCH --> API
     ARCH --> FLOW
     ARCH --> SEC
+    FEAT --> API
+    FEAT --> FLOW
     TECH --> ARCH
     API --> TEST
     FLOW --> TEST
     SEC --> TEST
+    FEAT --> TEST
     TEST --> CONTRIB
     ARCH --> README
     API --> README
@@ -90,6 +95,17 @@ graph TB
   - 依存関係
 - **参照元**: prd.md
 - **参照先**: ARCHITECTURE.md
+
+#### **FEATURE-SPEC.md** (機能仕様書)
+- **目的**: 詳細な機能仕様の定義
+- **内容**:
+  - MVP機能の詳細仕様（Issue #17, #18）
+  - コア機能・拡張機能の仕様
+  - 入出力・制約・実装状況
+  - 非機能要求・セキュリティ要件
+  - テスト仕様・運用仕様
+- **参照元**: prd.md, ARCHITECTURE.md
+- **参照先**: API.md, DATA-FLOW.md, TESTING.md
 
 #### **API.md** (API仕様書)
 - **目的**: 外部インターフェースの詳細定義
@@ -219,7 +235,12 @@ graph TB
 - **問題**: 「全テスト通過」と記載、実際は統合テスト一部失敗
 - **対策**: 正確な状況（ライブラリテスト127個通過、統合テスト部分実装中）に修正
 
-### 3. 欠落している情報
+### 3. 解決済みの欠落情報
+
+#### **機能仕様書**
+- **問題**: 機能仕様がprd.md、API.md、README.mdに散在
+- **解決**: FEATURE-SPEC.md作成により一元化
+- **内容**: MVP機能の詳細仕様、コア・拡張機能、非機能要求を網羅
 
 #### **エラーコード一覧**
 - **現状**: API.mdに基本定義あり
