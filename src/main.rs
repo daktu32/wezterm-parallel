@@ -4,7 +4,11 @@ use std::path::Path;
 use std::sync::Arc;
 use std::env;
 use tracing::{info, error, warn};
-use wezterm_parallel::{Message, workspace::WorkspaceManager};
+use wezterm_parallel::{
+    Message, 
+    workspace::WorkspaceManager,
+    dashboard::{WebSocketServer, DashboardConfig},
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -39,6 +43,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let workspace_manager = Arc::new(WorkspaceManager::new(None)?);
     info!("Workspace manager initialized with {} workspaces", 
           workspace_manager.get_workspace_count().await);
+    
+    // Initialize WebSocket dashboard server
+    let dashboard_config = DashboardConfig {
+        port: 9999,
+        enabled: true,
+        update_interval: 1000, // 1 second
+        max_clients: 10,
+        auth_enabled: false,
+        auth_token: None,
+        compression: true,
+    };
+    
+    let (websocket_server, metrics_tx) = WebSocketServer::new(dashboard_config);
+    let websocket_server = Arc::new(websocket_server);
+    
+    // Start WebSocket server in background
+    let ws_server = Arc::clone(&websocket_server);
+    tokio::spawn(async move {
+        if let Err(e) = ws_server.start().await {
+            error!("WebSocket server error: {}", e);
+        }
+    });
+    
+    info!("WebSocket dashboard server started on port 9999");
     
     // Unix Domain Socket path
     let socket_path = "/tmp/wezterm-parallel.sock";

@@ -74,7 +74,7 @@ pub struct ProcessInfo {
     pub restart_count: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ProcessStatus {
     Starting,
     Running,

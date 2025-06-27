@@ -4,6 +4,11 @@
 pub mod server;
 pub mod handlers;
 pub mod broadcast;
+pub mod websocket_server;
+pub mod task_board;
+
+pub use websocket_server::WebSocketServer;
+pub use task_board::{TaskBoardManager, TaskBoardState};
 
 use crate::metrics::{FrameworkMetrics, SystemMetrics, ProcessMetrics, WorkspaceMetrics};
 use serde::{Deserialize, Serialize};
@@ -130,6 +135,51 @@ pub enum DashboardMessage {
     
     /// Error message
     Error { message: String, code: Option<String> },
+    
+    // Task Management Messages
+    
+    /// Task board state update
+    TaskBoardUpdate {
+        board_id: String,
+        columns: Vec<TaskColumn>,
+        timestamp: u64,
+    },
+    
+    /// Task created/updated/deleted
+    TaskUpdate {
+        task: serde_json::Value, // Serialized Task
+        action: TaskAction,
+        timestamp: u64,
+    },
+    
+    /// Task moved between columns
+    TaskMoved {
+        task_id: String,
+        from_column: String,
+        to_column: String,
+        new_position: usize,
+        timestamp: u64,
+    },
+    
+    /// Task progress update
+    TaskProgress {
+        task_id: String,
+        progress: u8,
+        timestamp: u64,
+    },
+    
+    /// Task time tracking update
+    TaskTimeUpdate {
+        task_id: String,
+        tracking_data: serde_json::Value, // Serialized tracking session
+        timestamp: u64,
+    },
+    
+    /// Task stats/metrics
+    TaskStats {
+        stats: serde_json::Value, // Serialized task system stats
+        timestamp: u64,
+    },
 }
 
 /// Metrics update payload
@@ -286,6 +336,29 @@ pub enum DashboardAction {
     
     /// Export metrics
     ExportMetrics { format: String, path: String },
+    
+    // Task Management Actions
+    
+    /// Create new task
+    CreateTask { task_data: serde_json::Value },
+    
+    /// Update existing task
+    UpdateTask { task_id: String, task_data: serde_json::Value },
+    
+    /// Delete task
+    DeleteTask { task_id: String },
+    
+    /// Move task to different column/status
+    MoveTask { task_id: String, to_column: String, position: Option<usize> },
+    
+    /// Start task tracking
+    StartTaskTracking { task_id: String },
+    
+    /// Stop task tracking
+    StopTaskTracking { task_id: String },
+    
+    /// Update task progress
+    UpdateTaskProgress { task_id: String, progress: u8 },
 }
 
 /// Dashboard WebSocket message
@@ -419,6 +492,76 @@ pub struct DashboardStats {
     pub total_processes: usize,
     pub uptime: u64,
     pub last_update: u64,
+}
+
+// Task Management Types
+
+/// Task board column definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskColumn {
+    /// Column ID
+    pub id: String,
+    
+    /// Column title
+    pub title: String,
+    
+    /// Tasks in this column
+    pub tasks: Vec<String>, // Task IDs in order
+    
+    /// Column color/theme
+    pub color: Option<String>,
+    
+    /// Maximum tasks allowed in column
+    pub max_tasks: Option<usize>,
+    
+    /// Column sort order
+    pub sort_order: usize,
+}
+
+/// Task action types for updates
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TaskAction {
+    Created,
+    Updated,
+    Deleted,
+    StatusChanged,
+    ProgressUpdated,
+    Moved,
+}
+
+/// Task board configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskBoardConfig {
+    /// Board ID
+    pub id: String,
+    
+    /// Board title
+    pub title: String,
+    
+    /// Column definitions
+    pub columns: Vec<TaskColumn>,
+    
+    /// Auto-refresh interval in milliseconds
+    pub refresh_interval: u64,
+    
+    /// Enable real-time updates
+    pub real_time: bool,
+    
+    /// Board visibility settings
+    pub visibility: BoardVisibility,
+}
+
+/// Board visibility settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BoardVisibility {
+    /// Public board
+    Public,
+    
+    /// Private to workspace
+    Workspace(String),
+    
+    /// Private to user
+    User(String),
 }
 
 impl MetricsUpdate {

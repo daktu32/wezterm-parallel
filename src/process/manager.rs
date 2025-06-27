@@ -101,6 +101,24 @@ impl Default for ProcessConfig {
     }
 }
 
+impl ProcessConfig {
+    #[cfg(test)]
+    pub fn default_for_testing() -> Self {
+        use std::collections::HashMap;
+        Self {
+            claude_code_binary: "echo".to_string(), // Use echo for testing instead of actual claude-code
+            max_processes: 16,
+            health_check_interval_secs: 1,
+            restart_delay_secs: 1,
+            max_restart_attempts: 3,
+            process_timeout_secs: 10,
+            default_restart_policy: RestartPolicy::OnFailure,
+            environment_vars: HashMap::new(),
+            working_directory: None,
+        }
+    }
+}
+
 impl ProcessManager {
     pub fn new(config: ProcessConfig) -> (Self, mpsc::UnboundedReceiver<ProcessEvent>) {
         let (event_sender, event_receiver) = mpsc::unbounded_channel();

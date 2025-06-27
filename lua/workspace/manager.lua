@@ -1,8 +1,19 @@
 -- WezTerm Multi-Process Development Framework - Workspace Manager
 -- Handles workspace creation, switching, and management
 
-local wezterm = require 'wezterm'
+-- Mock wezterm for compatibility
+local wezterm = _G.wezterm or {
+  log_info = function(msg) print("[INFO] " .. msg) end,
+  log_error = function(msg) print("[ERROR] " .. msg) end,
+  run_child_process = function() return {exit_code=1, stderr="Mock implementation"} end,
+  home_dir = "~",
+  mux = {
+    get_active_window = function() return nil end
+  }
+}
+
 local json = require 'lua.utils.json'
+local socket_client = require 'lua.utils.socket_client'
 
 local WorkspaceManager = {}
 
@@ -15,6 +26,7 @@ local backend_process = nil
 -- Initialize the workspace manager
 function WorkspaceManager.init(framework_config)
   config = framework_config
+  socket_client.init(framework_config)
   wezterm.log_info("WorkspaceManager initialized")
 end
 
@@ -67,19 +79,12 @@ end
 
 -- Create a new workspace
 function WorkspaceManager.create_workspace(name, template)
-  template = template or "default"
+  template = template or "basic"
   
   wezterm.log_info(string.format("Creating workspace: %s with template: %s", name, template))
   
-  -- Send message to backend
-  local message = {
-    WorkspaceCreate = {
-      name = name,
-      template = template
-    }
-  }
-  
-  local response = WorkspaceManager.send_to_backend(message)
+  -- Use socket client to create workspace
+  local response = socket_client.create_workspace(name, template)
   
   -- Create new tab for workspace
   local window = wezterm.mux.get_active_window()
@@ -223,14 +228,20 @@ end
 function WorkspaceManager.spawn_claude_code(workspace_name)
   workspace_name = workspace_name or current_workspace
   
-  local message = {
-    ProcessSpawn = {
-      workspace = workspace_name,
-      command = "claude-code --workspace=" .. workspace_name
-    }
-  }
+  local process_id = "claude-code-" .. workspace_name
+  local command_args = {"--workspace=" .. workspace_name}
   
-  return WorkspaceManager.send_to_backend(message)
+  return socket_client.spawn_process(workspace_name, process_id, command_args)
+end
+
+-- Test connection to backend
+function WorkspaceManager.test_connection()
+  return socket_client.test_connection()
+end
+
+-- Get backend status
+function WorkspaceManager.get_backend_status()
+  return socket_client.get_backend_status()
 end
 
 -- List all workspaces

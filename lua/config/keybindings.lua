@@ -46,6 +46,28 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
     end),
   })
   
+  -- Test backend connection
+  table.insert(keys, {
+    key = 't',
+    mods = config.workspace_prefix,
+    action = wezterm.action_callback(function(window, pane)
+      local success = workspace_manager.test_connection()
+      local message = success and "Backend connection: OK" or "Backend connection: FAILED"
+      window:toast_notification("WezTerm Parallel", message, nil, 3000)
+    end),
+  })
+  
+  -- Get backend status
+  table.insert(keys, {
+    key = 's',
+    mods = config.workspace_prefix,
+    action = wezterm.action_callback(function(window, pane)
+      local status = workspace_manager.get_backend_status()
+      local message = status and "Backend status: " .. (status.status or "Unknown") or "Backend: No response"
+      window:toast_notification("WezTerm Parallel", message, nil, 3000)
+    end),
+  })
+  
   table.insert(keys, {
     key = 'x',
     mods = config.workspace_prefix,
