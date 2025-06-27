@@ -57,6 +57,7 @@ workspace_manager.init(framework_config)
 ui_manager.init(framework_config)
 dashboard.init(framework_config)
 pane_manager.init(framework_config)
+pane_manager.init_template_features(framework_config)
 keybindings.init(framework_config)
 
 -- Basic WezTerm configuration

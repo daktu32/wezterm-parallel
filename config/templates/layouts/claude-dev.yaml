@@ -1,0 +1,159 @@
+# Claude Code 開発用レイアウトテンプレート
+# AI assisted development workflow のための最適化されたペイン配置
+
+name: "Claude Development Layout"
+description: "AI assisted development with Claude Code - optimized pane layout for coding workflow"
+version: "1.0.0"
+author: "WezTerm Multi-Dev Team"
+created: "2025-01-27"
+
+# レイアウト設定
+layout:
+  type: "dynamic"
+  description: "メインエディタ、ターミナル、監視ペインを含む開発環境"
+  
+  panes:
+    # メインエディタペイン (左側、大きめ)
+    - id: "main_editor"
+      position:
+        row: 0
+        col: 0
+        span_rows: 2
+        span_cols: 2
+      size: 0.6
+      title: "Claude Code Editor"
+      command: "claude-code"
+      working_directory: "."
+      description: "Primary development pane for Claude Code"
+      
+    # ターミナルペイン (右上)
+    - id: "terminal"
+      position:
+        row: 0
+        col: 2
+        span_rows: 1
+        span_cols: 1
+      size: 0.25
+      title: "Terminal"
+      command: "zsh"
+      working_directory: "."
+      description: "General purpose terminal for commands"
+      
+    # 監視/ログペイン (右下)
+    - id: "monitor"
+      position:
+        row: 1
+        col: 2
+        span_rows: 1
+        span_cols: 1
+      size: 0.15
+      title: "Monitor"
+      command: "tail -f ~/.local/share/wezterm-multi-dev/logs/framework.log"
+      working_directory: "."
+      description: "System monitoring and logs"
+
+# ワークスペース設定
+workspace:
+  name: "claude-development"
+  description: "Claude Code development workspace"
+  auto_start: true
+  
+  # ワークスペース内のプロセス
+  processes:
+    - name: "claude-session"
+      command: "claude-code"
+      auto_start: true
+      working_directory: "."
+      environment:
+        CLAUDE_PROJECT: "current"
+        CLAUDE_MODE: "development"
+        
+    - name: "dev-server"
+      command: "cargo run"
+      auto_start: false
+      working_directory: "."
+      description: "Development server for testing"
+      
+    - name: "test-runner"
+      command: "cargo test --watch"
+      auto_start: false
+      working_directory: "."
+      description: "Continuous test runner"
+
+# キーバインド提案
+suggested_keybindings:
+  - key: "CTRL+SHIFT+1"
+    action: "focus_pane"
+    target: "main_editor"
+    description: "Focus main editor pane"
+    
+  - key: "CTRL+SHIFT+2"
+    action: "focus_pane"
+    target: "terminal"
+    description: "Focus terminal pane"
+    
+  - key: "CTRL+SHIFT+3"
+    action: "focus_pane"
+    target: "monitor"
+    description: "Focus monitor pane"
+    
+  - key: "CTRL+SHIFT+T"
+    action: "apply_template"
+    target: "claude-dev"
+    description: "Apply Claude development template"
+
+# 設定とオプション
+options:
+  # ペイン同期設定
+  sync_enabled: false
+  sync_exclude_panes: ["monitor"]
+  
+  # 自動保存設定
+  auto_save_layout: true
+  save_interval: 300
+  
+  # 通知設定
+  notifications:
+    pane_created: true
+    layout_applied: true
+    process_status: true
+    
+  # 表示設定
+  pane_titles: true
+  status_indicators: true
+  split_indicators: true
+
+# 使用例とコメント
+usage_examples:
+  basic: |
+    1. WezTermでCtrl+Shift+Tを押してテンプレート選択
+    2. "Claude Development Layout"を選択
+    3. 自動的に3ペイン構成が作成される
+    
+  advanced: |
+    1. カスタムコマンドでテンプレート適用:
+       PaneManager.apply_template_layout(window, pane, "claude-dev")
+    2. プロセス起動:
+       workspace_manager.start_process("claude-session")
+    
+  customization: |
+    - working_directoryを変更してプロジェクトルートを指定
+    - commandsを変更して使用するエディタを切り替え
+    - pane sizesを調整して好みのレイアウトに変更
+
+# 関連テンプレート
+related_templates:
+  - "full-stack-dev.yaml"
+  - "rust-development.yaml"
+  - "multi-project.yaml"
+  - "debugging-session.yaml"
+
+# バージョン履歴
+changelog:
+  "1.0.0":
+    date: "2025-01-27"
+    changes:
+      - "初期版作成"
+      - "3ペイン構成 (エディタ、ターミナル、監視)"
+      - "Claude Code統合"
+      - "基本的なワークスペース設定"

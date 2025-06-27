@@ -9,6 +9,7 @@ use wezterm_parallel::{
     workspace::WorkspaceManager,
     dashboard::{WebSocketServer, DashboardConfig},
     task::{TaskManager, TaskConfig},
+    sync::FileSyncManager,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -64,6 +65,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start task manager background processing
     let _task_handle = task_manager.start().await?;
     info!("Task manager background processing started");
+    
+    // Initialize file sync manager
+    let file_sync_manager = Arc::new(tokio::sync::RwLock::new(FileSyncManager::new()));
+    info!("File sync manager initialized");
+    
+    // Start file watching for current directory
+    {
+        let mut sync_manager = file_sync_manager.write().await;
+        if let Err(e) = sync_manager.start_watching(".") {
+            warn!("Failed to start file watching: {}", e);
+        } else {
+            info!("File watching started for current directory");
+        }
+    }
     
     // Initialize WebSocket dashboard server
     let dashboard_config = DashboardConfig {

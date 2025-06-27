@@ -1,0 +1,319 @@
+# リサーチ・調査用レイアウトテンプレート
+# 技術調査、学習、ドキュメント作成のための最適化されたペイン配置
+
+name: "Research Layout"
+description: "Research and documentation workspace with note-taking, browsing, and analysis tools"
+version: "1.0.0"
+author: "WezTerm Multi-Dev Team"
+created: "2025-01-27"
+
+# レイアウト設定
+layout:
+  type: "dynamic"
+  description: "ノート作成、ブラウザ、ターミナル、ドキュメント管理を含むリサーチ環境"
+  
+  panes:
+    # ノート・ドキュメント作成 (左上、メインエリア)
+    - id: "notes"
+      position:
+        row: 0
+        col: 0
+        span_rows: 1
+        span_cols: 2
+      size: 0.4
+      title: "Notes & Documentation"
+      command: "claude-code"
+      working_directory: "./research"
+      description: "Main area for note-taking and documentation"
+      
+    # ブラウザ・情報収集 (右上)
+    - id: "browser"
+      position:
+        row: 0
+        col: 2
+        span_rows: 1
+        span_cols: 1
+      size: 0.3
+      title: "Web Research"
+      command: "echo 'Browser: Use for web research and reference lookup'"
+      working_directory: "."
+      description: "Web browser for research and reference"
+      
+    # ターミナル・ツール実行 (左下)
+    - id: "terminal"
+      position:
+        row: 1
+        col: 0
+        span_rows: 1
+        span_cols: 2
+      size: 0.2
+      title: "Research Tools"
+      command: "zsh"
+      working_directory: "./research"
+      description: "Terminal for research tools and commands"
+      
+    # 参照・ログ (右下)
+    - id: "reference"
+      position:
+        row: 1
+        col: 2
+        span_rows: 1
+        span_cols: 1
+      size: 0.1
+      title: "Reference & Logs"
+      command: "tail -f research.log"
+      working_directory: "./research"
+      description: "Reference materials and research logs"
+
+# ワークスペース設定
+workspace:
+  name: "research-workspace"
+  description: "Research and documentation workspace"
+  auto_start: true
+  
+  # ワークスペース内のプロセス
+  processes:
+    - name: "note-sync"
+      command: "git add . && git commit -m 'Auto-sync research notes' && git push"
+      auto_start: false
+      working_directory: "./research"
+      description: "Automatic note synchronization"
+      
+    - name: "markdown-preview"
+      command: "grip --browser README.md"
+      auto_start: false
+      working_directory: "./research"
+      description: "Live markdown preview"
+      
+    - name: "web-scraper"
+      command: "python scraper.py"
+      auto_start: false
+      working_directory: "./research/tools"
+      description: "Web scraping tools"
+      
+    - name: "document-search"
+      command: "rg --type md"
+      auto_start: false
+      working_directory: "./research"
+      description: "Search through research documents"
+      
+    - name: "citation-manager"
+      command: "python citations.py"
+      auto_start: false
+      working_directory: "./research/tools"
+      description: "Citation and reference management"
+
+# キーバインド提案
+suggested_keybindings:
+  - key: "CTRL+SHIFT+1"
+    action: "focus_pane"
+    target: "notes"
+    description: "Focus notes and documentation pane"
+    
+  - key: "CTRL+SHIFT+2"
+    action: "focus_pane"
+    target: "browser"
+    description: "Focus web research pane"
+    
+  - key: "CTRL+SHIFT+3"
+    action: "focus_pane"
+    target: "terminal"
+    description: "Focus research tools terminal"
+    
+  - key: "CTRL+SHIFT+4"
+    action: "focus_pane"
+    target: "reference"
+    description: "Focus reference and logs pane"
+    
+  - key: "CTRL+SHIFT+N"
+    action: "apply_template"
+    target: "research"
+    description: "Apply research template"
+    
+  - key: "CTRL+SHIFT+S"
+    action: "start_process"
+    target: "note-sync"
+    description: "Sync research notes"
+    
+  - key: "CTRL+SHIFT+P"
+    action: "toggle_process"
+    target: "markdown-preview"
+    description: "Toggle markdown preview"
+
+# 設定とオプション
+options:
+  # ペイン同期設定
+  sync_enabled: false
+  sync_exclude_panes: ["browser", "reference"]
+  
+  # 自動保存設定
+  auto_save_layout: true
+  save_interval: 300
+  
+  # 通知設定
+  notifications:
+    pane_created: true
+    layout_applied: true
+    process_status: true
+    note_saved: true
+    
+  # 表示設定
+  pane_titles: true
+  status_indicators: true
+  split_indicators: true
+  timestamp_display: true
+
+# リサーチ固有の設定
+research_config:
+  # ノート管理設定
+  note_taking:
+    default_format: "markdown"
+    auto_timestamp: true
+    auto_backup: true
+    template_dir: "./research/templates"
+    
+  # ドキュメント構造
+  document_structure:
+    notes_dir: "./research/notes"
+    references_dir: "./research/references"
+    assets_dir: "./research/assets"
+    templates_dir: "./research/templates"
+    
+  # 検索・インデックス設定
+  search_tools:
+    - name: "ripgrep"
+      command: "rg"
+      file_types: ["md", "txt", "pdf"]
+    - name: "fzf"
+      command: "fzf"
+      description: "Fuzzy finder for files"
+    - name: "ag"
+      command: "ag"
+      description: "Silver searcher"
+      
+  # ブラウザ統合
+  browser_integration:
+    bookmarks_sync: true
+    history_analysis: true
+    tab_management: true
+    
+  # 引用・参照管理
+  citation_management:
+    format: "bibtex"
+    auto_generate: true
+    cross_reference: true
+
+# 研究ツール設定
+research_tools:
+  # データ分析ツール
+  data_analysis:
+    - name: "jupyter"
+      command: "jupyter notebook"
+      description: "Interactive data analysis"
+    - name: "r-studio"
+      command: "rstudio"
+      description: "R statistical computing"
+    - name: "python-analysis"
+      command: "python -i analysis.py"
+      description: "Python data analysis"
+      
+  # 文献管理ツール
+  bibliography:
+    - name: "zotero"
+      command: "zotero"
+      description: "Reference management"
+    - name: "mendeley"
+      command: "mendeley"
+      description: "Academic reference manager"
+      
+  # 可視化ツール
+  visualization:
+    - name: "graphviz"
+      command: "dot -Tpng input.dot -o output.png"
+      description: "Graph visualization"
+    - name: "plantuml"
+      command: "plantuml diagram.puml"
+      description: "UML diagram generation"
+
+# 使用例とコメント
+usage_examples:
+  basic: |
+    1. WezTermでCtrl+Shift+Nを押してリサーチテンプレート適用
+    2. 自動的に4ペイン構成が作成される
+    3. notesペインでMarkdownノートの作成開始
+    
+  advanced: |
+    1. 文献検索と管理:
+       workspace_manager.start_process("citation-manager")
+    2. Webスクレイピング:
+       workspace_manager.start_process("web-scraper") 
+    3. ライブプレビュー:
+       workspace_manager.start_process("markdown-preview")
+    
+  customization: |
+    - working_directoryをリサーチプロジェクトのルートに設定
+    - note_taking.default_formatで好みの形式に変更
+    - search_toolsに独自のツールを追加
+
+# プロジェクトタイプ別設定
+project_types:
+  academic_research:
+    tools: ["zotero", "latex", "jupyter"]
+    format: "academic"
+    citation_style: "apa"
+    
+  technical_analysis:
+    tools: ["jupyter", "r-studio", "graphviz"]
+    format: "technical"
+    emphasis: "data_analysis"
+    
+  market_research:
+    tools: ["web-scraper", "excel", "survey-tools"]
+    format: "business"
+    emphasis: "data_collection"
+    
+  product_research:
+    tools: ["figma", "miro", "user-testing"]
+    format: "design"
+    emphasis: "user_experience"
+
+# 自動化設定
+automation:
+  # 定期的なバックアップ
+  backup:
+    interval: 3600  # 1時間ごと
+    destination: "./research/backups"
+    compression: true
+    
+  # ノート同期
+  sync:
+    git_auto_commit: true
+    commit_message: "Auto-sync research notes"
+    push_interval: 1800  # 30分ごと
+    
+  # 検索インデックス更新
+  indexing:
+    auto_update: true
+    update_interval: 600  # 10分ごと
+    index_formats: ["md", "txt", "pdf"]
+
+# 関連テンプレート
+related_templates:
+  - "academic-writing.yaml"
+  - "data-analysis.yaml"
+  - "documentation.yaml"
+  - "knowledge-management.yaml"
+  - "literature-review.yaml"
+
+# バージョン履歴
+changelog:
+  "1.0.0":
+    date: "2025-01-27"
+    changes:
+      - "初期版作成"
+      - "4ペイン構成 (ノート、ブラウザ、ターミナル、参照)"
+      - "Markdownノート作成支援"
+      - "Web研究ツール統合"
+      - "引用・参照管理機能"
+      - "自動バックアップ・同期"
+      - "検索・インデックス機能"

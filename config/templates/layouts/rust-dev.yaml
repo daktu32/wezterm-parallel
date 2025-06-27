@@ -1,0 +1,303 @@
+# Rust開発用レイアウトテンプレート
+# システムプログラミング・Rustプロジェクト開発のための最適化されたペイン配置
+
+name: "Rust Development Layout"
+description: "Rust development with cargo tools, testing, and performance monitoring"
+version: "1.0.0"
+author: "WezTerm Multi-Dev Team"
+created: "2025-01-27"
+
+# レイアウト設定
+layout:
+  type: "dynamic"
+  description: "エディタ、Cargoツール、テスト実行、パフォーマンス監視を含むRust開発環境"
+  
+  panes:
+    # メインエディタペイン (左側、最大エリア)
+    - id: "editor"
+      position:
+        row: 0
+        col: 0
+        span_rows: 2
+        span_cols: 2
+      size: 0.55
+      title: "Rust Editor"
+      command: "claude-code"
+      working_directory: "."
+      description: "Primary Rust development pane with LSP support"
+      
+    # Cargoビルド/実行 (右上)
+    - id: "cargo_build"
+      position:
+        row: 0
+        col: 2
+        span_rows: 1
+        span_cols: 1
+      size: 0.2
+      title: "Cargo Build"
+      command: "cargo watch -x 'check --all-targets'"
+      working_directory: "."
+      description: "Continuous cargo build and check"
+      environment:
+        RUST_BACKTRACE: "1"
+        RUST_LOG: "debug"
+      
+    # テスト実行 (右中央)
+    - id: "test_runner"
+      position:
+        row: 1
+        col: 2
+        span_rows: 1
+        span_cols: 1
+      size: 0.15
+      title: "Test Runner"
+      command: "cargo watch -x 'test --lib --bins'"
+      working_directory: "."
+      description: "Continuous test execution"
+      environment:
+        RUST_TEST_NOCAPTURE: "1"
+        
+    # ターミナル/デバッグ (下部)
+    - id: "terminal"
+      position:
+        row: 2
+        col: 0
+        span_rows: 1
+        span_cols: 3
+      size: 0.1
+      title: "Terminal & Debug"
+      command: "zsh"
+      working_directory: "."
+      description: "General terminal for cargo commands and debugging"
+
+# ワークスペース設定
+workspace:
+  name: "rust-development"
+  description: "Rust development workspace with cargo integration"
+  auto_start: true
+  
+  # ワークスペース内のプロセス
+  processes:
+    - name: "cargo-watch"
+      command: "cargo watch -x check"
+      auto_start: true
+      working_directory: "."
+      description: "Continuous cargo check"
+      
+    - name: "cargo-test"
+      command: "cargo watch -x test"
+      auto_start: false
+      working_directory: "."
+      description: "Continuous test runner"
+      
+    - name: "cargo-run"
+      command: "cargo run"
+      auto_start: false
+      working_directory: "."
+      description: "Run the main binary"
+      
+    - name: "cargo-doc"
+      command: "cargo doc --open --no-deps"
+      auto_start: false
+      working_directory: "."
+      description: "Generate and open documentation"
+      
+    - name: "clippy-watch"
+      command: "cargo watch -x 'clippy -- -D warnings'"
+      auto_start: false
+      working_directory: "."
+      description: "Continuous clippy linting"
+
+# キーバインド提案
+suggested_keybindings:
+  - key: "CTRL+SHIFT+1"
+    action: "focus_pane"
+    target: "editor"
+    description: "Focus Rust editor pane"
+    
+  - key: "CTRL+SHIFT+2"
+    action: "focus_pane"
+    target: "cargo_build"
+    description: "Focus cargo build pane"
+    
+  - key: "CTRL+SHIFT+3"
+    action: "focus_pane"
+    target: "test_runner"
+    description: "Focus test runner pane"
+    
+  - key: "CTRL+SHIFT+4"
+    action: "focus_pane"
+    target: "terminal"
+    description: "Focus terminal pane"
+    
+  - key: "CTRL+SHIFT+R"
+    action: "apply_template"
+    target: "rust-dev"
+    description: "Apply Rust development template"
+    
+  - key: "CTRL+SHIFT+B"
+    action: "restart_process"
+    target: "cargo-watch"
+    description: "Restart cargo build process"
+    
+  - key: "CTRL+SHIFT+T"
+    action: "toggle_process"
+    target: "cargo-test"
+    description: "Toggle test runner"
+
+# 設定とオプション
+options:
+  # ペイン同期設定
+  sync_enabled: false
+  sync_exclude_panes: ["cargo_build", "test_runner"]
+  
+  # 自動保存設定
+  auto_save_layout: true
+  save_interval: 240
+  
+  # 通知設定
+  notifications:
+    pane_created: true
+    layout_applied: true
+    process_status: true
+    build_status: true
+    test_results: true
+    
+  # 表示設定
+  pane_titles: true
+  status_indicators: true
+  split_indicators: true
+  error_highlighting: true
+
+# Rust開発固有の設定
+rust_config:
+  # Cargoツール設定
+  cargo_tools:
+    check_args: ["--all-targets", "--all-features"]
+    test_args: ["--lib", "--bins", "--tests"]  
+    build_args: ["--release"]
+    
+  # Rustツールチェーン設定
+  toolchain:
+    default: "stable"
+    components: ["rustfmt", "clippy", "rust-analyzer"]
+    
+  # デバッグ設定
+  debugging:
+    gdb_support: true
+    lldb_support: true
+    valgrind_support: true
+    
+  # プロファイリング設定
+  profiling:
+    perf_support: true
+    heaptrack_support: true
+    
+  # クレート設定
+  crate_features:
+    default_features: true
+    all_features: false
+    
+  # 最適化設定
+  optimization:
+    dev_profile: "debug"
+    release_profile: "release"
+    
+  # テスト設定
+  testing:
+    unit_tests: true
+    integration_tests: true
+    doc_tests: true
+    bench_tests: false
+
+# 使用例とコメント
+usage_examples:
+  basic: |
+    1. WezTermでCtrl+Shift+Rを押してRust開発テンプレート適用
+    2. 自動的に4ペイン構成が作成される
+    3. cargo watchが自動実行され、継続的ビルドが開始
+    
+  advanced: |
+    1. テスト駆動開発:
+       workspace_manager.start_process("cargo-test")
+    2. パフォーマンステスト:
+       cargo bench --bench my_benchmark
+    3. クリーンビルド:
+       cargo clean && cargo build --release
+    
+  customization: |
+    - cargo_tools.check_argsを変更してチェック対象を調整
+    - RUST_LOG環境変数でログレベル設定
+    - working_directoryをワークスペースルートに設定
+
+# プロジェクトタイプ別設定
+project_types:
+  binary:
+    main_command: "cargo run"
+    build_target: "--bin"
+    
+  library:
+    main_command: "cargo test"
+    build_target: "--lib"
+    
+  workspace:
+    main_command: "cargo build --all"
+    build_target: "--workspace"
+    
+  embedded:
+    main_command: "cargo embed"
+    build_target: "--target thumbv7em-none-eabihf"
+    
+  wasm:
+    main_command: "wasm-pack build"
+    build_target: "--target wasm32-unknown-unknown"
+
+# 依存関係管理
+dependency_management:
+  cargo_commands:
+    - name: "update"
+      command: "cargo update"
+      description: "Update dependencies"
+    - name: "audit"
+      command: "cargo audit"
+      description: "Security audit"
+    - name: "outdated"
+      command: "cargo outdated"
+      description: "Check outdated dependencies"
+
+# パフォーマンス監視
+performance_monitoring:
+  profiling_tools:
+    - name: "perf"
+      command: "perf record -g cargo run"
+    - name: "valgrind"
+      command: "valgrind --tool=callgrind cargo run"
+    - name: "heaptrack"
+      command: "heaptrack cargo run"
+      
+  benchmarking:
+    - name: "criterion"
+      command: "cargo bench"
+    - name: "iai"
+      command: "cargo bench --bench iai_benchmark"
+
+# 関連テンプレート
+related_templates:
+  - "rust-embedded.yaml"
+  - "rust-wasm.yaml"
+  - "rust-server.yaml"
+  - "rust-cli.yaml"
+  - "systems-programming.yaml"
+
+# バージョン履歴
+changelog:
+  "1.0.0":
+    date: "2025-01-27"
+    changes:
+      - "初期版作成"
+      - "4ペイン構成 (エディタ、ビルド、テスト、ターミナル)"
+      - "cargo watch統合"
+      - "継続的テスト実行"
+      - "Rustツールチェーン対応"
+      - "パフォーマンス監視機能"
+      - "プロジェクトタイプ別設定"

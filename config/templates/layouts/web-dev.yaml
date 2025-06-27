@@ -1,0 +1,249 @@
+# Web開発用レイアウトテンプレート
+# フロントエンド・フルスタック開発のための最適化されたペイン配置
+
+name: "Web Development Layout"
+description: "Full-stack web development with hot reload, browser testing, and development tools"
+version: "1.0.0"
+author: "WezTerm Multi-Dev Team"
+created: "2025-01-27"
+
+# レイアウト設定
+layout:
+  type: "dynamic"
+  description: "エディタ、ターミナル、ブラウザ、開発サーバーを含むWeb開発環境"
+  
+  panes:
+    # メインエディタペイン (左側上部、メイン開発エリア)
+    - id: "editor"
+      position:
+        row: 0
+        col: 0
+        span_rows: 2
+        span_cols: 2
+      size: 0.5
+      title: "Code Editor"
+      command: "claude-code"
+      working_directory: "."
+      description: "Primary development pane for web development"
+      
+    # 開発サーバー/ビルドツール (右上)
+    - id: "dev_server"
+      position:
+        row: 0
+        col: 2
+        span_rows: 1
+        span_cols: 1
+      size: 0.2
+      title: "Dev Server"
+      command: "npm run dev"
+      working_directory: "."
+      description: "Development server with hot reload"
+      environment:
+        NODE_ENV: "development"
+        HOT_RELOAD: "true"
+      
+    # ターミナル (右中央)
+    - id: "terminal"
+      position:
+        row: 1
+        col: 2
+        span_rows: 1
+        span_cols: 1
+      size: 0.2
+      title: "Terminal"
+      command: "zsh"
+      working_directory: "."
+      description: "General purpose terminal for commands"
+      
+    # ブラウザ/テスト (右下)
+    - id: "browser"
+      position:
+        row: 2
+        col: 0
+        span_rows: 1
+        span_cols: 3
+      size: 0.1
+      title: "Browser Testing"
+      command: "echo 'Browser: Open http://localhost:3000 for testing'"
+      working_directory: "."
+      description: "Browser testing and debugging information"
+
+# ワークスペース設定
+workspace:
+  name: "web-development"
+  description: "Web development workspace with modern tooling"
+  auto_start: true
+  
+  # ワークスペース内のプロセス
+  processes:
+    - name: "frontend-dev"
+      command: "npm run dev"
+      auto_start: true
+      working_directory: "."
+      environment:
+        NODE_ENV: "development"
+        BROWSER: "none"
+        
+    - name: "backend-api"
+      command: "npm run api"
+      auto_start: false
+      working_directory: "./backend"
+      description: "Backend API server"
+      
+    - name: "database"
+      command: "npm run db:dev"
+      auto_start: false
+      working_directory: "."
+      description: "Development database"
+      
+    - name: "test-runner"
+      command: "npm run test:watch"
+      auto_start: false
+      working_directory: "."
+      description: "Continuous test runner"
+
+# キーバインド提案
+suggested_keybindings:
+  - key: "CTRL+SHIFT+1"
+    action: "focus_pane"
+    target: "editor"
+    description: "Focus main editor pane"
+    
+  - key: "CTRL+SHIFT+2"
+    action: "focus_pane"
+    target: "dev_server"
+    description: "Focus development server pane"
+    
+  - key: "CTRL+SHIFT+3"
+    action: "focus_pane"
+    target: "terminal"
+    description: "Focus terminal pane"
+    
+  - key: "CTRL+SHIFT+4"
+    action: "focus_pane"
+    target: "browser"
+    description: "Focus browser testing pane"
+    
+  - key: "CTRL+SHIFT+W"
+    action: "apply_template"
+    target: "web-dev"
+    description: "Apply Web development template"
+    
+  - key: "CTRL+SHIFT+R"
+    action: "restart_process"
+    target: "frontend-dev"
+    description: "Restart development server"
+
+# 設定とオプション
+options:
+  # ペイン同期設定
+  sync_enabled: false
+  sync_exclude_panes: ["browser", "dev_server"]
+  
+  # 自動保存設定
+  auto_save_layout: true
+  save_interval: 180
+  
+  # 通知設定
+  notifications:
+    pane_created: true
+    layout_applied: true
+    process_status: true
+    hot_reload: true
+    
+  # 表示設定
+  pane_titles: true
+  status_indicators: true
+  split_indicators: true
+  show_urls: true
+
+# Web開発固有の設定
+web_config:
+  # 開発サーバー設定
+  dev_server:
+    default_port: 3000
+    hot_reload: true
+    auto_open_browser: false
+    
+  # ビルドツール設定
+  build_tools:
+    - name: "webpack"
+      command: "npm run build:watch"
+    - name: "vite"
+      command: "npm run dev"
+    - name: "parcel"
+      command: "npm run start"
+      
+  # テスト設定
+  testing:
+    unit_tests: "npm run test"
+    e2e_tests: "npm run test:e2e"
+    lint: "npm run lint"
+    
+  # デバッグ設定
+  debugging:
+    chrome_devtools: true
+    react_devtools: true
+    vue_devtools: true
+
+# 使用例とコメント
+usage_examples:
+  basic: |
+    1. WezTermでCtrl+Shift+Wを押してWeb開発テンプレート適用
+    2. 自動的に4ペイン構成が作成される
+    3. npm run devが自動実行され、開発サーバーが起動
+    
+  advanced: |
+    1. カスタムポートでの開発:
+       環境変数PORT=8080を設定してテンプレート適用
+    2. バックエンドAPI同時起動:
+       workspace_manager.start_process("backend-api")
+    3. テスト駆動開発:
+       workspace_manager.start_process("test-runner")
+    
+  customization: |
+    - dev_server.commandを変更して使用するフレームワークに対応
+    - browser.commandでブラウザ自動起動設定
+    - working_directoryをプロジェクトルートに設定
+
+# フレームワーク別設定例
+framework_configs:
+  react:
+    dev_command: "npm start"
+    build_command: "npm run build"
+    test_command: "npm test"
+    
+  vue:
+    dev_command: "npm run serve"
+    build_command: "npm run build"
+    test_command: "npm run test:unit"
+    
+  angular:
+    dev_command: "ng serve"
+    build_command: "ng build"
+    test_command: "ng test"
+    
+  next:
+    dev_command: "npm run dev"
+    build_command: "npm run build"
+    test_command: "npm run test"
+
+# 関連テンプレート
+related_templates:
+  - "full-stack-dev.yaml"
+  - "react-development.yaml"
+  - "vue-development.yaml"
+  - "api-development.yaml"
+  - "mobile-web-dev.yaml"
+
+# バージョン履歴
+changelog:
+  "1.0.0":
+    date: "2025-01-27"
+    changes:
+      - "初期版作成"
+      - "4ペイン構成 (エディタ、開発サーバー、ターミナル、ブラウザ)"
+      - "npm/yarn サポート"
+      - "主要フレームワーク対応"
+      - "ホットリロード統合"
+      - "テスト環境統合"

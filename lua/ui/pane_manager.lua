@@ -2,6 +2,8 @@
 -- Handles dynamic pane creation, synchronization, and layout management
 
 local wezterm = require 'wezterm'
+local template_loader = require 'lua.workspace.template_loader'
+local layout_engine = require 'lua.ui.layout_engine'
 
 local PaneManager = {}
 
@@ -458,6 +460,252 @@ function PaneManager.create_from_template(window, pane, template)
   })
   
   return new_pane
+end
+
+-- テンプレートからレイアウトを適用
+function PaneManager.apply_template_layout(window, pane, template_path_or_name)
+  local template = nil
+  
+  -- テンプレートの読み込み
+  if template_path_or_name:match("%.ya?ml$") then
+    -- ファイルパスとして処理
+    template = template_loader.load_template(template_path_or_name)
+  else
+    -- テンプレート名として検索
+    local matches = template_loader.find_template(template_path_or_name)
+    if #matches > 0 then
+      template = template_loader.load_template(matches[1].file_path)
+    end
+  end
+  
+  if not template then
+    wezterm.log_error("Template not found: " .. template_path_or_name)
+    return false
+  end
+  
+  -- レイアウトエンジンでレイアウト生成
+  local layout = layout_engine.generate_from_template(template)
+  if not layout or #layout == 0 then
+    wezterm.log_error("Failed to generate layout from template")
+    return false
+  end
+  
+  -- レイアウトの最適化
+  local viewport_size = {width = 120, height = 40} -- デフォルトサイズ
+  layout = layout_engine.optimize_layout(layout, viewport_size)
+  
+  -- 既存のペインをクリア（最初のペイン以外）
+  local tab = pane:tab()
+  local panes = tab:panes()
+  for i = #panes, 2, -1 do
+    panes[i]:activate()
+    window:perform_action(wezterm.action.CloseCurrentPane { confirm = false }, panes[i])
+  end
+  
+  -- 新しいレイアウトを適用
+  local base_pane = tab:panes()[1]
+  local created_panes = { base_pane }
+  
+  for i = 2, #layout do
+    local pane_config = layout[i]
+    local split_direction = layout_engine.determine_split_direction(pane_config.position)
+    
+    local new_pane = base_pane:split_pane({
+      direction = split_direction,
+      size = pane_config.size,
+    })
+    
+    -- 作業ディレクトリの設定
+    if pane_config.working_directory then
+      new_pane:inject_output("cd " .. wezterm.shell_quote_arg(pane_config.working_directory) .. "\n")
+    end
+    
+    -- コマンドの実行
+    if pane_config.command then
+      new_pane:inject_output(pane_config.command .. "\n")
+    end
+    
+    -- ペインの登録
+    PaneManager.register_pane(new_pane, {
+      layout_position = pane_config.position,
+      template_name = template.name,
+      pane_id = pane_config.id,
+      title = pane_config.title
+    })
+    
+    table.insert(created_panes, new_pane)
+  end
+  
+  -- 最初のペインの設定も更新
+  if layout[1] then
+    local first_pane_config = layout[1]
+    if first_pane_config.working_directory then
+      base_pane:inject_output("cd " .. wezterm.shell_quote_arg(first_pane_config.working_directory) .. "\n")
+    end
+    if first_pane_config.command then
+      base_pane:inject_output(first_pane_config.command .. "\n")
+    end
+    
+    PaneManager.register_pane(base_pane, {
+      layout_position = first_pane_config.position,
+      template_name = template.name,
+      pane_id = first_pane_config.id,
+      title = first_pane_config.title
+    })
+  end
+  
+  wezterm.log_info("Applied template layout: " .. template.name)
+  return true
+end
+
+-- テンプレート選択UI
+function PaneManager.show_template_selector(window, pane)
+  local templates = template_loader.list_templates()
+  local choices = {}
+  
+  for _, template in ipairs(templates) do
+    table.insert(choices, {
+      id = template.file_path,
+      label = string.format("%s - %s", template.name, template.description or ""),
+    })
+  end
+  
+  if #choices == 0 then
+    window:toast_notification("WezTerm Multi-Dev", "No templates found", nil, 3000)
+    return
+  end
+  
+  window:perform_action(
+    wezterm.action.InputSelector {
+      action = wezterm.action_callback(function(inner_window, inner_pane, id, label)
+        if id then
+          PaneManager.apply_template_layout(inner_window, inner_pane, id)
+        end
+      end),
+      title = 'Select Template',
+      choices = choices,
+      fuzzy = true,
+      description = 'Choose a layout template to apply',
+    },
+    pane
+  )
+end
+
+-- カスタムレイアウトの保存
+function PaneManager.save_current_layout_as_template(window, pane, template_name)
+  local tab = pane:tab()
+  local panes = tab:panes()
+  
+  if #panes == 0 then
+    wezterm.log_error("No panes to save")
+    return false
+  end
+  
+  -- 現在のレイアウトを解析
+  local template_panes = {}
+  for i, current_pane in ipairs(panes) do
+    local pane_info = PaneManager.get_pane_info(current_pane:pane_id())
+    
+    local template_pane = {
+      id = "pane_" .. i,
+      position = {
+        row = math.floor((i - 1) / 2),
+        col = (i - 1) % 2,
+        span_rows = 1,
+        span_cols = 1
+      },
+      size = 1.0 / #panes,
+      working_directory = "~",
+      command = pane_info and pane_info.metadata.command or ""
+    }
+    
+    table.insert(template_panes, template_pane)
+  end
+  
+  -- テンプレート構造を作成
+  local template = {
+    name = template_name,
+    description = "Custom layout saved on " .. os.date("%Y-%m-%d %H:%M:%S"),
+    version = "1.0.0",
+    author = "User",
+    layout = {
+      type = "dynamic",
+      panes = template_panes
+    },
+    workspace = {
+      name = "custom-workspace"
+    }
+  }
+  
+  -- テンプレートディレクトリの確保
+  template_loader.ensure_template_directories()
+  
+  -- テンプレートファイルのパス
+  local template_dir = template_loader.get_template_directories()[1]
+  local template_file = template_dir .. "/" .. template_name:gsub("[^%w%-_]", "_") .. ".yaml"
+  
+  -- テンプレートの保存
+  if template_loader.save_template(template, template_file) then
+    window:toast_notification("WezTerm Multi-Dev", "Layout saved as template: " .. template_name, nil, 3000)
+    wezterm.log_info("Saved layout template: " .. template_file)
+    return true
+  else
+    window:toast_notification("WezTerm Multi-Dev", "Failed to save template", nil, 3000)
+    return false
+  end
+end
+
+-- 動的レイアウト調整
+function PaneManager.adjust_layout_dynamically(window, pane, adjustment_type)
+  local tab = pane:tab()
+  local panes = tab:panes()
+  
+  if #panes <= 1 then
+    return false
+  end
+  
+  local current_layout = {}
+  for i, current_pane in ipairs(panes) do
+    local pane_info = PaneManager.get_pane_info(current_pane:pane_id())
+    table.insert(current_layout, {
+      id = "pane_" .. i,
+      size = 1.0 / #panes,
+      pane = current_pane,
+      metadata = pane_info and pane_info.metadata or {}
+    })
+  end
+  
+  local adjusted_layout = nil
+  
+  if adjustment_type == "balance" then
+    adjusted_layout = layout_engine.balance_layout(current_layout)
+  elseif adjustment_type == "enforce_minimum" then
+    adjusted_layout = layout_engine.enforce_minimum_size(current_layout, config.minimum_pane_size or 0.1)
+  elseif adjustment_type == "optimize" then
+    local viewport_size = {width = 120, height = 40}
+    adjusted_layout = layout_engine.optimize_layout(current_layout, viewport_size)
+  end
+  
+  if adjusted_layout then
+    wezterm.log_info("Applied dynamic layout adjustment: " .. adjustment_type)
+    return true
+  end
+  
+  return false
+end
+
+-- テンプレート機能の初期化
+function PaneManager.init_template_features(framework_config)
+  -- テンプレートローダーの初期化
+  template_loader.init(framework_config)
+  
+  -- レイアウトエンジンの初期化
+  layout_engine.init(framework_config)
+  
+  -- テンプレートのプリロード
+  template_loader.preload_templates()
+  
+  wezterm.log_info("Template features initialized")
 end
 
 return PaneManager

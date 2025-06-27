@@ -184,6 +184,50 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
     end),
   })
   
+  -- Template management keys
+  table.insert(keys, {
+    key = 't',
+    mods = config.pane_prefix,
+    action = wezterm.action_callback(function(window, pane)
+      pane_manager.show_template_selector(window, pane)
+    end),
+  })
+  
+  table.insert(keys, {
+    key = 'T',
+    mods = config.pane_prefix,
+    action = wezterm.action_callback(function(window, pane)
+      -- Quick apply Claude development template
+      pane_manager.apply_template_layout(window, pane, "claude-dev")
+    end),
+  })
+  
+  table.insert(keys, {
+    key = 'S',
+    mods = config.pane_prefix,
+    action = wezterm.action_callback(function(window, pane)
+      window:perform_action(
+        wezterm.action.PromptInputLine {
+          description = 'Save current layout as template (name):',
+          action = wezterm.action_callback(function(inner_window, inner_pane, line)
+            if line and line ~= '' then
+              pane_manager.save_current_layout_as_template(inner_window, inner_pane, line)
+            end
+          end),
+        },
+        pane
+      )
+    end),
+  })
+  
+  table.insert(keys, {
+    key = 'b',
+    mods = config.pane_prefix,
+    action = wezterm.action_callback(function(window, pane)
+      pane_manager.adjust_layout_dynamically(window, pane, "balance")
+    end),
+  })
+  
   -- Dashboard keys
   table.insert(keys, {
     key = 'd',

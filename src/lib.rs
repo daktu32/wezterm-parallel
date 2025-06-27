@@ -7,6 +7,7 @@ pub mod metrics;
 pub mod dashboard;
 pub mod task;
 pub mod monitoring;
+pub mod sync;
 
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;

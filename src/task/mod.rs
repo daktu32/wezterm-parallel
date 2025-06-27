@@ -6,12 +6,14 @@ pub mod queue;
 pub mod scheduler;
 pub mod tracker;
 pub mod types;
+pub mod distributor;
 
 pub use manager::TaskManager;
 pub use queue::{TaskQueue, QueueConfig};
 pub use scheduler::{TaskScheduler, SchedulingStrategy};
 pub use tracker::{TaskTracker, TimeTracker};
 pub use types::*;
+pub use distributor::{TaskDistributor, DistributedTask, TaskDependency, ProcessLoad};
 
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH, Duration};

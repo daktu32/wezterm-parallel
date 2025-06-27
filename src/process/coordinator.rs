@@ -1,8 +1,11 @@
 use crate::{CoordinationEvent, CoordinationResponse, ProcessStatus};
+use crate::task::{TaskDistributor, Task, ProcessLoad};
+use crate::sync::FileSyncManager;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::error::Error;
+use uuid::Uuid;
 
 /// プロセス協調のためのコーディネーター
 pub struct ProcessCoordinator {
@@ -12,6 +15,10 @@ pub struct ProcessCoordinator {
     task_assignments: Arc<RwLock<HashMap<String, String>>>,
     /// 再割り当てが必要なタスク
     reassigned_tasks: Arc<RwLock<Vec<String>>>,
+    /// タスク分散マネージャー
+    task_distributor: Arc<RwLock<TaskDistributor>>,
+    /// ファイル同期マネージャー
+    file_sync_manager: Arc<RwLock<FileSyncManager>>,
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +26,9 @@ struct ProcessState {
     id: String,
     status: ProcessStatus,
     task_count: usize,
+    cpu_usage: f64,
+    memory_usage: u64,
+    uuid: Uuid,
 }
 
 impl ProcessCoordinator {
@@ -28,20 +38,30 @@ impl ProcessCoordinator {
             processes: Arc::new(RwLock::new(HashMap::new())),
             task_assignments: Arc::new(RwLock::new(HashMap::new())),
             reassigned_tasks: Arc::new(RwLock::new(Vec::new())),
+            task_distributor: Arc::new(RwLock::new(TaskDistributor::new())),
+            file_sync_manager: Arc::new(RwLock::new(FileSyncManager::new())),
         }
     }
 
     /// プロセスを登録
     pub async fn register_process(&self, process_id: String) {
+        let process_uuid = Uuid::new_v4();
         let mut processes = self.processes.write().await;
         processes.insert(
             process_id.clone(),
             ProcessState {
-                id: process_id,
+                id: process_id.clone(),
                 status: ProcessStatus::Idle,
                 task_count: 0,
+                cpu_usage: 0.0,
+                memory_usage: 0,
+                uuid: process_uuid,
             },
         );
+        
+        // ファイル同期マネージャーにプロセスを登録
+        let mut file_sync = self.file_sync_manager.write().await;
+        file_sync.register_process(process_uuid);
     }
 
     /// タスクを割り当て
