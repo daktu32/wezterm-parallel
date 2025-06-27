@@ -742,7 +742,7 @@ mod tests {
         assert_eq!(active_sessions[0].task_id, task_id);
         
         // Small delay to ensure time difference
-        sleep(TokioDuration::from_millis(10)).await;
+        sleep(TokioDuration::from_millis(50)).await;
         
         // Stop tracking
         let duration = tracker.stop_task(&task_id).await;
@@ -804,7 +804,7 @@ mod tests {
         
         // Start and stop a session
         tracker.start_task(&task_id).await;
-        sleep(TokioDuration::from_millis(10)).await;
+        sleep(TokioDuration::from_millis(50)).await;
         tracker.stop_task(&task_id).await;
         
         let metrics = tracker.get_productivity_metrics(&task_id).await;
@@ -828,7 +828,7 @@ mod tests {
         assert!(timer.is_running());
         assert!(timer.elapsed().is_some());
         
-        sleep(TokioDuration::from_millis(10)).await;
+        sleep(TokioDuration::from_millis(50)).await;
         
         let duration = timer.stop();
         assert!(duration.is_some());

@@ -496,9 +496,17 @@ mod tests {
     #[tokio::test]
     async fn test_task_board_manager_creation() {
         let task_manager = create_test_task_manager();
-        let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
+        let (broadcast_tx, mut _rx) = tokio::sync::broadcast::channel(100);
         
         let board_manager = TaskBoardManager::new(task_manager, broadcast_tx);
+        
+        // Consume the broadcast message to prevent SendError
+        tokio::spawn(async move {
+            while let Ok(_) = _rx.recv().await {
+                // Consume messages
+            }
+        });
+        
         board_manager.initialize().await.unwrap();
         
         let default_board = board_manager.get_board("default").await;
@@ -512,9 +520,17 @@ mod tests {
     #[tokio::test]
     async fn test_board_state_with_tasks() {
         let task_manager = create_test_task_manager();
-        let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
+        let (broadcast_tx, mut _rx) = tokio::sync::broadcast::channel(100);
         
         let board_manager = TaskBoardManager::new(task_manager.clone(), broadcast_tx);
+        
+        // Consume the broadcast message to prevent SendError
+        tokio::spawn(async move {
+            while let Ok(_) = _rx.recv().await {
+                // Consume messages
+            }
+        });
+        
         board_manager.initialize().await.unwrap();
         
         // Create test tasks
@@ -543,9 +559,17 @@ mod tests {
     #[tokio::test]
     async fn test_move_task_between_columns() {
         let task_manager = create_test_task_manager();
-        let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
+        let (broadcast_tx, mut _rx) = tokio::sync::broadcast::channel(100);
         
         let board_manager = TaskBoardManager::new(task_manager.clone(), broadcast_tx);
+        
+        // Consume the broadcast message to prevent SendError
+        tokio::spawn(async move {
+            while let Ok(_) = _rx.recv().await {
+                // Consume messages
+            }
+        });
+        
         board_manager.initialize().await.unwrap();
         
         // Create a test task
@@ -564,9 +588,17 @@ mod tests {
     #[tokio::test]
     async fn test_update_task_progress() {
         let task_manager = create_test_task_manager();
-        let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
+        let (broadcast_tx, mut _rx) = tokio::sync::broadcast::channel(100);
         
         let board_manager = TaskBoardManager::new(task_manager.clone(), broadcast_tx);
+        
+        // Consume the broadcast message to prevent SendError
+        tokio::spawn(async move {
+            while let Ok(_) = _rx.recv().await {
+                // Consume messages
+            }
+        });
+        
         board_manager.initialize().await.unwrap();
         
         // Create a test task
