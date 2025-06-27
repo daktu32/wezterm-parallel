@@ -6,6 +6,7 @@ pub mod config;
 pub mod metrics;
 pub mod dashboard;
 pub mod task;
+pub mod monitoring;
 
 use serde::{Deserialize, Serialize};
 

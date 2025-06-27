@@ -1,9 +1,9 @@
 // WezTerm Multi-Process Development Framework - Task Manager
 // Central task management system with scheduling, execution, and tracking
 
-use super::types::{Task, TaskId, TaskStatus, TaskCategory, TaskFilter, TaskSort, SortOrder};
+use super::types::{Task, TaskId, TaskStatus, TaskCategory, TaskFilter, TaskExecution};
 use super::queue::{TaskQueue, QueueConfig};
-use super::tracker::{TaskTracker, TimeTracker};
+use super::tracker::{TaskTracker};
 use super::{TaskConfig, TaskSystemStats, TaskError, TaskResult, current_timestamp};
 use crate::workspace::WorkspaceManager;
 use crate::process::manager::ProcessManager;
@@ -14,8 +14,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::{interval, sleep};
-use tracing::{info, warn, error, debug};
-use uuid::Uuid;
+use tracing::{info, warn, debug};
 
 /// Central task management system
 pub struct TaskManager {
@@ -224,7 +223,7 @@ impl TaskManager {
     /// Clean up completed tasks
     async fn cleanup_completed_tasks(
         executing_tasks: &Arc<RwLock<HashMap<TaskId, ExecutingTask>>>,
-        config: &TaskConfig,
+        _config: &TaskConfig,
     ) {
         let now = current_timestamp();
         let mut to_timeout = Vec::new();
@@ -373,6 +372,12 @@ impl TaskManager {
         tasks.get(task_id).cloned()
     }
 
+    /// Get total task count
+    pub async fn get_task_count(&self) -> usize {
+        let tasks = self.tasks.read().await;
+        tasks.len()
+    }
+
     /// List tasks with optional filter
     pub async fn list_tasks(&self, filter: Option<TaskFilter>) -> Vec<Task> {
         let tasks = self.tasks.read().await;
@@ -503,6 +508,36 @@ impl TaskManager {
     /// Get task tracker reference
     pub fn get_tracker(&self) -> Arc<TaskTracker> {
         Arc::clone(&self.tracker)
+    }
+
+    /// Generate productivity report for time range
+    pub async fn generate_productivity_report(&self, since_timestamp: Option<u64>) -> super::tracker::ProductivityReport {
+        self.tracker.generate_enhanced_productivity_report(since_timestamp).await
+    }
+
+    /// Get productivity insights for a specific task
+    pub async fn get_task_insights(&self, task_id: &TaskId) -> Option<super::tracker::TaskInsights> {
+        self.tracker.get_task_insights(task_id).await
+    }
+
+    /// Start time tracking for a task
+    pub async fn start_task_tracking(&self, task_id: &TaskId) {
+        self.tracker.start_task(task_id).await;
+    }
+
+    /// Stop time tracking for a task
+    pub async fn stop_task_tracking(&self, task_id: &TaskId) {
+        self.tracker.stop_task(task_id).await;
+    }
+
+    /// Pause time tracking for a task
+    pub async fn pause_task_tracking(&self, task_id: &TaskId) -> bool {
+        self.tracker.pause_task(task_id).await
+    }
+
+    /// Resume time tracking for a task
+    pub async fn resume_task_tracking(&self, task_id: &TaskId) -> bool {
+        self.tracker.resume_task(task_id).await
     }
 }
 
@@ -667,7 +702,7 @@ mod tests {
             category: TaskCategory::BugFix,
             priority: TaskPriority::High,
             estimated_duration: Some(3600), // 1 hour
-            execution: super::types::TaskExecution::default(),
+            execution: TaskExecution::default(),
             tags: vec!["bug".to_string(), "urgent".to_string()],
         };
         

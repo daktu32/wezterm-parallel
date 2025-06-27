@@ -8,6 +8,7 @@ use wezterm_parallel::{
     Message, 
     workspace::WorkspaceManager,
     dashboard::{WebSocketServer, DashboardConfig},
+    task::{TaskManager, TaskConfig},
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -44,6 +45,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Workspace manager initialized with {} workspaces", 
           workspace_manager.get_workspace_count().await);
     
+    // Initialize task manager
+    let task_config = TaskConfig {
+        max_concurrent_tasks: 10,
+        default_timeout: 3600, // 1 hour
+        max_retry_attempts: 3,
+        persistence_enabled: false,
+        persistence_path: None,
+        auto_save_interval: 300, // 5 minutes
+        metrics_enabled: true,
+        cleanup_interval: 600, // 10 minutes
+        max_task_history: 1000,
+    };
+    
+    let task_manager = Arc::new(TaskManager::new(task_config));
+    info!("Task manager initialized");
+    
+    // Start task manager background processing
+    let _task_handle = task_manager.start().await?;
+    info!("Task manager background processing started");
+    
     // Initialize WebSocket dashboard server
     let dashboard_config = DashboardConfig {
         port: 9999,
@@ -55,8 +76,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         compression: true,
     };
     
-    let (websocket_server, metrics_tx) = WebSocketServer::new(dashboard_config);
-    let websocket_server = Arc::new(websocket_server);
+    let (websocket_server, _metrics_tx) = WebSocketServer::new(dashboard_config);
+    let websocket_server = Arc::new(websocket_server.with_task_manager(Arc::clone(&task_manager)));
     
     // Start WebSocket server in background
     let ws_server = Arc::clone(&websocket_server);
@@ -84,8 +105,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match listener.accept().await {
             Ok((stream, _)) => {
                 info!("New client connected");
-                let manager = Arc::clone(&workspace_manager);
-                tokio::spawn(handle_client(stream, manager));
+                let ws_manager = Arc::clone(&workspace_manager);
+                let task_mgr = Arc::clone(&task_manager);
+                tokio::spawn(handle_client(stream, ws_manager, task_mgr));
             }
             Err(e) => {
                 error!("Failed to accept connection: {}", e);
@@ -94,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-async fn handle_client(mut stream: UnixStream, workspace_manager: Arc<WorkspaceManager>) {
+async fn handle_client(mut stream: UnixStream, workspace_manager: Arc<WorkspaceManager>, task_manager: Arc<TaskManager>) {
     let mut buffer = [0; 1024];
     
     loop {
@@ -112,7 +134,7 @@ async fn handle_client(mut stream: UnixStream, workspace_manager: Arc<WorkspaceM
                         info!("Received message: {:?}", message);
                         
                         // Handle message
-                        let response = handle_message(message, &workspace_manager).await;
+                        let response = handle_message(message, &workspace_manager, &task_manager).await;
                         
                         // Send response
                         if let Ok(response_json) = serde_json::to_vec(&response) {
@@ -145,7 +167,7 @@ async fn handle_client(mut stream: UnixStream, workspace_manager: Arc<WorkspaceM
     }
 }
 
-async fn handle_message(message: Message, workspace_manager: &WorkspaceManager) -> Message {
+async fn handle_message(message: Message, workspace_manager: &WorkspaceManager, task_manager: &TaskManager) -> Message {
     match message {
         Message::Ping => {
             info!("Ping received, responding with Pong");
@@ -192,18 +214,41 @@ async fn handle_message(message: Message, workspace_manager: &WorkspaceManager) 
         Message::TaskQueue { id, priority, command } => {
             info!("Queuing task {}: {} (priority: {})", id, command, priority);
             
-            // Get active workspace for task assignment
+            // Create a task from the queue message
+            let mut task = wezterm_parallel::task::Task::new(
+                format!("Task: {}", command),
+                wezterm_parallel::task::types::TaskCategory::Development
+            );
+            
+            // Set priority based on message priority
+            task.priority = match priority {
+                1 | 2 => wezterm_parallel::task::types::TaskPriority::Low,
+                3 | 4 => wezterm_parallel::task::types::TaskPriority::Medium,
+                5 | 6 => wezterm_parallel::task::types::TaskPriority::High,
+                7 | 8 => wezterm_parallel::task::types::TaskPriority::Critical,
+                _ => wezterm_parallel::task::types::TaskPriority::Urgent,
+            };
+            
+            // Set workspace if available
             if let Some((workspace_name, _)) = workspace_manager.get_active_workspace().await {
-                // TODO: Implement task queuing logic
-                Message::StatusUpdate {
-                    process_id: "task_manager".to_string(),
-                    status: format!("Task '{}' queued successfully in workspace '{}'", id, workspace_name),
+                task.workspace = Some(workspace_name.clone());
+            }
+            
+            // Add task to task manager
+            match task_manager.create_task(task).await {
+                Ok(task_id) => {
+                    info!("Task '{}' created successfully with ID: {}", command, task_id);
+                    Message::StatusUpdate {
+                        process_id: "task_manager".to_string(),
+                        status: format!("Task '{}' created successfully with ID: {}", command, task_id),
+                    }
                 }
-            } else {
-                warn!("No active workspace found for task queuing");
-                Message::StatusUpdate {
-                    process_id: "task_manager".to_string(),
-                    status: format!("Task '{}' queued in default workspace", id),
+                Err(e) => {
+                    error!("Failed to create task '{}': {:?}", command, e);
+                    Message::StatusUpdate {
+                        process_id: "task_manager".to_string(),
+                        status: format!("Failed to create task '{}': {:?}", command, e),
+                    }
                 }
             }
         }

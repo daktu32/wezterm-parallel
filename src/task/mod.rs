@@ -14,7 +14,6 @@ pub use tracker::{TaskTracker, TimeTracker};
 pub use types::*;
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use uuid::Uuid;
 

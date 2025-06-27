@@ -1,7 +1,7 @@
 // WezTerm Multi-Process Development Framework - Task Queue System
 // Provides task queuing, prioritization, and scheduling capabilities
 
-use super::types::{Task, TaskId, TaskPriority, TaskStatus, SortOrder};
+use super::types::{Task, TaskId, TaskPriority, TaskStatus};
 use super::{TaskError, TaskResult};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque, BinaryHeap};
@@ -291,6 +291,12 @@ impl TaskQueue {
     pub async fn list_tasks(&self) -> Vec<Task> {
         let lookup = self.task_lookup.read().await;
         lookup.values().cloned().collect()
+    }
+
+    /// Get queue size
+    pub async fn get_queue_size(&self) -> usize {
+        let lookup = self.task_lookup.read().await;
+        lookup.len()
     }
 
     /// Get task by ID

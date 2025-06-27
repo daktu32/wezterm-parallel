@@ -2,7 +2,7 @@
 // Provides Kanban-style task board with real-time WebSocket updates
 
 use super::{DashboardMessage, TaskColumn, TaskAction, TaskBoardConfig, BoardVisibility};
-use crate::task::{Task, TaskManager, TaskStatus, TaskId};
+use crate::task::{Task, TaskManager, TaskStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -2,7 +2,7 @@
 // Provides real-time metrics streaming to WezTerm Lua clients
 
 use super::{DashboardState, DashboardConfig, DashboardMessage, ClientInfo, MetricSubscription, MetricsUpdate};
-use super::task_board::{TaskBoardManager, TaskBoardState};
+use super::task_board::{TaskBoardManager};
 use crate::metrics::FrameworkMetrics;
 use crate::task::TaskManager;
 use tokio::net::TcpListener;
@@ -51,8 +51,11 @@ impl WebSocketServer {
 
         // Initialize task board if available
         if let Some(ref task_board_manager) = self.task_board_manager {
-            task_board_manager.initialize().await?;
-            info!("Task board manager initialized");
+            if let Err(e) = task_board_manager.initialize().await {
+                warn!("Task board manager initialization failed: {}", e);
+            } else {
+                info!("Task board manager initialized");
+            }
         }
         
         let addr = format!("127.0.0.1:{}", self.config.port);
@@ -459,7 +462,7 @@ mod tests {
             ..Default::default()
         };
         
-        let (server, metrics_tx) = WebSocketServer::new(config);
+        let (_server, metrics_tx) = WebSocketServer::new(config);
         
         // Send a metrics update
         let update = MetricsUpdate {

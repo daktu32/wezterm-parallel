@@ -390,8 +390,11 @@ pub struct DashboardResponse {
 impl DashboardState {
     /// Create new dashboard state
     pub fn new(config: DashboardConfig) -> (Self, tokio::sync::mpsc::Sender<MetricsUpdate>) {
-        let (broadcast_tx, _) = tokio::sync::broadcast::channel(100);
+        let (broadcast_tx, _broadcast_rx) = tokio::sync::broadcast::channel(100);
         let (metrics_tx, metrics_rx) = tokio::sync::mpsc::channel(100);
+        
+        // Keep broadcast receiver alive to prevent channel closure
+        std::mem::forget(_broadcast_rx);
         
         let state = Self {
             framework_metrics: Arc::new(RwLock::new(FrameworkMetrics::new())),

@@ -1,13 +1,12 @@
 // WezTerm Multi-Process Development Framework - Task Scheduler
 // Provides advanced task scheduling, dependency resolution, and execution planning
 
-use super::types::{Task, TaskId, TaskStatus, TaskPriority, ExecutionMode};
+use super::types::{Task, TaskId, TaskStatus};
 use super::{TaskError, TaskResult, current_timestamp};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{info, warn, debug, error};
+use tracing::{info, debug};
 
 /// Task scheduler with dependency resolution and execution planning
 #[derive(Debug)]
@@ -258,7 +257,7 @@ impl TaskScheduler {
 
     /// Resolve execution order based on dependencies
     async fn resolve_execution_order(&self, tasks: &[Task]) -> TaskResult<Vec<TaskId>> {
-        let graph = self.dependency_graph.read().await;
+        let _graph = self.dependency_graph.read().await;
         
         // Create a map of task IDs to their dependencies
         let mut task_deps: HashMap<TaskId, HashSet<TaskId>> = HashMap::new();
@@ -283,7 +282,7 @@ impl TaskScheduler {
             in_degree.insert(task_id.clone(), 0);
         }
         
-        for (task_id, deps) in &task_deps {
+        for (_task_id, deps) in &task_deps {
             for dep in deps {
                 if let Some(degree) = in_degree.get_mut(dep) {
                     *degree += 1;
