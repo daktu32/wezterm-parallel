@@ -557,7 +557,7 @@ pub struct TaskTemplate {
     pub category: TaskCategory,
     pub priority: super::types::TaskPriority,
     pub estimated_duration: Option<u64>,
-    pub execution: super::types::TaskExecution,
+    pub execution: TaskExecution,
     pub tags: Vec<String>,
 }
 

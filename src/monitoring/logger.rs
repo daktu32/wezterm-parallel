@@ -1,7 +1,7 @@
 // WezTerm Multi-Process Development Framework - Enhanced Logging System
 // Provides structured logging with rotation, filtering, and analysis capabilities
 
-use super::{LogFormat, LogOutput, MonitoringConfig};
+use super::{LogOutput, MonitoringConfig};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};

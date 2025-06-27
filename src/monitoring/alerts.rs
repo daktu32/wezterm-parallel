@@ -515,7 +515,6 @@ impl AlertNotificationSender for WebhookAlertSender {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::monitoring::ProcessStatus;
     
     #[tokio::test]
     async fn test_alert_manager_creation() {
