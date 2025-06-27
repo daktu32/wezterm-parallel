@@ -63,16 +63,16 @@ fn test_parallel_execution_possibility() {
     
     // 依存関係のあるタスク
     let task3_id = Uuid::new_v4();
-    let mut task3 = Task::new(
+    let mut task3 = DistributedTask::new(
         "Task 3".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![],
     );
-    task3.id = task3_id;
+    task3.distribution_id = task3_id;
     
-    let task4 = Task::new(
+    let task4 = DistributedTask::new(
         "Task 4 depends on 3".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![TaskDependency::TaskCompletion(task3_id)],
     );
     
@@ -106,9 +106,9 @@ fn test_optimal_process_assignment() {
         active_tasks: 2,
     });
     
-    let task = Task::new(
+    let task = DistributedTask::new(
         "New task".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![],
     );
     
@@ -129,28 +129,28 @@ fn test_dependency_graph_resolution() {
     let task_c_id = Uuid::new_v4();
     let task_d_id = Uuid::new_v4();
     
-    let mut task_a = Task::new(
+    let mut task_a = DistributedTask::new(
         "Task A".to_string(),
         TaskPriority::High,
         vec![],
     );
-    task_a.id = task_a_id;
+    task_a.distribution_id = task_a_id;
     
-    let mut task_b = Task::new(
+    let mut task_b = DistributedTask::new(
         "Task B".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![TaskDependency::TaskCompletion(task_a_id)],
     );
-    task_b.id = task_b_id;
+    task_b.distribution_id = task_b_id;
     
-    let mut task_c = Task::new(
+    let mut task_c = DistributedTask::new(
         "Task C".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![TaskDependency::TaskCompletion(task_a_id)],
     );
-    task_c.id = task_c_id;
+    task_c.distribution_id = task_c_id;
     
-    let mut task_d = Task::new(
+    let mut task_d = DistributedTask::new(
         "Task D".to_string(),
         TaskPriority::Low,
         vec![
@@ -158,7 +158,7 @@ fn test_dependency_graph_resolution() {
             TaskDependency::TaskCompletion(task_c_id),
         ],
     );
-    task_d.id = task_d_id;
+    task_d.distribution_id = task_d_id;
     
     distributor.add_task(task_a);
     distributor.add_task(task_b);
@@ -182,21 +182,21 @@ fn test_dependency_graph_resolution() {
 
 #[test]
 fn test_file_dependency_detection() {
-    let task1 = Task::new(
+    let task1 = DistributedTask::new(
         "Modify file1.rs".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![TaskDependency::FileAccess("src/file1.rs".to_string())],
     );
     
-    let task2 = Task::new(
+    let task2 = DistributedTask::new(
         "Read file1.rs".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![TaskDependency::FileAccess("src/file1.rs".to_string())],
     );
     
-    let task3 = Task::new(
+    let task3 = DistributedTask::new(
         "Modify file2.rs".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![TaskDependency::FileAccess("src/file2.rs".to_string())],
     );
     
@@ -213,19 +213,19 @@ fn test_file_dependency_detection() {
 fn test_priority_based_scheduling() {
     let mut distributor = TaskDistributor::new();
     
-    let low_priority = Task::new(
+    let low_priority = DistributedTask::new(
         "Low priority task".to_string(),
         TaskPriority::Low,
         vec![],
     );
     
-    let normal_priority = Task::new(
+    let normal_priority = DistributedTask::new(
         "Normal priority task".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![],
     );
     
-    let high_priority = Task::new(
+    let high_priority = DistributedTask::new(
         "High priority task".to_string(),
         TaskPriority::High,
         vec![],
@@ -236,7 +236,7 @@ fn test_priority_based_scheduling() {
     distributor.add_task(high_priority.clone());
     
     let next_task = distributor.get_next_task().unwrap();
-    assert_eq!(next_task.priority, TaskPriority::High);
+    assert_eq!(*next_task.priority(), TaskPriority::High);
 }
 
 #[test]
@@ -248,26 +248,26 @@ fn test_circular_dependency_detection() {
     let task_b_id = Uuid::new_v4();
     let task_c_id = Uuid::new_v4();
     
-    let mut task_a = Task::new(
+    let mut task_a = DistributedTask::new(
         "Task A".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![TaskDependency::TaskCompletion(task_c_id)],
     );
-    task_a.id = task_a_id;
+    task_a.distribution_id = task_a_id;
     
-    let mut task_b = Task::new(
+    let mut task_b = DistributedTask::new(
         "Task B".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![TaskDependency::TaskCompletion(task_a_id)],
     );
-    task_b.id = task_b_id;
+    task_b.distribution_id = task_b_id;
     
-    let mut task_c = Task::new(
+    let mut task_c = DistributedTask::new(
         "Task C".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![TaskDependency::TaskCompletion(task_b_id)],
     );
-    task_c.id = task_c_id;
+    task_c.distribution_id = task_c_id;
     
     distributor.add_task(task_a);
     distributor.add_task(task_b);
@@ -282,18 +282,18 @@ fn test_resource_based_assignment() {
     let mut distributor = TaskDistributor::new();
     
     // CPU集約的なタスク
-    let cpu_task = Task::new_with_resources(
+    let cpu_task = DistributedTask::new_with_resources(
         "CPU intensive task".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![],
         0.8, // CPU要求
         0.2, // メモリ要求
     );
     
     // メモリ集約的なタスク
-    let memory_task = Task::new_with_resources(
+    let memory_task = DistributedTask::new_with_resources(
         "Memory intensive task".to_string(),
-        TaskPriority::Normal,
+        TaskPriority::Medium,
         vec![],
         0.2, // CPU要求
         0.8, // メモリ要求

@@ -230,9 +230,9 @@ fn test_merge_multiple_changes() {
     
     // 複数の変更
     let changes = vec![
-        ("Line 1 modified\nLine 2\nLine 3\nLine 4", Uuid::new_v4()),
-        ("Line 1\nLine 2 modified\nLine 3\nLine 4", Uuid::new_v4()),
-        ("Line 1\nLine 2\nLine 3\nLine 4 modified", Uuid::new_v4()),
+        ("Line 1 modified\nLine 2\nLine 3\nLine 4".to_string(), Uuid::new_v4()),
+        ("Line 1\nLine 2 modified\nLine 3\nLine 4".to_string(), Uuid::new_v4()),
+        ("Line 1\nLine 2\nLine 3\nLine 4 modified".to_string(), Uuid::new_v4()),
     ];
     
     let result = merge_manager.merge_multiple_versions(

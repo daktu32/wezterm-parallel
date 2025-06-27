@@ -23,10 +23,11 @@ pub struct DistributedTask {
 }
 
 impl DistributedTask {
-    pub fn new(title: String, _priority: TaskPriority, dependencies: Vec<TaskDependency>) -> Self {
+    pub fn new(title: String, priority: TaskPriority, dependencies: Vec<TaskDependency>) -> Self {
         use crate::task::types::TaskCategory;
         
-        let base_task = BaseTask::new(title, TaskCategory::Development);
+        let mut base_task = BaseTask::new(title, TaskCategory::Development);
+        base_task.priority = priority;
         Self {
             base_task,
             distribution_id: Uuid::new_v4(),
