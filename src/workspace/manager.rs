@@ -8,8 +8,9 @@ use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::workspace::state::WorkspaceState;
+use crate::workspace::state::{WorkspaceState, ProcessInfo, ProcessStatus};
 use crate::workspace::template::{TemplateEngine, WorkspaceTemplate};
+use crate::process::{ClaudeCodeDetector, ClaudeCodeConfig, ClaudeCodeConfigBuilder, ProcessManager, ProcessConfig};
 
 #[derive(Debug)]
 pub struct WorkspaceManager {
@@ -18,6 +19,9 @@ pub struct WorkspaceManager {
     state_file_path: PathBuf,
     auto_save_enabled: bool,
     max_workspaces: usize,
+    claude_code_detector: ClaudeCodeDetector,
+    process_manager: Option<std::sync::Arc<ProcessManager>>,
+    auto_start_claude_code: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,6 +53,9 @@ impl WorkspaceManager {
             state_file_path: state_path,
             auto_save_enabled: true,
             max_workspaces: 8,
+            claude_code_detector: ClaudeCodeDetector::new(),
+            process_manager: None,
+            auto_start_claude_code: true,
         };
 
         // Load existing state if available
@@ -104,6 +111,13 @@ impl WorkspaceManager {
         }
 
         info!("Created workspace '{}' with template '{}'", name, template_name);
+
+        // Auto-start Claude Code if enabled
+        if self.auto_start_claude_code {
+            if let Err(e) = self.auto_start_claude_code_for_workspace(name).await {
+                warn!("Failed to auto-start Claude Code for workspace '{}': {}", name, e);
+            }
+        }
 
         // Auto-save if enabled
         if self.auto_save_enabled {
@@ -328,6 +342,152 @@ impl WorkspaceManager {
         workspaces.values()
             .map(|w| w.processes.len())
             .sum()
+    }
+
+    // Claude Code自動起動機能
+
+    /// プロセスマネージャーを設定
+    pub fn set_process_manager(&mut self, process_manager: std::sync::Arc<ProcessManager>) {
+        self.process_manager = Some(process_manager);
+    }
+
+    /// Claude Code自動起動を有効/無効にする
+    pub fn set_auto_start_claude_code(&mut self, enabled: bool) {
+        self.auto_start_claude_code = enabled;
+    }
+
+    /// 指定されたワークスペースでClaude Codeを自動起動
+    async fn auto_start_claude_code_for_workspace(&self, workspace_name: &str) -> Result<(), String> {
+        // Claude Codeバイナリを検出
+        let binary_path = match self.claude_code_detector.detect() {
+            Ok(path) => path,
+            Err(e) => {
+                return Err(format!("Failed to detect Claude Code binary: {}", e));
+            }
+        };
+
+        info!("Detected Claude Code binary at: {:?}", binary_path);
+
+        // ワークスペース情報を取得
+        let workspace_info = self.get_workspace_info(workspace_name).await
+            .ok_or_else(|| format!("Workspace '{}' not found", workspace_name))?;
+
+        // プロジェクトルートを取得（現在のディレクトリ、または指定されたディレクトリ）
+        let project_root = std::env::current_dir().ok();
+
+        // Claude Code設定を構築
+        let claude_config = match ClaudeCodeConfigBuilder::new(binary_path, workspace_name)
+            .project_root(project_root.unwrap_or_else(|| PathBuf::from(".")))
+            .environment("WEZTERM_WORKSPACE", workspace_name)
+            .argument("--workspace")
+            .argument(workspace_name)
+            .memory_limit(4096) // 4GB
+            .cpu_limit(75.0)    // 75%
+            .build() 
+        {
+            Ok(config) => config,
+            Err(e) => {
+                return Err(format!("Failed to build Claude Code config: {}", e));
+            }
+        };
+
+        info!("Built Claude Code config: {}", claude_config.to_command_string());
+
+        // プロセスマネージャーが設定されている場合のみ起動
+        if let Some(ref process_manager) = self.process_manager {
+            match self.spawn_claude_code_process(process_manager, workspace_name, claude_config).await {
+                Ok(process_id) => {
+                    info!("Successfully started Claude Code process '{}' for workspace '{}'", process_id, workspace_name);
+                    
+                    // ワークスペース状態を更新してプロセス情報を追加
+                    self.update_workspace_state(workspace_name, |workspace| {
+                        workspace.processes.insert(process_id.clone(), ProcessInfo {
+                            id: process_id.clone(),
+                            command: format!("claude-code --workspace {}", workspace_name),
+                            workspace: workspace_name.to_string(),
+                            pane_id: None,
+                            status: ProcessStatus::Starting,
+                            pid: None, // プロセス起動後に更新される
+                            started_at: SystemTime::now(),
+                            last_heartbeat: SystemTime::now(),
+                            restart_count: 0,
+                        });
+                    }).await.map_err(|e| format!("Failed to update workspace state: {}", e))?;
+
+                    Ok(())
+                }
+                Err(e) => {
+                    Err(format!("Failed to spawn Claude Code process: {}", e))
+                }
+            }
+        } else {
+            warn!("ProcessManager not set, cannot start Claude Code for workspace '{}'", workspace_name);
+            Ok(())
+        }
+    }
+
+    /// Claude Codeプロセスを起動
+    async fn spawn_claude_code_process(
+        &self,
+        process_manager: &ProcessManager,
+        workspace_name: &str,
+        claude_config: ClaudeCodeConfig,
+    ) -> Result<String, String> {
+        // プロセスIDを生成
+        let process_id = format!("claude-{}-{}", workspace_name, uuid::Uuid::new_v4().simple());
+
+        // コマンド引数を構築（バイナリパス + 引数）
+        let mut command_args = vec![claude_config.binary_path.to_string_lossy().to_string()];
+        command_args.extend(claude_config.get_complete_arguments());
+
+        // プロセスを起動
+        match process_manager.spawn_process(
+            process_id.clone(),
+            workspace_name.to_string(),
+            command_args,
+        ).await {
+            Ok(_) => {
+                info!("Successfully spawned Claude Code process '{}'", process_id);
+                Ok(process_id)
+            }
+            Err(e) => {
+                Err(format!("Failed to spawn process: {}", e))
+            }
+        }
+    }
+
+    /// ワークスペース用のClaude Codeプロセスを手動で起動
+    pub async fn start_claude_code_for_workspace(&self, workspace_name: &str) -> Result<String, String> {
+        self.auto_start_claude_code_for_workspace(workspace_name).await
+            .and_then(|_| {
+                // プロセスIDを返す（実際の実装では起動したプロセスIDを返す）
+                Ok(format!("claude-{}-manual", workspace_name))
+            })
+    }
+
+    /// ワークスペース用のClaude Codeプロセスを停止
+    pub async fn stop_claude_code_for_workspace(&self, workspace_name: &str) -> Result<(), String> {
+        if let Some(ref process_manager) = self.process_manager {
+            let workspace_info = self.get_workspace_info(workspace_name).await
+                .ok_or_else(|| format!("Workspace '{}' not found", workspace_name))?;
+
+            // ワークスペースに関連するプロセスを停止
+            for process_id in workspace_info.processes.keys() {
+                if let Err(e) = process_manager.kill_process(process_id).await {
+                    warn!("Failed to stop process '{}': {}", process_id, e);
+                }
+            }
+
+            // ワークスペース状態からプロセス情報を削除
+            self.update_workspace_state(workspace_name, |workspace| {
+                workspace.processes.clear();
+            }).await.map_err(|e| format!("Failed to update workspace state: {}", e))?;
+
+            info!("Stopped all Claude Code processes for workspace '{}'", workspace_name);
+            Ok(())
+        } else {
+            Err("ProcessManager not set".to_string())
+        }
     }
 }
 
