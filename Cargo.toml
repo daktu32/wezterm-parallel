@@ -29,3 +29,4 @@ serial_test = "3.0"
 [[bin]]
 name = "wezterm-parallel"
 path = "src/main.rs"
+
