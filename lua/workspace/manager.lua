@@ -12,8 +12,8 @@ local wezterm = _G.wezterm or {
   }
 }
 
-local json = require 'lua.utils.json'
-local socket_client = require 'lua.utils.socket_client'
+local json = require 'utils.json'
+local socket_client = require 'utils.socket_client'
 
 local WorkspaceManager = {}
 
@@ -22,6 +22,15 @@ local config = {}
 local current_workspace = "default"
 local workspaces = {}
 local backend_process = nil
+
+-- Helper function to count table entries
+local function table_count(t)
+  local count = 0
+  for _ in pairs(t) do
+    count = count + 1
+  end
+  return count
+end
 
 -- Initialize the workspace manager
 function WorkspaceManager.init(framework_config)
@@ -78,7 +87,7 @@ function WorkspaceManager.send_to_backend(message)
 end
 
 -- Create a new workspace
-function WorkspaceManager.create_workspace(name, template)
+function WorkspaceManager.create_workspace(name, template, window, pane)
   template = template or "basic"
   
   wezterm.log_info(string.format("Creating workspace: %s with template: %s", name, template))
@@ -86,25 +95,41 @@ function WorkspaceManager.create_workspace(name, template)
   -- Use socket client to create workspace
   local response = socket_client.create_workspace(name, template)
   
-  -- Create new tab for workspace
-  local window = wezterm.mux.get_active_window()
+  -- wezterm をローカルで require
+  local wezterm = require('wezterm')
+  
+  -- 新しいタブをSpawnTabアクションで作成
   if window then
-    local tab = window:spawn_tab({
-      cwd = wezterm.home_dir .. "/projects/" .. name,
-    })
+    window:perform_action(
+      wezterm.action.SpawnTab 'CurrentPaneDomain',
+      pane
+    )
     
-    -- Set tab title
-    tab:set_title(string.format("Workspace: %s", name))
+    -- 新しいタブのペインを取得
+    local new_pane = window:active_pane()
+    local new_tab = window:active_tab()
     
-    -- Store workspace info
+    -- タブタイトルを設定
+    new_tab:set_title(string.format("Workspace: %s", name))
+    
+    -- Store workspace info with window reference
     workspaces[name] = {
-      tab_id = tab:tab_id(),
+      tab = new_tab,
       template = template,
       created_at = os.time(),
-      processes = {}
+      processes = {},
+      window = window,
+      pane = new_pane
     }
     
     current_workspace = name
+    
+    wezterm.log_info("Workspace created and tab activated: " .. name)
+    
+    -- プロジェクトディレクトリに移動
+    new_pane:send_text("cd ~/projects/" .. name .. " 2>/dev/null || cd ~\n")
+  else
+    wezterm.log_error("Window not available for workspace creation")
   end
   
   return response
@@ -120,17 +145,38 @@ function WorkspaceManager.switch_workspace(name)
   wezterm.log_info("Switching to workspace: " .. name)
   
   local workspace = workspaces[name]
-  local window = wezterm.mux.get_active_window()
   
-  if window then
-    local tab = window:get_tab(workspace.tab_id)
-    if tab then
-      tab:activate()
-      current_workspace = name
-      return true
-    else
-      wezterm.log_error("Tab not found for workspace: " .. name)
-    end
+  -- 保存されたタブが存在するか確認
+  if workspace.tab then
+    -- タブをアクティブ化
+    workspace.tab:activate()
+    current_workspace = name
+    wezterm.log_info("Activated tab for workspace: " .. name)
+    return true
+  elseif workspace.window then
+    -- タブが存在しない場合は新規作成
+    local wezterm = require('wezterm')
+    workspace.window:perform_action(
+      wezterm.action.SpawnTab 'CurrentPaneDomain',
+      workspace.pane
+    )
+    
+    local new_tab = workspace.window:active_tab()
+    new_tab:set_title(string.format("Workspace: %s", name))
+    
+    -- ワークスペース情報を更新
+    workspace.tab = new_tab
+    workspace.pane = workspace.window:active_pane()
+    
+    current_workspace = name
+    wezterm.log_info("Created new tab for workspace: " .. name)
+    
+    -- プロジェクトディレクトリに移動
+    workspace.pane:send_text("cd ~/projects/" .. name .. " 2>/dev/null || cd ~\n")
+    
+    return true
+  else
+    wezterm.log_error("Window not found for workspace: " .. name)
   end
   
   return false
@@ -138,12 +184,19 @@ end
 
 -- Prompt user to create workspace
 function WorkspaceManager.create_workspace_prompt(window, pane)
+  -- wezterm.actionをrequireで取得
+  local wezterm = require('wezterm')
+  local act = wezterm.action
+  
   window:perform_action(
-    wezterm.action.PromptInputLine {
+    act.PromptInputLine {
       description = 'Enter workspace name:',
       action = wezterm.action_callback(function(inner_window, inner_pane, line)
         if line and line ~= "" then
-          WorkspaceManager.create_workspace(line)
+          -- 実際にワークスペースを作成（タブも作成される）
+          WorkspaceManager.create_workspace(line, "basic", inner_window, inner_pane)
+          
+          wezterm.log_info("Workspace created: " .. line)
         end
       end),
     },
@@ -153,34 +206,42 @@ end
 
 -- Prompt user to switch workspace
 function WorkspaceManager.switch_workspace_prompt(window, pane)
-  local workspace_list = {}
-  for name, _ in pairs(workspaces) do
-    table.insert(workspace_list, name)
-  end
-  
-  if #workspace_list == 0 then
-    wezterm.log_info("No workspaces available")
-    return
-  end
-  
-  -- Create choices for workspace selection
+  local wezterm = require('wezterm')
+  local act = wezterm.action
   local choices = {}
-  for _, name in ipairs(workspace_list) do
+  
+  for name, ws in pairs(workspaces) do
+    local is_current = (name == current_workspace) and " [CURRENT]" or ""
     table.insert(choices, {
       id = name,
-      label = name,
+      label = string.format("%s%s", name, is_current),
     })
   end
   
+  if #choices == 0 then
+    wezterm.log_info("No workspaces available. Create one with Ctrl+Shift+N")
+    return
+  end
+  
+  -- ワークスペース選択ダイアログを表示
   window:perform_action(
-    wezterm.action.InputSelector {
+    act.InputSelector {
       action = wezterm.action_callback(function(inner_window, inner_pane, id, label)
         if id then
-          WorkspaceManager.switch_workspace(id)
+          -- ワークスペースが存在しない場合は新規作成
+          if not workspaces[id] then
+            WorkspaceManager.create_workspace(id, "basic", inner_window, inner_pane)
+          else
+            -- 既存のワークスペースに切り替え
+            WorkspaceManager.switch_workspace(id)
+          end
+          
+          wezterm.log_info("Switched to workspace: " .. id)
         end
       end),
       title = 'Select Workspace',
       choices = choices,
+      fuzzy = true,
     },
     pane
   )
@@ -188,8 +249,11 @@ end
 
 -- Kill process prompt
 function WorkspaceManager.kill_process_prompt(window, pane)
+  local wezterm = require('wezterm')
+  local act = wezterm.action
+  
   window:perform_action(
-    wezterm.action.PromptInputLine {
+    act.PromptInputLine {
       description = 'Enter process ID to kill:',
       action = wezterm.action_callback(function(inner_window, inner_pane, line)
         if line and line ~= "" then
@@ -209,11 +273,29 @@ end
 
 -- Get current workspace name for tab title
 function WorkspaceManager.get_current_workspace_name(tab)
+  if not tab then
+    return nil
+  end
+  
   for name, workspace in pairs(workspaces) do
-    if workspace.tab_id == tab:tab_id() then
+    -- タブオブジェクトを直接比較するか、タイトルで比較
+    if workspace.tab then
+      local success, tab_id = pcall(function() return workspace.tab:tab_id() end)
+      if success and tab_id and tab_id == tab:tab_id() then
+        return name
+      end
+    end
+  end
+  
+  -- タブタイトルからワークスペース名を取得（フォールバック）
+  local title = tab:get_title()
+  if title then
+    local name = title:match("^Workspace: (.+)$")
+    if name and workspaces[name] then
       return name
     end
   end
+  
   return nil
 end
 
@@ -248,5 +330,54 @@ end
 function WorkspaceManager.list_workspaces()
   return workspaces
 end
+
+
+-- Delete workspace prompt
+function WorkspaceManager.delete_workspace_prompt(window, pane)
+  local wezterm = require('wezterm')
+  local act = wezterm.action
+  local choices = {}
+  
+  for name, ws in pairs(workspaces) do
+    if name ~= current_workspace then  -- 現在のワークスペースは削除不可
+      table.insert(choices, {
+        id = name,
+        label = name,
+      })
+    end
+  end
+  
+  if #choices == 0 then
+    wezterm.log_info("No other workspaces to delete")
+    return
+  end
+  
+  window:perform_action(
+    act.InputSelector {
+      action = wezterm.action_callback(function(inner_window, inner_pane, id, label)
+        if id and workspaces[id] then
+          -- タブがある場合は閉じる
+          if workspaces[id].tab then
+            -- タブを閉じるアクションを実行
+            inner_window:perform_action(
+              wezterm.action.CloseCurrentTab { confirm = false },
+              workspaces[id].pane
+            )
+          end
+          
+          -- ワークスペースを削除
+          workspaces[id] = nil
+          
+          wezterm.log_info("Workspace deleted: " .. id)
+        end
+      end),
+      title = 'Delete Workspace',
+      choices = choices,
+      fuzzy = true,
+    },
+    pane
+  )
+end
+
 
 return WorkspaceManager

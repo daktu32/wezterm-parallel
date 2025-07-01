@@ -2,8 +2,8 @@
 -- Handles dynamic pane creation, synchronization, and layout management
 
 local wezterm = require 'wezterm'
-local template_loader = require 'lua.workspace.template_loader'
-local layout_engine = require 'lua.ui.layout_engine'
+local template_loader = require 'workspace.template_loader'
+local layout_engine = require 'ui.layout_engine'
 
 local PaneManager = {}
 

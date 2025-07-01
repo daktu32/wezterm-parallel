@@ -33,9 +33,7 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
   table.insert(keys, {
     key = 'n',
     mods = config.workspace_prefix,
-    action = wezterm.action_callback(function(window, pane)
-      workspace_manager.create_workspace_prompt(window, pane)
-    end),
+    action = wezterm.action.EmitEvent 'workspace-create',
   })
   
   table.insert(keys, {
@@ -76,13 +74,6 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
     end),
   })
   
-  table.insert(keys, {
-    key = 'l',
-    mods = config.workspace_prefix,
-    action = wezterm.action_callback(function(window, pane)
-      workspace_manager.list_workspaces_prompt(window, pane)
-    end),
-  })
   
   -- Add process management keys
   table.insert(keys, {
@@ -149,7 +140,7 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
   })
   
   table.insert(keys, {
-    key = 'h',
+    key = '-',
     mods = config.pane_prefix,
     action = wezterm.action.SplitVertical { domain = 'CurrentPaneDomain' },
   })
@@ -168,7 +159,7 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
   
   -- Pane layouts
   table.insert(keys, {
-    key = 'space',
+    key = 'Space',
     mods = config.pane_prefix,
     action = wezterm.action_callback(function(window, pane)
       pane_manager.show_layout_selector(window, pane)
@@ -177,7 +168,7 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
   
   -- Pane synchronization
   table.insert(keys, {
-    key = 's',
+    key = 'y',
     mods = config.pane_prefix,
     action = wezterm.action_callback(function(window, pane)
       pane_manager.toggle_sync_current_panes(window, pane)
@@ -341,7 +332,7 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
   })
   
   table.insert(keys, {
-    key = 'l',
+    key = 'D',
     mods = 'CTRL|SHIFT',
     action = wezterm.action.ShowDebugOverlay,
   })
@@ -373,9 +364,6 @@ function Keybindings.build_key_tables(workspace_manager, pane_manager, dashboard
       { key = 'x', action = wezterm.action_callback(function(window, pane)
           workspace_manager.delete_workspace_prompt(window, pane)
         end) },
-      { key = 'l', action = wezterm.action_callback(function(window, pane)
-          workspace_manager.list_workspaces_prompt(window, pane)
-        end) },
       
       -- Process management
       { key = 's', action = wezterm.action_callback(function(window, pane)
@@ -397,7 +385,7 @@ function Keybindings.build_key_tables(workspace_manager, pane_manager, dashboard
         end) },
       
       -- Pane layouts
-      { key = 'space', action = wezterm.action_callback(function(window, pane)
+      { key = 'Space', action = wezterm.action_callback(function(window, pane)
           pane_manager.show_layout_selector(window, pane)
         end) },
       
@@ -510,7 +498,6 @@ WezTerm Multi-Dev Framework - Keybindings Help
 Ctrl+Shift+N     - Create new workspace
 Ctrl+Shift+W     - Switch workspace
 Ctrl+Shift+X     - Delete workspace
-Ctrl+Shift+L     - List workspaces
 Ctrl+Shift+1-9   - Switch to numbered workspace
 
 === Process Management ===
@@ -522,11 +509,11 @@ F1-F12           - Focus process by number
 
 === Pane Management ===
 Alt+H/J/K/L      - Navigate panes
-Alt+V            - Split vertically
-Alt+H            - Split horizontally
+Alt+V            - Split horizontally
+Alt+-            - Split vertically
 Alt+Z            - Toggle pane zoom
 Alt+X            - Close pane
-Alt+S            - Toggle pane sync
+Alt+Y            - Toggle pane sync
 Alt+Space        - Select layout
 
 === Dashboard ===
@@ -565,7 +552,6 @@ function Keybindings.get_key_descriptions()
         { key = "Ctrl+Shift+N", description = "Create workspace" },
         { key = "Ctrl+Shift+W", description = "Switch workspace" },
         { key = "Ctrl+Shift+X", description = "Delete workspace" },
-        { key = "Ctrl+Shift+L", description = "List workspaces" },
       }
     },
     {
@@ -582,7 +568,7 @@ function Keybindings.get_key_descriptions()
       keys = {
         { key = "Alt+H/J/K/L", description = "Navigate panes" },
         { key = "Alt+Space", description = "Select layout" },
-        { key = "Alt+S", description = "Toggle sync" },
+        { key = "Alt+Y", description = "Toggle sync" },
       }
     },
     {

@@ -2,7 +2,7 @@
 -- Provides WebSocket client and real-time UI updates
 
 local wezterm = require 'wezterm'
-local json = require 'lua.utils.json'
+local json = require 'utils.json'
 
 local Dashboard = {}
 

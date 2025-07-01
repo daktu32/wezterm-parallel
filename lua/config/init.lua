@@ -2,11 +2,11 @@
 -- This file provides the main configuration for the WezTerm integration
 
 local wezterm = require 'wezterm'
-local workspace_manager = require 'lua.workspace.manager'
-local ui_manager = require 'lua.ui.manager'
-local dashboard = require 'lua.ui.dashboard'
-local pane_manager = require 'lua.ui.pane_manager'
-local keybindings = require 'lua.config.keybindings'
+local workspace_manager = require 'workspace.manager'
+local ui_manager = require 'ui.manager'
+local dashboard = require 'ui.dashboard'
+local pane_manager = require 'ui.pane_manager'
+local keybindings = require 'config.keybindings'
 
 local config = wezterm.config_builder()
 
@@ -73,6 +73,11 @@ config.tab_and_split_indices_are_zero_based = true
 -- Enhanced keybindings with comprehensive framework support
 config.keys = keybindings.build_keys(workspace_manager, pane_manager, dashboard)
 config.key_tables = keybindings.build_key_tables(workspace_manager, pane_manager, dashboard)
+
+-- Register keybinding event handlers
+wezterm.on('workspace-create', function(window, pane)
+  workspace_manager.create_workspace_prompt(window, pane)
+end)
 
 -- Window events
 wezterm.on('gui-startup', function(cmd)

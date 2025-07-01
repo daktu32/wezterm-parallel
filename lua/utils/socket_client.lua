@@ -9,7 +9,7 @@ local wezterm = _G.wezterm or {
   sleep_ms = function(ms) end
 }
 
-local json = require 'lua.utils.json'
+local json = require 'utils.json'
 
 local socket_client = {}
 
