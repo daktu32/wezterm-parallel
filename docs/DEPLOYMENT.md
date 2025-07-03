@@ -1,4 +1,10 @@
 # デプロイメントガイド
+---
+**Last Updated**: 2025-07-03
+**Version**: 0.1.0
+**Next Review**: 2025-10-01
+---
+
 
 ## 概要
 
@@ -300,3 +306,8 @@ rm -rf ~/.wezterm-parallel/
 # WezTerm設定から統合部分を削除
 # ~/.config/wezterm/wezterm.lua を編集
 ```
+## 関連ドキュメント
+- [プロジェクト概要](../README.md)
+- [ドキュメント体系](DOCUMENTATION-MAP.md)
+- [アーキテクチャ](ARCHITECTURE.md)
+- [貢献ガイド](CONTRIBUTING.md)

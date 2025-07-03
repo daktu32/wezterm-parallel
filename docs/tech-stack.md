@@ -1,5 +1,4 @@
 # WezTerm マルチプロセス並行開発フレームワーク - Technology Stack
-
 ---
 **Last Updated**: 2025-07-03  
 **Stack Version**: v0.1.0  

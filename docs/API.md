@@ -1,5 +1,4 @@
 # API仕様書
-
 ---
 **Last Updated**: 2025-07-03  
 **API Version**: v0.1.0  
@@ -9,6 +8,7 @@
 ## 概要
 
 WezTermマルチプロセス開発補助ツールのAPI仕様を定義します。
+詳細な設計背景は[ARCHITECTURE.md](ARCHITECTURE.md)を、セキュリティ仕様は[SECURITY.md](SECURITY.md)を、実装例は[CONTRIBUTING.md](CONTRIBUTING.md)を参照してください。
 
 ### 関連ドキュメント
 - **設計思想**: [ARCHITECTURE.md](ARCHITECTURE.md) - システム設計・アーキテクチャ詳細
@@ -303,7 +303,6 @@ local status = wezterm_parallel.get_process_status("claude-main")
 互換性ポリシー:
 - マイナーバージョン: 後方互換性維持
 - メジャーバージョン: 破壊的変更あり
-
 ---
 
 ## 関連ドキュメント

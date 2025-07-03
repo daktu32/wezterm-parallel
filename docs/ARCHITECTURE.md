@@ -1,4 +1,10 @@
 # WezTerm マルチプロセス開発補助ツール - アーキテクチャ仕様書
+---
+**Last Updated**: 2025-07-03
+**Version**: 0.1.0
+**Next Review**: 2025-10-01
+---
+
 
 ## 1. システム全体アーキテクチャ
 
@@ -637,3 +643,9 @@ impl EventSystem {
 ```
 
 この設計により、WezTerm単体でも堅牢で拡張可能なマルチプロセス並行開発環境を構築できます。
+
+## 関連ドキュメント
+- [プロジェクト概要](../README.md)
+- [ドキュメント体系](DOCUMENTATION-MAP.md)
+- [アーキテクチャ](ARCHITECTURE.md)
+- [貢献ガイド](CONTRIBUTING.md)
