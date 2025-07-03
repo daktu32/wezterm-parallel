@@ -1,4 +1,10 @@
 # WezTerm マルチプロセス並行開発フレームワーク - Technology Stack
+---
+**Last Updated**: 2025-07-03
+**Version**: 0.1.0
+**Next Review**: 2025-10-01
+---
+
 
 このドキュメントはプロジェクトの技術スタックを定義します。他のドキュメントはこれを技術選択の信頼できる情報源として参照します。
 実装フェーズに関する進捗情報はPROGRESS.mdに統合されました。本ファイルは技術選定の理由と要件のみを記載します。
@@ -189,6 +195,9 @@ pub enum Message {
 ## 開発フェーズ別技術導入
 進捗管理は[PROGRESS.md](../PROGRESS.md)を参照
 
-**Last Updated**: 2025-06-26  
-**Reviewed By**: Claude Code Assistant  
-**Next Review**: Phase 2完了時
+
+## 関連ドキュメント
+- [プロジェクト概要](../README.md)
+- [ドキュメント体系](DOCUMENTATION-MAP.md)
+- [アーキテクチャ](ARCHITECTURE.md)
+- [貢献ガイド](CONTRIBUTING.md)
