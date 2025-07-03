@@ -187,9 +187,10 @@ pub enum Message {
 ## 開発フェーズ別技術導入
 
 ### Phase 1: 基盤構築 (✅ 完了)
-- ✅ Rust basic structure (6,734行実装済み)
-- ✅ WezTerm Lua basic integration (3,239行準備済み)
+- ✅ Rust basic structure
+- ✅ WezTerm Lua basic integration
 - ✅ Simple IPC implementation (Unix Domain Socket実装済み)
+- 実装状況の詳細は[PROGRESS.md](../PROGRESS.md)を参照
 
 ### Phase 2: コア機能 (🔄 実装中)
 - ✅ Full IPC protocol (実装完了)
