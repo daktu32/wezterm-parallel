@@ -56,39 +56,39 @@ WezTermマルチプロセス開発補助ツールのAPI仕様を定義します�
 ```json
 {
   "Status": {
-    "workspaces": [...],
+    "rooms": [...],
     "processes": [...],
     "system_metrics": {...}
   }
 }
 ```
 
-### 2.2 ワークスペース管理
+### 2.2 Room管理
 
-#### WorkspaceCreate
+#### RoomCreate
 ```json
 {
-  "WorkspaceCreate": {
+  "RoomCreate": {
     "name": "project-name",
     "template": "default|web_dev|rust_dev|research"
   }
 }
 ```
 
-#### WorkspaceSwitch
+#### RoomSwitch
 ```json
 {
-  "WorkspaceSwitch": {
-    "name": "workspace-name"
+  "RoomSwitch": {
+    "name": "room-name"
   }
 }
 ```
 
-#### WorkspaceDelete
+#### RoomDelete
 ```json
 {
-  "WorkspaceDelete": {
-    "name": "workspace-name"
+  "RoomDelete": {
+    "name": "room-name"
   }
 }
 ```
@@ -101,8 +101,8 @@ WezTermマルチプロセス開発補助ツールのAPI仕様を定義します�
   "ProcessSpawn": {
     "id": "process-id",
     "command": "claude-code",
-    "args": ["--workspace", "main"],
-    "workspace": "workspace-name",
+    "args": ["--room", "main"],
+    "room": "room-name",
     "env": {
       "CLAUDE_SESSION": "session-id"
     }
@@ -204,20 +204,20 @@ WezTermマルチプロセス開発補助ツールのAPI仕様を定義します�
 
 ## 4. Lua API (WezTerm統合)
 
-### 4.1 ワークスペース操作
+### 4.1 Room操作
 
 ```lua
--- ワークスペース作成
-wezterm_parallel.create_workspace({
+-- Room作成
+wezterm_parallel.create_room({
   name = "my-project",
   template = "claude-dev"
 })
 
--- ワークスペース切り替え
-wezterm_parallel.switch_workspace("my-project")
+-- Room切り替え
+wezterm_parallel.switch_room("my-project")
 
--- ワークスペース一覧
-local workspaces = wezterm_parallel.list_workspaces()
+-- Room一覧
+local rooms = wezterm_parallel.list_rooms()
 ```
 
 ### 4.2 テンプレート適用 (Issue #18)
@@ -242,7 +242,7 @@ wezterm_parallel.save_current_layout({
 wezterm_parallel.spawn_process({
   id = "claude-main",
   command = "claude-code",
-  workspace = "current"
+  room = "current"
 })
 
 -- プロセス状態取得
@@ -253,8 +253,8 @@ local status = wezterm_parallel.get_process_status("claude-main")
 
 | コード | 説明 |
 |-------|------|
-| 1001 | ワークスペースが見つからない |
-| 1002 | ワークスペース作成失敗 |
+| 1001 | Roomが見つからない |
+| 1002 | Room作成失敗 |
 | 2001 | プロセスが見つからない |
 | 2002 | プロセス起動失敗 |
 | 3001 | タスクが見つからない |

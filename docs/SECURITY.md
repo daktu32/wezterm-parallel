@@ -126,7 +126,7 @@ impl Message {
 
 #### テンプレート検証
 ```lua
--- lua/workspace/template_validator.lua
+-- lua/room/template_validator.lua
 local validator = {}
 
 function validator.validate_template(template)
@@ -375,7 +375,7 @@ mod security_tests {
         ];
         
         for path in paths {
-            let result = validate_workspace_path(path);
+            let result = validate_room_path(path);
             assert!(result.is_err());
         }
     }
