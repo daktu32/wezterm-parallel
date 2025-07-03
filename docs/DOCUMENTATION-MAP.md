@@ -238,6 +238,14 @@ graph TB
 - **目的**: 現在の開発状況の記録
 - **内容**:
   - フェーズ進捗
+### 層間情報フロー
+- **設計層 → 実装層**
+  - ARCHITECTURE.md → FEATURE-SPEC.md
+  - tech-stack.md → TESTING.md
+- **実装層 → 進捗管理層**
+  - FEATURE-SPEC.md → PROGRESS.md
+  - TESTING.md → PROGRESS.md
+
   - 完了タスク
   - テスト結果
   - 更新ログ
