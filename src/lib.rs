@@ -9,6 +9,7 @@ pub mod task;
 pub mod monitoring;
 pub mod sync;
 pub mod error;
+pub mod performance;
 
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
