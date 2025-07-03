@@ -6,7 +6,7 @@ use std::env;
 use tracing::{info, error, warn};
 use wezterm_parallel::{
     Message, 
-    workspace::WorkspaceManager,
+    room::WorkspaceManager,
     dashboard::{WebSocketServer, DashboardConfig},
     task::{TaskManager, TaskConfig},
     sync::FileSyncManager,

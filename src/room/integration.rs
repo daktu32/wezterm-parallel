@@ -6,9 +6,9 @@ use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tracing::{info, warn};
 
-use crate::workspace::manager::WorkspaceManager;
+use crate::room::manager::WorkspaceManager;
 use crate::process::manager::ProcessManager;
-use crate::workspace::state::{ProcessInfo, ProcessStatus};
+use crate::room::state::{ProcessInfo, ProcessStatus};
 
 /// Integrated manager that combines WorkspaceManager and ProcessManager
 /// to provide unified workspace-process lifecycle management

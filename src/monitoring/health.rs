@@ -2,7 +2,7 @@
 // Provides comprehensive health monitoring for all system components
 
 use super::{HealthCheck, HealthStatus, ComponentHealth};
-use crate::workspace::WorkspaceManager;
+use crate::room::WorkspaceManager;
 use crate::task::TaskManager;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -521,7 +521,7 @@ fn current_timestamp() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::workspace::WorkspaceManager;
+    use crate::room::WorkspaceManager;
     use crate::task::{TaskManager, TaskConfig};
     
     #[tokio::test]

@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::workspace::state::{WorkspaceConfig, LayoutConfig, LayoutType, SplitDirection};
+use crate::room::state::{WorkspaceConfig, LayoutConfig, LayoutType, SplitDirection};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorkspaceTemplate {

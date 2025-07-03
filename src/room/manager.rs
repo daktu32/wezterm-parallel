@@ -8,8 +8,8 @@ use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::workspace::state::{WorkspaceState, ProcessInfo, ProcessStatus};
-use crate::workspace::template::{TemplateEngine, WorkspaceTemplate};
+use crate::room::state::{WorkspaceState, ProcessInfo, ProcessStatus};
+use crate::room::template::{TemplateEngine, WorkspaceTemplate};
 use crate::process::{ClaudeCodeDetector, ClaudeCodeConfig, ClaudeCodeConfigBuilder, ProcessManager, ProcessConfig};
 
 #[derive(Debug)]

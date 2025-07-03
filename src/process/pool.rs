@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn, debug};
 
-use crate::workspace::state::{ProcessInfo, ProcessStatus, TaskState};
+use crate::room::state::{ProcessInfo, ProcessStatus, TaskState};
 use super::manager::ProcessManager;
 
 #[derive(Debug)]
@@ -392,7 +392,7 @@ mod tests {
             workspace: workspace.to_string(),
             command: "test command".to_string(),
             priority: 5,
-            status: crate::workspace::state::TaskStatus::Queued,
+            status: crate::room::state::TaskStatus::Queued,
             dependencies: vec![],
             assigned_process: None,
             created_at: SystemTime::now(),

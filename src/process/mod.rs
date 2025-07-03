@@ -11,7 +11,7 @@ pub mod claude_health;
 pub mod claude_logger;
 
 pub use manager::{ProcessManager, ProcessConfig, ProcessEvent};
-pub use crate::workspace::state::ProcessInfo;
+pub use crate::room::state::ProcessInfo;
 pub use pool::ProcessPool;
 pub use monitor::ProcessMonitor;
 pub use coordinator::ProcessCoordinator;

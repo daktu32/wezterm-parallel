@@ -5,6 +5,30 @@ use std::collections::HashMap;
 use std::time::SystemTime;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AccessRecord {
+    pub timestamp: SystemTime,
+    pub duration: u64, // in seconds
+    pub action: AccessAction,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum AccessAction {
+    Create,
+    Switch,
+    Delete,
+    Restore,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RoomUsageStats {
+    pub total_sessions: u32,
+    pub total_duration: u64,
+    pub last_accessed: SystemTime,
+    pub created_at: SystemTime,
+    pub average_session_duration: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorkspaceState {
     pub name: String,
     pub template: String,
@@ -15,6 +39,9 @@ pub struct WorkspaceState {
     pub created_at: SystemTime,
     pub last_accessed: SystemTime,
     pub is_active: bool,
+    pub access_history: Vec<AccessRecord>,
+    pub session_count: u32,
+    pub total_duration: u64, // in seconds
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -176,6 +203,45 @@ impl WorkspaceState {
             created_at: now,
             last_accessed: now,
             is_active: false,
+            access_history: vec![AccessRecord {
+                timestamp: now,
+                duration: 0,
+                action: AccessAction::Create,
+            }],
+            session_count: 1,
+            total_duration: 0,
+        }
+    }
+
+    pub fn record_access(&mut self, action: AccessAction, duration: u64) {
+        self.access_history.push(AccessRecord {
+            timestamp: SystemTime::now(),
+            duration,
+            action,
+        });
+        self.last_accessed = SystemTime::now();
+        if matches!(action, AccessAction::Switch) {
+            self.session_count += 1;
+        }
+        self.total_duration += duration;
+        
+        // 履歴が長くなりすぎないよう制限
+        if self.access_history.len() > 100 {
+            self.access_history.drain(0..50);
+        }
+    }
+
+    pub fn get_usage_stats(&self) -> RoomUsageStats {
+        RoomUsageStats {
+            total_sessions: self.session_count,
+            total_duration: self.total_duration,
+            last_accessed: self.last_accessed,
+            created_at: self.created_at,
+            average_session_duration: if self.session_count > 0 {
+                self.total_duration / self.session_count as u64
+            } else {
+                0
+            },
         }
     }
 

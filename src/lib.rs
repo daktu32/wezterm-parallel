@@ -1,6 +1,6 @@
 // WezTerm Multi-Process Development Framework - Library
 
-pub mod workspace;
+pub mod room;
 pub mod process;
 pub mod config;
 pub mod metrics;
@@ -52,7 +52,7 @@ pub enum CoordinationEvent {
     },
     // ステータスの更新
     StatusUpdate {
-        status: workspace::state::ProcessStatus,
+        status: room::state::ProcessStatus,
         cpu_usage: f64,
         memory_usage: u64,
     },
@@ -93,7 +93,7 @@ pub enum CoordinationResponse {
 }
 
 // ProcessStatusを再エクスポート
-pub use workspace::state::ProcessStatus;
+pub use room::state::ProcessStatus;
 
 #[cfg(test)]
 mod tests {

@@ -10,7 +10,7 @@ use tokio::time::sleep;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn, error, debug};
 
-use crate::workspace::state::{ProcessInfo, ProcessStatus};
+use crate::room::state::{ProcessInfo, ProcessStatus};
 
 #[derive(Debug)]
 pub struct ProcessManager {

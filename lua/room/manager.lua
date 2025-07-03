@@ -144,6 +144,9 @@ function RoomManager.switch_room(name)
   
   wezterm.log_info("Switching to room: " .. name)
   
+  -- 現在のRoomの状態を保存
+  RoomManager.save_current_room_state()
+  
   local room = rooms[name]
   
   -- 保存されたタブが存在するか確認
@@ -151,6 +154,10 @@ function RoomManager.switch_room(name)
     -- タブをアクティブ化
     room.tab:activate()
     current_room = name
+    
+    -- Room状態を復元
+    RoomManager.restore_room_state(name)
+    
     wezterm.log_info("Activated tab for room: " .. name)
     return true
   elseif room.window then
@@ -356,22 +363,46 @@ function RoomManager.delete_room_prompt(window, pane)
     act.InputSelector {
       action = wezterm.action_callback(function(inner_window, inner_pane, id, label)
         if id and rooms[id] then
-          -- タブがある場合は閉じる
-          if rooms[id].tab then
-            -- タブを閉じるアクションを実行
-            inner_window:perform_action(
-              wezterm.action.CloseCurrentTab { confirm = false },
-              rooms[id].pane
-            )
-          end
-          
-          -- ルームを削除
-          rooms[id] = nil
-          
-          wezterm.log_info("Room deleted: " .. id)
+          -- 確認ダイアログを表示
+          inner_window:perform_action(
+            act.PromptInputLine {
+              description = string.format('本当にRoom "%s" を削除しますか？ "yes" と入力してください:', id),
+              action = wezterm.action_callback(function(confirm_window, confirm_pane, line)
+                if line and line:lower() == "yes" then
+                  -- Save deletion record to history
+                  local room = rooms[id]
+                  if room then
+                    room.access_history = room.access_history or {}
+                    table.insert(room.access_history, {
+                      timestamp = os.time(),
+                      duration = 0,
+                      action = "delete"
+                    })
+                  end
+                  
+                  -- タブがある場合は閉じる
+                  if room and room.tab then
+                    -- タブを閉じるアクションを実行
+                    confirm_window:perform_action(
+                      wezterm.action.CloseCurrentTab { confirm = false },
+                      room.pane
+                    )
+                  end
+                  
+                  -- ルームを削除
+                  rooms[id] = nil
+                  
+                  wezterm.log_info("Room deleted: " .. id)
+                else
+                  wezterm.log_info("Room deletion cancelled: " .. id)
+                end
+              end),
+            },
+            inner_pane
+          )
         end
       end),
-      title = 'Delete Room',
+      title = 'Delete Room (確認が必要)',
       choices = choices,
       fuzzy = true,
     },
@@ -379,5 +410,133 @@ function RoomManager.delete_room_prompt(window, pane)
   )
 end
 
+
+-- Save current room state before switching
+function RoomManager.save_current_room_state()
+  if not current_room or current_room == "" then
+    return
+  end
+  
+  local room = rooms[current_room]
+  if not room or not room.pane then
+    return
+  end
+  
+  -- Get current working directory
+  local success, stdout, stderr = pcall(function()
+    return room.pane:get_current_working_dir()
+  end)
+  
+  if success and stdout then
+    room.saved_cwd = stdout.file_path
+  end
+  
+  -- Save pane title
+  if room.tab then
+    room.saved_title = room.tab:get_title()
+  end
+  
+  -- Record access for history
+  local session_duration = os.time() - (room.session_start or os.time())
+  room.access_history = room.access_history or {}
+  table.insert(room.access_history, {
+    timestamp = os.time(),
+    duration = session_duration,
+    action = "switch_out"
+  })
+  
+  wezterm.log_info("Saved state for room: " .. current_room)
+end
+
+-- Restore room state when switching to it
+function RoomManager.restore_room_state(name)
+  local room = rooms[name]
+  if not room then
+    return
+  end
+  
+  -- Record session start time
+  room.session_start = os.time()
+  
+  -- Restore working directory if saved
+  if room.saved_cwd and room.pane then
+    room.pane:send_text("cd " .. room.saved_cwd .. "\n")
+    wezterm.log_info("Restored working directory: " .. room.saved_cwd)
+  end
+  
+  -- Record access for history
+  room.access_history = room.access_history or {}
+  table.insert(room.access_history, {
+    timestamp = os.time(),
+    duration = 0,
+    action = "switch_in"
+  })
+  
+  -- Increment session count
+  room.session_count = (room.session_count or 0) + 1
+  
+  wezterm.log_info("Restored state for room: " .. name)
+end
+
+-- Get room usage statistics
+function RoomManager.get_room_stats(name)
+  local room = rooms[name]
+  if not room then
+    return nil
+  end
+  
+  local total_duration = 0
+  local access_count = 0
+  
+  if room.access_history then
+    for _, access in ipairs(room.access_history) do
+      total_duration = total_duration + (access.duration or 0)
+      access_count = access_count + 1
+    end
+  end
+  
+  return {
+    name = name,
+    created_at = room.created_at,
+    session_count = room.session_count or 1,
+    total_duration = total_duration,
+    access_count = access_count,
+    last_accessed = room.access_history and room.access_history[#room.access_history] and room.access_history[#room.access_history].timestamp or room.created_at,
+    average_session_duration = access_count > 0 and total_duration / access_count or 0
+  }
+end
+
+-- Get sorted room list
+function RoomManager.get_sorted_rooms(sort_by)
+  local room_list = {}
+  
+  for name, room in pairs(rooms) do
+    local stats = RoomManager.get_room_stats(name)
+    if stats then
+      table.insert(room_list, stats)
+    end
+  end
+  
+  -- Sort based on criteria
+  if sort_by == "last_accessed" then
+    table.sort(room_list, function(a, b)
+      return a.last_accessed > b.last_accessed
+    end)
+  elseif sort_by == "name" then
+    table.sort(room_list, function(a, b)
+      return a.name < b.name
+    end)
+  elseif sort_by == "created_at" then
+    table.sort(room_list, function(a, b)
+      return a.created_at > b.created_at
+    end)
+  elseif sort_by == "session_count" then
+    table.sort(room_list, function(a, b)
+      return a.session_count > b.session_count
+    end)
+  end
+  
+  return room_list
+end
 
 return RoomManager

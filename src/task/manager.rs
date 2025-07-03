@@ -5,7 +5,7 @@ use super::types::{Task, TaskId, TaskStatus, TaskCategory, TaskFilter, TaskExecu
 use super::queue::{TaskQueue, QueueConfig};
 use super::tracker::{TaskTracker};
 use super::{TaskConfig, TaskSystemStats, TaskError, TaskResult, current_timestamp};
-use crate::workspace::WorkspaceManager;
+use crate::room::WorkspaceManager;
 use crate::process::manager::ProcessManager;
 
 use serde::{Deserialize, Serialize};
