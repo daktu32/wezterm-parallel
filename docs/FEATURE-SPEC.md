@@ -4,6 +4,8 @@
 
 WezTermマルチプロセス開発補助ツールの詳細な機能仕様を定義します。
 
+このドキュメントは機能実装状況を管理するSingle Source of Truthです。READMEやprd.mdから参照されます。
+
 ## 機能階層
 
 ```mermaid

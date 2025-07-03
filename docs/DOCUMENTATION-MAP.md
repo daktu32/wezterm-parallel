@@ -359,6 +359,15 @@ graph LR
   API仕様: API.md
 ```
 
+##### Single Source of Truth マッピング
+
+| 情報カテゴリ | 責任ドキュメント | 参照元 |
+|------------|----------------|-------|
+| 実装規模 | PROGRESS.md | README.md, tech-stack.md |
+| テスト数・結果 | TESTING.md | README.md, PROGRESS.md |
+| 機能実装状況 | FEATURE-SPEC.md | README.md, PRD.md |
+| API仕様 | API.md | 全ドキュメント |
+
 #### 2. 更新の伝播ルール
 情報を更新する際は、参照先も確認・更新：
 
