@@ -128,11 +128,11 @@ graph TB
 
 ## 5. 状態管理フロー
 
-### 5.1 ワークスペース状態
+### 5.1 Room状態
 
 ```yaml
-# ~/.wezterm-parallel/workspaces/project-name/state.yaml
-workspace:
+# ~/.wezterm-parallel/rooms/project-name/state.yaml
+room:
   name: project-name
   created_at: 2025-06-27T10:00:00Z
   template: claude-dev
@@ -198,7 +198,7 @@ tasks:
 2. Unix Socket → ファイル権限チェック
 3. SessionManager → セッション作成
 4. 全リクエスト → セッション検証
-5. プロセス → ワークスペース境界内で動作
+5. プロセス → Room境界内で動作
 ```
 
 ### 7.2 ログ記録

@@ -76,11 +76,11 @@ server:
   websocket_port: 9999
   log_level: info
 
-# ワークスペース設定
-workspace:
-  max_workspaces: 8
+# Room設定
+room:
+  max_rooms: 8
   default_template: claude-dev
-  state_dir: ~/.wezterm-parallel/workspaces
+  state_dir: ~/.wezterm-parallel/rooms
 
 # プロセス設定
 process:
@@ -110,9 +110,9 @@ wezterm_parallel.setup({
 
 -- キーバインド追加
 config.keys = {
-  -- ワークスペース操作
-  { key = 'n', mods = 'CTRL|SHIFT', action = wezterm_parallel.create_workspace },
-  { key = 'w', mods = 'CTRL|SHIFT', action = wezterm_parallel.switch_workspace },
+  -- Room操作
+  { key = 'n', mods = 'CTRL|SHIFT', action = wezterm_parallel.create_room },
+  { key = 'w', mods = 'CTRL|SHIFT', action = wezterm_parallel.switch_room },
   
   -- テンプレート操作 (Issue #18)
   { key = 't', mods = 'ALT', action = wezterm_parallel.show_template_picker },
@@ -158,9 +158,9 @@ sudo systemctl stop wezterm-parallel
 # 1. WezTermを起動
 wezterm
 
-# 2. 新規ワークスペース作成（Ctrl+Shift+N）
+# 2. 新規Room作成（Ctrl+Shift+N）
 # または
-echo '{"WorkspaceCreate":{"name":"my-project","template":"claude-dev"}}' | nc -U /tmp/wezterm-parallel.sock
+echo '{"RoomCreate":{"name":"my-project","template":"claude-dev"}}' | nc -U /tmp/wezterm-parallel.sock
 
 # 3. テンプレート適用（Alt+T）
 # 自動的にペインが分割され、Claude Codeが起動

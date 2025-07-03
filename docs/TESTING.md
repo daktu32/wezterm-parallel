@@ -62,18 +62,18 @@ mod tests {
 ```rust
 // tests/integration_test.rs
 #[tokio::test]
-async fn test_workspace_process_integration() {
-    let workspace_manager = WorkspaceManager::new();
+async fn test_room_process_integration() {
+    let room_manager = RoomManager::new();
     let process_manager = ProcessManager::new();
     
-    // ワークスペース作成
-    workspace_manager.create("test-workspace", "default").await.unwrap();
+    // Room作成
+    room_manager.create("test-room", "default").await.unwrap();
     
     // プロセス起動
     let process_id = process_manager.spawn_process(
         "test-process",
         "claude-code",
-        Some("test-workspace")
+        Some("test-room")
     ).await.unwrap();
     
     // 統合動作確認
@@ -180,9 +180,9 @@ fn test_with_mock() {
 
 ```rust
 // tests/fixtures/mod.rs
-pub fn create_test_workspace() -> Workspace {
-    Workspace {
-        name: "test-workspace".to_string(),
+pub fn create_test_room() -> Room {
+    Room {
+        name: "test-room".to_string(),
         template: "default".to_string(),
         created_at: 0,
     }
