@@ -129,9 +129,26 @@ cargo build --release
 - **個人のタスク管理と時間追跡**
 - **個人のWezTerm開発環境の整備**
 
+## 📚 詳細情報
+
+### アーキテクチャ・設計
+- **🏗️ システム設計**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - コンポーネント設計・アーキテクチャ詳細
+- **🔧 API仕様**: [docs/API.md](docs/API.md) - IPC・WebSocket・Lua API の完全仕様
+- **⚙️ 機能仕様**: [docs/FEATURE-SPEC.md](docs/FEATURE-SPEC.md) - 全機能の詳細仕様・実装状況
+
+### 開発・貢献
+- **🤝 貢献ガイド**: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) - 開発環境構築・貢献方法
+- **🧪 テスト詳細**: [docs/TESTING.md](docs/TESTING.md) - テスト戦略・実行方法
+- **🔒 セキュリティ**: [docs/SECURITY.md](docs/SECURITY.md) - セキュリティポリシー・脆弱性報告
+
+### プロジェクト管理
+- **📋 ドキュメント体系**: [docs/DOCUMENTATION-MAP.md](docs/DOCUMENTATION-MAP.md) - 全ドキュメントの役割・関係
+- **⚡ 技術スタック**: [docs/tech-stack.md](docs/tech-stack.md) - 採用技術・バージョン情報
+- **🎯 プロジェクト要求仕様**: [docs/prd.md](docs/prd.md) - プロダクト要求・制約事項
+
 ## 🤝 貢献
 
-個人利用での機能改善や拡張に興味がある方は歓迎します：
+個人利用での機能改善や拡張に興味がある方は歓迎します。詳細な貢献方法は[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)を参照してください：
 
 1. 新機能の提案と実装
 2. パフォーマンス最適化
@@ -149,4 +166,15 @@ MIT License
 
 ---
 
-**品質について**: 堅牢なテスト基盤により基本機能の品質を確認しています。詳細は[docs/TESTING.md](docs/TESTING.md)を参照してください。
+## 関連ドキュメント
+
+- **📋 ドキュメント体系**: [docs/DOCUMENTATION-MAP.md](docs/DOCUMENTATION-MAP.md) - 全ドキュメントの概要・役割
+- **🏗️ アーキテクチャ**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - システム設計詳細
+- **🔧 API仕様**: [docs/API.md](docs/API.md) - API完全リファレンス
+- **🤝 貢献ガイド**: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) - 開発・貢献方法
+
+---
+
+**Last Updated**: 2025-07-03  
+**Version**: v0.1.0  
+**Quality**: 堅牢なテスト基盤により基本機能の品質を確認しています。詳細は[docs/TESTING.md](docs/TESTING.md)を参照してください。

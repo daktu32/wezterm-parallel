@@ -1,7 +1,30 @@
 # WezTerm マルチプロセス並行開発フレームワーク - Technology Stack
 
+---
+**Last Updated**: 2025-07-03  
+**Stack Version**: v0.1.0  
+**Next Review**: 2025-09-03
+---
+
 このドキュメントはプロジェクトの技術スタックを定義します。他のドキュメントはこれを技術選択の信頼できる情報源として参照します。
 実装フェーズに関する進捗情報はPROGRESS.mdに統合されました。本ファイルは技術選定の理由と要件のみを記載します。
+
+## バージョン管理ポリシー
+
+### 最小サポートバージョン
+- **Rust**: 1.70.0+ (下位互換性保証)
+- **WezTerm**: 20240203-110809-5046fc22+ (安定版)
+- **Lua**: 5.4.0+ (WezTerm組み込み)
+
+### 推奨バージョン
+- **Rust**: 1.75.0+ (最新安定版推奨)
+- **WezTerm**: 最新安定版 (月次更新)
+- **Node.js**: 18.0.0+ (開発ツール用)
+
+### アップデート方針
+- **MAJOR変更**: 年1回（破壊的変更時）
+- **MINOR変更**: 四半期毎（新機能追加）
+- **PATCH変更**: 月次（セキュリティ・バグ修正）
 
 ## フロントエンド技術
 
@@ -189,6 +212,26 @@ pub enum Message {
 ## 開発フェーズ別技術導入
 進捗管理は[PROGRESS.md](../PROGRESS.md)を参照
 
-**Last Updated**: 2025-06-26  
-**Reviewed By**: Claude Code Assistant  
-**Next Review**: Phase 2完了時
+---
+
+## 依存関係バージョン詳細
+
+### Rust依存関係
+- **tokio**: ^1.28.0 (非同期ランタイム)
+- **serde**: ^1.0.160 (シリアライゼーション)
+- **clap**: ^4.0.0 (CLI引数解析)
+- **tracing**: ^0.1.37 (ログ・トレース)
+
+### 下位互換性情報
+- Rust 1.70.0以降：全機能サポート
+- WezTerm 20240203-110809-5046fc22以降：Lua API完全対応
+- 古いバージョンでの制限事項は[DEPLOYMENT.md](DEPLOYMENT.md)を参照
+
+---
+
+## 関連ドキュメント
+
+- **プロジェクト概要**: [../README.md](../README.md) - プロジェクト全体概要
+- **ドキュメント体系**: [DOCUMENTATION-MAP.md](DOCUMENTATION-MAP.md) - 全ドキュメント一覧
+- **アーキテクチャ**: [ARCHITECTURE.md](ARCHITECTURE.md) - システム設計詳細
+- **貢献ガイド**: [CONTRIBUTING.md](CONTRIBUTING.md) - 開発環境構築

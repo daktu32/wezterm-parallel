@@ -1,8 +1,30 @@
 # API仕様書
 
+---
+**Last Updated**: 2025-07-03  
+**API Version**: v0.1.0  
+**Next Review**: 2025-08-03
+---
+
 ## 概要
 
 WezTermマルチプロセス開発補助ツールのAPI仕様を定義します。
+
+### 関連ドキュメント
+- **設計思想**: [ARCHITECTURE.md](ARCHITECTURE.md) - システム設計・アーキテクチャ詳細
+- **セキュリティ仕様**: [SECURITY.md](SECURITY.md) - API セキュリティポリシー
+- **実装例**: [CONTRIBUTING.md](CONTRIBUTING.md) - API利用例・開発ガイド
+- **テスト仕様**: [TESTING.md](TESTING.md) - API テスト詳細
+
+### API バージョニング
+- **IPC API**: v0.1.0 (初期リリース)
+- **WebSocket API**: v0.1.0 (リアルタイム通信)
+- **Lua API**: v0.1.0 (WezTerm統合)
+
+### 下位互換性ポリシー
+- **MAJOR**: 破壊的変更
+- **MINOR**: 新機能追加（下位互換性あり）
+- **PATCH**: バグ修正・改善
 
 ## 1. IPC API (Unix Domain Socket)
 
@@ -281,3 +303,12 @@ local status = wezterm_parallel.get_process_status("claude-main")
 互換性ポリシー:
 - マイナーバージョン: 後方互換性維持
 - メジャーバージョン: 破壊的変更あり
+
+---
+
+## 関連ドキュメント
+
+- **プロジェクト概要**: [../README.md](../README.md) - プロジェクト全体概要
+- **ドキュメント体系**: [DOCUMENTATION-MAP.md](DOCUMENTATION-MAP.md) - 全ドキュメント一覧
+- **アーキテクチャ**: [ARCHITECTURE.md](ARCHITECTURE.md) - システム設計詳細
+- **貢献ガイド**: [CONTRIBUTING.md](CONTRIBUTING.md) - 開発・API利用例
