@@ -1,6 +1,7 @@
 # WezTerm マルチプロセス並行開発フレームワーク - Technology Stack
 
 このドキュメントはプロジェクトの技術スタックを定義します。他のドキュメントはこれを技術選択の信頼できる情報源として参照します。
+実装フェーズに関する進捗情報はPROGRESS.mdに統合されました。本ファイルは技術選定の理由と要件のみを記載します。
 
 ## フロントエンド技術
 
@@ -133,6 +134,7 @@ pub enum Message {
 | WezTerm | 20240203 | Latest stable | Lua API compatibility |
 | Lua | 5.4 | 5.4.x | WezTerm embedded |
 | Claude Code | Latest | Latest | External dependency |
+上記の最小バージョンは、必要機能を利用するための最低条件として設定されています。Rust 1.70以上を要求するのはasync/await安定版が必要なためです。
 
 ## 技術選択の根拠
 
@@ -185,24 +187,7 @@ pub enum Message {
 - **criterion**: パフォーマンステスト
 
 ## 開発フェーズ別技術導入
-
-### Phase 1: 基盤構築 (✅ 完了)
-- ✅ Rust basic structure
-- ✅ WezTerm Lua basic integration
-- ✅ Simple IPC implementation (Unix Domain Socket実装済み)
-- 実装状況の詳細は[PROGRESS.md](../PROGRESS.md)を参照
-
-### Phase 2: コア機能 (🔄 実装中)
-- ✅ Full IPC protocol (実装完了)
-- ✅ Process management (実装完了)
-- ✅ Workspace management (実装完了)
-
-### Phase 3: 高度機能 (📅 計画中)
-- 📅 Performance optimization
-- 📅 Advanced monitoring
-- 📅 Plugin system
-
----
+進捗管理は[PROGRESS.md](../PROGRESS.md)を参照
 
 **Last Updated**: 2025-06-26  
 **Reviewed By**: Claude Code Assistant  

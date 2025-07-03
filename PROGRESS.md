@@ -205,6 +205,23 @@
 - **型安全性**: Rustコンパイラによる保証
 - **テストカバレッジ**: 良好（主要機能をカバー）
 - **ドキュメント**: 基本的な説明とREADME
+### 技術フェーズ別導入状況
+
+#### Phase 1: 基盤構築 (✅ 完了)
+- ✅ Rust basic structure
+- ✅ WezTerm Lua basic integration
+- ✅ Simple IPC implementation (Unix Domain Socket実装済み)
+
+#### Phase 2: コア機能 (🔄 実装中)
+- ✅ Full IPC protocol (実装完了)
+- ✅ Process management (実装完了)
+- ✅ Workspace management (実装完了)
+
+#### Phase 3: 高度機能 (📅 計画中)
+- 📅 Performance optimization
+- 📅 Advanced monitoring
+- 📅 Plugin system
+
 
 ## 最近完了した作業 (2025-06-29)
 
