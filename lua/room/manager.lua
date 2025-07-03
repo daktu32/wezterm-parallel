@@ -138,7 +138,20 @@ end
 -- Switch to an existing room
 function RoomManager.switch_room(name)
   if not rooms[name] then
-    wezterm.log_error("Room not found: " .. name)
+    local error_message = "Room '" .. name .. "' が見つかりません"
+    wezterm.log_error(error_message)
+    
+    -- Show helpful error message with recovery guidance
+    local wezterm = require('wezterm')
+    if wezterm.gui then
+      wezterm.gui.gui_window():toast_notification('WezTerm Parallel', 
+        error_message .. '\n' .. 
+        '【対処法】Room名を確認するか、新しいRoomを作成してください\n' ..
+        '【推奨アクション】\n' ..
+        '1. 利用可能なRoom一覧を表示 (Ctrl+Shift+W)\n' ..
+        '2. 新しいRoomを作成 (Ctrl+Shift+N)', nil, 6000)
+    end
+    
     return false
   end
   
@@ -226,7 +239,18 @@ function RoomManager.switch_room_prompt(window, pane)
   end
   
   if #choices == 0 then
-    wezterm.log_info("No rooms available. Create one with Ctrl+Shift+N")
+    local message = "利用可能なRoomがありません"
+    wezterm.log_info(message)
+    
+    -- Show helpful guidance
+    local wezterm = require('wezterm')
+    if wezterm.gui then
+      wezterm.gui.gui_window():toast_notification('WezTerm Parallel', 
+        message .. '\n' .. 
+        '【対処法】新しいRoomを作成してください\n' ..
+        '【推奨アクション】\n' ..
+        '1. 新しいRoomを作成 (Ctrl+Shift+N)', nil, 4000)
+    end
     return
   end
   
@@ -355,7 +379,17 @@ function RoomManager.delete_room_prompt(window, pane)
   end
   
   if #choices == 0 then
-    wezterm.log_info("No other rooms to delete")
+    local message = "削除可能な他のRoomがありません"
+    wezterm.log_info(message)
+    
+    -- Show helpful guidance
+    local wezterm = require('wezterm')
+    if wezterm.gui then
+      wezterm.gui.gui_window():toast_notification('WezTerm Parallel', 
+        message .. '\n' .. 
+        '【情報】現在のRoomは削除できません\n' ..
+        '【注意】デフォルトRoomは削除対象に含まれません', nil, 4000)
+    end
     return
   end
   

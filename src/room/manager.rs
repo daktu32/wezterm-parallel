@@ -10,7 +10,8 @@ use tracing::{info, warn};
 
 use crate::room::state::{WorkspaceState, ProcessInfo, ProcessStatus};
 use crate::room::template::{TemplateEngine, WorkspaceTemplate};
-use crate::process::{ClaudeCodeDetector, ClaudeCodeConfig, ClaudeCodeConfigBuilder, ProcessManager, ProcessConfig};
+use crate::process::{ClaudeCodeDetector, ClaudeCodeConfig, ClaudeCodeConfigBuilder, ProcessManager};
+use crate::error::{UserError, Result};
 
 #[derive(Debug)]
 pub struct WorkspaceManager {
@@ -32,7 +33,7 @@ struct PersistedState {
 }
 
 impl WorkspaceManager {
-    pub fn new(state_file_path: Option<PathBuf>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(state_file_path: Option<PathBuf>) -> Result<Self> {
         let state_path = state_file_path.unwrap_or_else(|| {
             let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
             path.push("wezterm-parallel");
@@ -66,12 +67,13 @@ impl WorkspaceManager {
         // Ensure we have at least the default workspace
         let has_workspaces = {
             let workspaces = manager.workspaces.try_read()
-                .map_err(|_| "Failed to read workspaces")?;
+                .map_err(|_| UserError::system_resource_exhausted("lockコンテンション"))?;
             !workspaces.is_empty()
         };
         
         if !has_workspaces {
-            manager.create_default_workspace()?;
+            manager.create_default_workspace()
+                .map_err(|e| UserError::config_load_failed("デフォルトワークスペース", &e.to_string()))?;
         }
 
         info!("WorkspaceManager initialized with {} workspaces", 
@@ -80,26 +82,27 @@ impl WorkspaceManager {
         Ok(manager)
     }
 
-    pub async fn create_workspace(&self, name: &str, template_name: &str) -> Result<(), String> {
+    pub async fn create_workspace(&self, name: &str, template_name: &str) -> Result<()> {
         if name.is_empty() {
-            return Err("Workspace name cannot be empty".to_string());
+            return Err(UserError::room_creation_failed(name, "Room名が空です"));
         }
 
         // Check if workspace already exists
         {
             let workspaces = self.workspaces.read().await;
             if workspaces.contains_key(name) {
-                return Err(format!("Workspace '{}' already exists", name));
+                return Err(UserError::room_creation_failed(name, "同名のRoomが既に存在します"));
             }
 
             // Check workspace limit
             if workspaces.len() >= self.max_workspaces {
-                return Err(format!("Maximum number of workspaces ({}) reached", self.max_workspaces));
+                return Err(UserError::room_creation_failed(name, &format!("Room数の上限（{}個）に達しています", self.max_workspaces)));
             }
         }
 
         // Apply template to create config
-        let config = self.template_engine.apply_template(template_name, name)?;
+        let config = self.template_engine.apply_template(template_name, name)
+            .map_err(|e| UserError::room_creation_failed(name, &format!("テンプレートの適用に失敗: {}", e)))?;
         
         // Create workspace state
         let workspace_state = WorkspaceState::new(name.to_string(), config);
@@ -110,28 +113,28 @@ impl WorkspaceManager {
             workspaces.insert(name.to_string(), workspace_state);
         }
 
-        info!("Created workspace '{}' with template '{}'", name, template_name);
+        info!("Room '{}' をテンプレート '{}' で作成しました", name, template_name);
 
         // Auto-start Claude Code if enabled
         if self.auto_start_claude_code {
             if let Err(e) = self.auto_start_claude_code_for_workspace(name).await {
-                warn!("Failed to auto-start Claude Code for workspace '{}': {}", name, e);
+                warn!("Room '{}' でのClaude Code自動起動に失敗: {}", name, e);
             }
         }
 
         // Auto-save if enabled
         if self.auto_save_enabled {
             if let Err(e) = self.save_state().await {
-                warn!("Failed to auto-save workspace state: {}", e);
+                warn!("Room状態の自動保存に失敗: {}", e);
             }
         }
 
         Ok(())
     }
 
-    pub async fn delete_workspace(&self, name: &str) -> Result<(), String> {
+    pub async fn delete_workspace(&self, name: &str) -> Result<()> {
         if name == "default" {
-            return Err("Cannot delete the default workspace".to_string());
+            return Err(UserError::room_creation_failed(name, "デフォルトRoomは削除できません"));
         }
 
         let removed = {
@@ -152,12 +155,17 @@ impl WorkspaceManager {
                 
                 Ok(())
             }
-            None => Err(format!("Workspace '{}' not found", name))
+            None => Err(UserError::room_not_found(name))
         }
     }
 
-    pub async fn switch_workspace(&self, name: &str) -> Result<(), String> {
+    pub async fn switch_workspace(&self, name: &str) -> Result<()> {
         let mut workspaces = self.workspaces.write().await;
+        
+        // Check if workspace exists first
+        if !workspaces.contains_key(name) {
+            return Err(UserError::room_not_found(name));
+        }
         
         // Deactivate all workspaces
         for workspace in workspaces.values_mut() {
@@ -171,7 +179,7 @@ impl WorkspaceManager {
                 info!("Switched to workspace '{}'", name);
                 Ok(())
             }
-            None => Err(format!("Workspace '{}' not found", name))
+            None => Err(UserError::room_not_found(name))
         }
     }
 
@@ -193,7 +201,7 @@ impl WorkspaceManager {
             .map(|(name, workspace)| (name.clone(), workspace.clone()))
     }
 
-    pub async fn update_workspace_state<F>(&self, name: &str, updater: F) -> Result<(), String>
+    pub async fn update_workspace_state<F>(&self, name: &str, updater: F) -> Result<()>
     where
         F: FnOnce(&mut WorkspaceState),
     {
@@ -213,7 +221,7 @@ impl WorkspaceManager {
                 
                 Ok(())
             }
-            None => Err(format!("Workspace '{}' not found", name))
+            None => Err(UserError::room_not_found(name))
         }
     }
 
@@ -229,7 +237,7 @@ impl WorkspaceManager {
         self.template_engine.get_template(name)
     }
 
-    pub async fn save_state(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn save_state(&self) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let workspaces = self.workspaces.read().await;
         
         let state = PersistedState {
@@ -249,7 +257,7 @@ impl WorkspaceManager {
         Ok(())
     }
 
-    pub fn load_state(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn load_state(&self) -> std::result::Result<(), Box<dyn std::error::Error>> {
         if !self.state_file_path.exists() {
             info!("No existing workspace state file found");
             return Ok(());
@@ -275,7 +283,7 @@ impl WorkspaceManager {
         Ok(())
     }
 
-    fn create_default_workspace(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn create_default_workspace(&self) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let config = self.template_engine
             .apply_template("basic", "default")
             .map_err(|e| format!("Failed to create default workspace: {}", e))?;
@@ -357,20 +365,20 @@ impl WorkspaceManager {
     }
 
     /// 指定されたワークスペースでClaude Codeを自動起動
-    async fn auto_start_claude_code_for_workspace(&self, workspace_name: &str) -> Result<(), String> {
+    async fn auto_start_claude_code_for_workspace(&self, workspace_name: &str) -> Result<()> {
         // Claude Codeバイナリを検出
         let binary_path = match self.claude_code_detector.detect() {
             Ok(path) => path,
             Err(e) => {
-                return Err(format!("Failed to detect Claude Code binary: {}", e));
+                return Err(UserError::claude_code_startup_failed(&format!("バイナリ検出に失敗: {}", e)));
             }
         };
 
         info!("Detected Claude Code binary at: {:?}", binary_path);
 
         // ワークスペース情報を取得
-        let workspace_info = self.get_workspace_info(workspace_name).await
-            .ok_or_else(|| format!("Workspace '{}' not found", workspace_name))?;
+        let _workspace_info = self.get_workspace_info(workspace_name).await
+            .ok_or_else(|| UserError::room_not_found(workspace_name))?;
 
         // プロジェクトルートを取得（現在のディレクトリ、または指定されたディレクトリ）
         let project_root = std::env::current_dir().ok();
@@ -387,7 +395,7 @@ impl WorkspaceManager {
         {
             Ok(config) => config,
             Err(e) => {
-                return Err(format!("Failed to build Claude Code config: {}", e));
+                return Err(UserError::claude_code_startup_failed(&format!("設定構築に失敗: {}", e)));
             }
         };
 
@@ -412,12 +420,12 @@ impl WorkspaceManager {
                             last_heartbeat: SystemTime::now(),
                             restart_count: 0,
                         });
-                    }).await.map_err(|e| format!("Failed to update workspace state: {}", e))?;
+                    }).await?;
 
                     Ok(())
                 }
                 Err(e) => {
-                    Err(format!("Failed to spawn Claude Code process: {}", e))
+                    Err(UserError::claude_code_startup_failed(&format!("プロセス起動に失敗: {}", e)))
                 }
             }
         } else {
@@ -432,7 +440,7 @@ impl WorkspaceManager {
         process_manager: &ProcessManager,
         workspace_name: &str,
         claude_config: ClaudeCodeConfig,
-    ) -> Result<String, String> {
+    ) -> std::result::Result<String, String> {
         // プロセスIDを生成
         let process_id = format!("claude-{}-{}", workspace_name, uuid::Uuid::new_v4().simple());
 
@@ -457,19 +465,17 @@ impl WorkspaceManager {
     }
 
     /// ワークスペース用のClaude Codeプロセスを手動で起動
-    pub async fn start_claude_code_for_workspace(&self, workspace_name: &str) -> Result<String, String> {
-        self.auto_start_claude_code_for_workspace(workspace_name).await
-            .and_then(|_| {
-                // プロセスIDを返す（実際の実装では起動したプロセスIDを返す）
-                Ok(format!("claude-{}-manual", workspace_name))
-            })
+    pub async fn start_claude_code_for_workspace(&self, workspace_name: &str) -> Result<String> {
+        self.auto_start_claude_code_for_workspace(workspace_name).await?;
+        // プロセスIDを返す（実際の実装では起動したプロセスIDを返す）
+        Ok(format!("claude-{}-manual", workspace_name))
     }
 
     /// ワークスペース用のClaude Codeプロセスを停止
-    pub async fn stop_claude_code_for_workspace(&self, workspace_name: &str) -> Result<(), String> {
+    pub async fn stop_claude_code_for_workspace(&self, workspace_name: &str) -> Result<()> {
         if let Some(ref process_manager) = self.process_manager {
             let workspace_info = self.get_workspace_info(workspace_name).await
-                .ok_or_else(|| format!("Workspace '{}' not found", workspace_name))?;
+                .ok_or_else(|| UserError::room_not_found(workspace_name))?;
 
             // ワークスペースに関連するプロセスを停止
             for process_id in workspace_info.processes.keys() {
@@ -481,12 +487,12 @@ impl WorkspaceManager {
             // ワークスペース状態からプロセス情報を削除
             self.update_workspace_state(workspace_name, |workspace| {
                 workspace.processes.clear();
-            }).await.map_err(|e| format!("Failed to update workspace state: {}", e))?;
+            }).await?;
 
             info!("Stopped all Claude Code processes for workspace '{}'", workspace_name);
             Ok(())
         } else {
-            Err("ProcessManager not set".to_string())
+            Err(UserError::process_communication_failed("ProcessManager"))
         }
     }
 }
@@ -531,7 +537,7 @@ mod tests {
         let result = manager.create_workspace("test", "basic").await;
         
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("already exists"));
+        assert!(result.unwrap_err().message_jp.contains("同名のRoomが既に存在します"));
     }
 
     #[tokio::test]
@@ -567,7 +573,7 @@ mod tests {
         
         let result = manager.delete_workspace("default").await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Cannot delete the default workspace"));
+        assert!(result.unwrap_err().message_jp.contains("デフォルトRoomは削除できません"));
     }
 
     #[tokio::test]
@@ -602,6 +608,6 @@ mod tests {
         // Second workspace should fail (already have default + test1 = 2)
         let result = manager.create_workspace("test2", "basic").await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Maximum number of workspaces"));
+        assert!(result.unwrap_err().message_jp.contains("Room数の上限"));
     }
 }
