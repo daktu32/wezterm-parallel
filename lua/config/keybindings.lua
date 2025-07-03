@@ -7,7 +7,7 @@ local Keybindings = {}
 
 -- Default keybinding configuration
 local config = {
-  leader_key = { key = 'Space', mods = 'CTRL|SHIFT' },
+  leader_key = { key = '', mods = 'SHIFT|CMD|CTRL|ALT' },
   workspace_prefix = 'CTRL|SHIFT',
   process_prefix = 'CTRL|ALT',
   pane_prefix = 'ALT',
@@ -26,21 +26,21 @@ function Keybindings.init(framework_config)
 end
 
 -- Build complete keybinding configuration
-function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
+function Keybindings.build_keys(room_manager, pane_manager, dashboard)
   local keys = {}
   
-  -- Add workspace management keys
+  -- Add room management keys
   table.insert(keys, {
     key = 'n',
     mods = config.workspace_prefix,
-    action = wezterm.action.EmitEvent 'workspace-create',
+    action = wezterm.action.EmitEvent 'room-create',
   })
   
   table.insert(keys, {
     key = 'w',
     mods = config.workspace_prefix,
     action = wezterm.action_callback(function(window, pane)
-      workspace_manager.switch_workspace_prompt(window, pane)
+      room_manager.switch_room_prompt(window, pane)
     end),
   })
   
@@ -49,7 +49,7 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
     key = 't',
     mods = config.workspace_prefix,
     action = wezterm.action_callback(function(window, pane)
-      local success = workspace_manager.test_connection()
+      local success = room_manager.test_connection()
       local message = success and "Backend connection: OK" or "Backend connection: FAILED"
       window:toast_notification("WezTerm Parallel", message, nil, 3000)
     end),
@@ -60,7 +60,7 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
     key = 's',
     mods = config.workspace_prefix,
     action = wezterm.action_callback(function(window, pane)
-      local status = workspace_manager.get_backend_status()
+      local status = room_manager.get_backend_status()
       local message = status and "Backend status: " .. (status.status or "Unknown") or "Backend: No response"
       window:toast_notification("WezTerm Parallel", message, nil, 3000)
     end),
@@ -70,7 +70,7 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
     key = 'x',
     mods = config.workspace_prefix,
     action = wezterm.action_callback(function(window, pane)
-      workspace_manager.delete_workspace_prompt(window, pane)
+      room_manager.delete_room_prompt(window, pane)
     end),
   })
   
@@ -88,7 +88,7 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
     key = 'k',
     mods = config.process_prefix,
     action = wezterm.action_callback(function(window, pane)
-      workspace_manager.kill_process_prompt(window, pane)
+      room_manager.kill_process_prompt(window, pane)
     end),
   })
   
@@ -351,18 +351,18 @@ function Keybindings.build_keys(workspace_manager, pane_manager, dashboard)
 end
 
 -- Build leader key table
-function Keybindings.build_key_tables(workspace_manager, pane_manager, dashboard)
+function Keybindings.build_key_tables(room_manager, pane_manager, dashboard)
   return {
     leader = {
-      -- Workspace management
+      -- Room management
       { key = 'w', action = wezterm.action_callback(function(window, pane)
-          workspace_manager.switch_workspace_prompt(window, pane)
+          room_manager.switch_room_prompt(window, pane)
         end) },
       { key = 'n', action = wezterm.action_callback(function(window, pane)
-          workspace_manager.create_workspace_prompt(window, pane)
+          room_manager.create_room_prompt(window, pane)
         end) },
       { key = 'x', action = wezterm.action_callback(function(window, pane)
-          workspace_manager.delete_workspace_prompt(window, pane)
+          room_manager.delete_room_prompt(window, pane)
         end) },
       
       -- Process management
@@ -370,7 +370,7 @@ function Keybindings.build_key_tables(workspace_manager, pane_manager, dashboard
           Keybindings.spawn_process_prompt(window, pane)
         end) },
       { key = 'k', action = wezterm.action_callback(function(window, pane)
-          workspace_manager.kill_process_prompt(window, pane)
+          room_manager.kill_process_prompt(window, pane)
         end) },
       { key = 'r', action = wezterm.action_callback(function(window, pane)
           Keybindings.restart_process_prompt(window, pane)
@@ -494,11 +494,11 @@ function Keybindings.show_help(window, pane)
   local help_text = [[
 WezTerm Multi-Dev Framework - Keybindings Help
 
-=== Workspace Management ===
-Ctrl+Shift+N     - Create new workspace
-Ctrl+Shift+W     - Switch workspace
-Ctrl+Shift+X     - Delete workspace
-Ctrl+Shift+1-9   - Switch to numbered workspace
+=== Room Management ===
+Ctrl+Shift+N     - Create new room
+Ctrl+Shift+W     - Switch room
+Ctrl+Shift+X     - Delete room
+Ctrl+Shift+1-9   - Switch to numbered room
 
 === Process Management ===
 Ctrl+Alt+S       - Spawn new process
@@ -520,9 +520,9 @@ Alt+Space        - Select layout
 Ctrl+Shift+D     - Toggle dashboard
 Ctrl+Shift+R     - Refresh dashboard
 
-=== Leader Key (Ctrl+Shift+Space) ===
-w                - Switch workspace
-n                - New workspace
+=== Leader Key (Shift+Cmd+Ctrl+Alt) ===
+w                - Switch room
+n                - New room
 s                - Spawn process
 d                - Toggle dashboard
 ?                - Show this help
@@ -547,11 +547,11 @@ end
 function Keybindings.get_key_descriptions()
   return {
     {
-      category = "Workspace",
+      category = "Room",
       keys = {
-        { key = "Ctrl+Shift+N", description = "Create workspace" },
-        { key = "Ctrl+Shift+W", description = "Switch workspace" },
-        { key = "Ctrl+Shift+X", description = "Delete workspace" },
+        { key = "Ctrl+Shift+N", description = "Create room" },
+        { key = "Ctrl+Shift+W", description = "Switch room" },
+        { key = "Ctrl+Shift+X", description = "Delete room" },
       }
     },
     {

@@ -2,7 +2,7 @@
 -- This file provides the main configuration for the WezTerm integration
 
 local wezterm = require 'wezterm'
-local workspace_manager = require 'workspace.manager'
+local room_manager = require 'room.manager'
 local ui_manager = require 'ui.manager'
 local dashboard = require 'ui.dashboard'
 local pane_manager = require 'ui.pane_manager'
@@ -44,7 +44,7 @@ local framework_config = {
   
   -- Keybindings configuration
   keybindings = {
-    leader_key = { key = 'Space', mods = 'CTRL|SHIFT' },
+    leader_key = { key = '', mods = 'SHIFT|CMD|CTRL|ALT' },
     workspace_prefix = 'CTRL|SHIFT',
     process_prefix = 'CTRL|ALT',
     pane_prefix = 'ALT',
@@ -53,7 +53,7 @@ local framework_config = {
 }
 
 -- Initialize framework modules
-workspace_manager.init(framework_config)
+room_manager.init(framework_config)
 ui_manager.init(framework_config)
 dashboard.init(framework_config)
 pane_manager.init(framework_config)
@@ -71,29 +71,29 @@ config.use_fancy_tab_bar = false
 config.tab_and_split_indices_are_zero_based = true
 
 -- Enhanced keybindings with comprehensive framework support
-config.keys = keybindings.build_keys(workspace_manager, pane_manager, dashboard)
-config.key_tables = keybindings.build_key_tables(workspace_manager, pane_manager, dashboard)
+config.keys = keybindings.build_keys(room_manager, pane_manager, dashboard)
+config.key_tables = keybindings.build_key_tables(room_manager, pane_manager, dashboard)
 
 -- Register keybinding event handlers
-wezterm.on('workspace-create', function(window, pane)
-  workspace_manager.create_workspace_prompt(window, pane)
+wezterm.on('room-create', function(window, pane)
+  room_manager.create_room_prompt(window, pane)
 end)
 
 -- Window events
 wezterm.on('gui-startup', function(cmd)
   if framework_config.auto_start_backend then
-    workspace_manager.start_backend()
+    room_manager.start_backend()
   end
   
-  -- Create default workspace if none exists
-  workspace_manager.ensure_default_workspace()
+  -- Create default room if none exists
+  room_manager.ensure_default_room()
 end)
 
 wezterm.on('window-config-reloaded', function(window, pane)
   ui_manager.show_notification(window, "Configuration reloaded", "info")
   
   -- Reinitialize modules with new config
-  workspace_manager.init(framework_config)
+  room_manager.init(framework_config)
   ui_manager.init(framework_config)
   dashboard.init(framework_config)
   pane_manager.init(framework_config)
@@ -126,13 +126,13 @@ wezterm.on('process-event', function(event)
   end
 end)
 
--- Tab title customization for workspace indication
+-- Tab title customization for room indication
 wezterm.on('format-tab-title', function(tab, tabs, panes, config, hover, max_width)
-  local workspace_name = workspace_manager.get_current_workspace_name(tab)
+  local room_name = room_manager.get_current_room_name(tab)
   local title = tab.active_pane.title
   
-  if workspace_name then
-    title = string.format("[%s] %s", workspace_name, title)
+  if room_name then
+    title = string.format("[%s] %s", room_name, title)
   end
   
   return {

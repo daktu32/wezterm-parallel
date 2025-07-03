@@ -1,0 +1,279 @@
+warning: unused import: `ProcessConfig`
+  --> src/workspace/manager.rs:13:101
+   |
+13 | use crate::process::{ClaudeCodeDetector, ClaudeCodeConfig, ClaudeCodeConfigBuilder, ProcessManager, ProcessConfig};
+   |                                                                                                     ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `ProcessLoad` and `Task`
+ --> src/process/coordinator.rs:2:36
+  |
+2 | use crate::task::{TaskDistributor, Task, ProcessLoad};
+  |                                    ^^^^  ^^^^^^^^^^^
+
+warning: unused imports: `debug` and `info`
+ --> src/process/claude_config.rs:5:11
+  |
+5 | use log::{debug, info};
+  |           ^^^^^  ^^^^
+
+warning: unused import: `std::process::Command`
+ --> src/process/claude_health.rs:3:5
+  |
+3 | use std::process::Command;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `warn`
+ --> src/process/claude_health.rs:7:24
+  |
+7 | use log::{debug, info, warn, error};
+  |                        ^^^^
+
+warning: unused import: `uuid::Uuid`
+ --> src/process/claude_health.rs:8:5
+  |
+8 | use uuid::Uuid;
+  |     ^^^^^^^^^^
+
+warning: unused imports: `BufRead` and `BufReader`
+ --> src/process/claude_logger.rs:4:33
+  |
+4 | use std::io::{BufWriter, Write, BufRead, BufReader};
+  |                                 ^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `TaskId`
+ --> src/task/distributor.rs:1:70
+  |
+1 | use crate::task::types::{TaskStatus, TaskPriority, Task as BaseTask, TaskId};
+  |                                                                      ^^^^^^
+
+warning: unused import: `std::time::SystemTime`
+ --> src/task/distributor.rs:3:5
+  |
+3 | use std::time::SystemTime;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Sender`
+ --> src/sync/file_sync.rs:7:39
+  |
+7 | use std::sync::mpsc::{self, Receiver, Sender};
+  |                                       ^^^^^^
+
+warning: unused imports: `Arc` and `Mutex`
+ --> src/sync/file_sync.rs:8:17
+  |
+8 | use std::sync::{Arc, Mutex};
+  |                 ^^^  ^^^^^
+
+warning: unused import: `std::thread`
+ --> src/sync/file_sync.rs:9:5
+  |
+9 | use std::thread;
+  |     ^^^^^^^^^^^
+
+warning: unused variable: `workspace_info`
+   --> src/workspace/manager.rs:372:13
+    |
+372 |         let workspace_info = self.get_workspace_info(workspace_name).await
+    |             ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_workspace_info`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `file_path`
+   --> src/sync/merger.rs:171:9
+    |
+171 |         file_path: &PathBuf,
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_file_path`
+
+warning: unused variable: `base_content`
+   --> src/sync/merger.rs:343:9
+    |
+343 |         base_content: &str,
+    |         ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_base_content`
+
+warning: type `MergeStrategy` is more private than the item `MergeManager::add_merge_pattern`
+   --> src/sync/merger.rs:202:5
+    |
+202 |     pub fn add_merge_pattern(&mut self, extension: String, strategy: MergeStrategy) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `MergeManager::add_merge_pattern` is reachable at visibility `pub`
+    |
+note: but type `MergeStrategy` is only usable at visibility `pub(self)`
+   --> src/sync/merger.rs:47:1
+    |
+47  | enum MergeStrategy {
+    | ^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: field `task_distributor` is never read
+  --> src/process/coordinator.rs:19:5
+   |
+11 | pub struct ProcessCoordinator {
+   |            ------------------ field in this struct
+...
+19 |     task_distributor: Arc<RwLock<TaskDistributor>>,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: fields `cpu_usage`, `memory_usage`, and `uuid` are never read
+  --> src/process/coordinator.rs:29:5
+   |
+25 | struct ProcessState {
+   |        ------------ fields in this struct
+...
+29 |     cpu_usage: f64,
+   |     ^^^^^^^^^
+30 |     memory_usage: u64,
+   |     ^^^^^^^^^^^^
+31 |     uuid: Uuid,
+   |     ^^^^
+   |
+   = note: `ProcessState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `task_id` and `started_at` are never read
+   --> src/task/manager.rs:547:5
+    |
+546 | struct ExecutingTask {
+    |        ------------- fields in this struct
+547 |     task_id: TaskId,
+    |     ^^^^^^^
+548 |     started_at: u64,
+    |     ^^^^^^^^^^
+    |
+    = note: `ExecutingTask` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `priority`, `due_date`, `estimated_duration`, and `enqueued_at` are never read
+   --> src/task/queue.rs:386:5
+    |
+384 | struct QueuedTask {
+    |        ---------- fields in this struct
+385 |     task_id: TaskId,
+386 |     priority: TaskPriority,
+    |     ^^^^^^^^
+387 |     due_date: Option<u64>,
+    |     ^^^^^^^^
+388 |     estimated_duration: Option<u64>,
+    |     ^^^^^^^^^^^^^^^^^^
+389 |     enqueued_at: u64,
+    |     ^^^^^^^^^^^
+    |
+    = note: `QueuedTask` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `config` is never read
+  --> src/task/scheduler.rs:15:5
+   |
+13 | pub struct TaskScheduler {
+   |            ------------- field in this struct
+14 |     /// Scheduler configuration
+15 |     config: SchedulerConfig,
+   |     ^^^^^^
+   |
+   = note: `TaskScheduler` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `calculate_period_productivity_score` is never used
+   --> src/task/tracker.rs:427:8
+    |
+31  | impl TaskTracker {
+    | ---------------- method in this implementation
+...
+427 |     fn calculate_period_productivity_score(&self, summaries: &[DailySummary]) -> f64 {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `metrics_history` is never read
+   --> src/monitoring/mod.rs:305:5
+    |
+291 | pub struct MonitoringManager {
+    |            ----------------- field in this struct
+...
+305 |     metrics_history: Arc<RwLock<Vec<SystemMetrics>>>,
+    |     ^^^^^^^^^^^^^^^
+
+warning: struct `LogFileWriter` is never constructed
+   --> src/monitoring/logger.rs:311:8
+    |
+311 | struct LogFileWriter {
+    |        ^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> src/monitoring/logger.rs:316:8
+    |
+315 | impl LogFileWriter {
+    | ------------------ associated function in this implementation
+316 |     fn new(file: Arc<RwLock<std::fs::File>>) -> Self {
+    |        ^^^
+
+warning: field `network_baseline` is never read
+  --> src/monitoring/metrics.rs:16:5
+   |
+11 | pub struct MetricsCollector {
+   |            ---------------- field in this struct
+...
+16 |     network_baseline: Option<NetworkIO>,
+   |     ^^^^^^^^^^^^^^^^
+
+warning: method `extract_memory_from_line` is never used
+   --> src/monitoring/metrics.rs:501:8
+    |
+22  | impl MetricsCollector {
+    | --------------------- method in this implementation
+...
+501 |     fn extract_memory_from_line(&self, line: &str) -> Result<u64, Box<dyn std::error::Error>> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `command` is never read
+   --> src/monitoring/metrics.rs:543:5
+    |
+538 | struct ProcessInfo {
+    |        ----------- field in this struct
+...
+543 |     command: String,
+    |     ^^^^^^^
+    |
+    = note: `ProcessInfo` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `error_counts` and `process_restarts` are never read
+  --> src/monitoring/alerts.rs:38:5
+   |
+30 | struct AlertEvaluationState {
+   |        -------------------- fields in this struct
+...
+38 |     error_counts: HashMap<String, u32>,
+   |     ^^^^^^^^^^^^
+...
+44 |     process_restarts: HashMap<String, u32>,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `AlertEvaluationState` has derived impls for the traits `Default` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `client` is never read
+  --> src/monitoring/alerts.rs:67:5
+   |
+65 | pub struct WebhookAlertSender {
+   |            ------------------ field in this struct
+66 |     webhook_url: String,
+67 |     client: reqwest::Client,
+   |     ^^^^^^
+
+warning: field `usage_patterns` is never read
+  --> src/monitoring/analytics.rs:25:5
+   |
+11 | pub struct AnalyticsManager {
+   |            ---------------- field in this struct
+...
+25 |     usage_patterns: Arc<RwLock<UsagePatterns>>,
+   |     ^^^^^^^^^^^^^^
+
+warning: field `auto_merge_enabled` is never read
+  --> src/sync/merger.rs:37:5
+   |
+33 | pub struct MergeManager {
+   |            ------------ field in this struct
+...
+37 |     auto_merge_enabled: bool,
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: `wezterm-parallel` (lib) generated 32 warnings (run `cargo fix --lib -p wezterm-parallel` to apply 12 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.26s
+     Running `target/release/wezterm-parallel`
+[2m2025-06-29T07:39:29.348371Z[0m [31mERROR[0m [2mwezterm_parallel[0m[2m:[0m WebSocket server error: Address already in use (os error 48)

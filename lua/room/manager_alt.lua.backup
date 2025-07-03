@@ -1,0 +1,39 @@
+-- Alternative workspace list display function
+-- Shows workspace list in a temporary pane
+
+function WorkspaceManager.show_workspaces_info_in_pane(window, pane)
+  local workspace_count = table_count(workspaces)
+  
+  if workspace_count == 0 then
+    pane:send_text("No workspaces created yet\n")
+    return
+  end
+  
+  -- Create formatted workspace list
+  local output = {}
+  table.insert(output, "\n=== WORKSPACE LIST ===\n")
+  table.insert(output, string.format("Total: %d workspaces\n", workspace_count))
+  table.insert(output, string.rep("-", 40) .. "\n")
+  
+  for name, ws in pairs(workspaces) do
+    local is_current = (name == current_workspace) and " [CURRENT]" or ""
+    local created_time = os.date("%Y-%m-%d %H:%M:%S", ws.created_at)
+    
+    table.insert(output, string.format("• %s%s\n", name, is_current))
+    table.insert(output, string.format("  Created: %s\n", created_time))
+    
+    if ws.tab then
+      local success, tab_id = pcall(function() return ws.tab:tab_id() end)
+      if success and tab_id then
+        table.insert(output, string.format("  Tab ID: %s\n", tostring(tab_id)))
+      end
+    end
+    table.insert(output, "\n")
+  end
+  
+  table.insert(output, string.rep("-", 40) .. "\n")
+  table.insert(output, "Press any key to continue...")
+  
+  -- Send to current pane
+  pane:send_text(table.concat(output))
+end

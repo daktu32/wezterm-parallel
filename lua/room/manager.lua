@@ -1,5 +1,5 @@
--- WezTerm Multi-Process Development Framework - Workspace Manager
--- Handles workspace creation, switching, and management
+-- WezTerm Multi-Process Development Framework - Room Manager
+-- Handles room creation, switching, and management
 
 -- Mock wezterm for compatibility
 local wezterm = _G.wezterm or {
@@ -15,12 +15,12 @@ local wezterm = _G.wezterm or {
 local json = require 'utils.json'
 local socket_client = require 'utils.socket_client'
 
-local WorkspaceManager = {}
+local RoomManager = {}
 
 -- Internal state
 local config = {}
-local current_workspace = "default"
-local workspaces = {}
+local current_room = "default"
+local rooms = {}
 local backend_process = nil
 
 -- Helper function to count table entries
@@ -32,15 +32,15 @@ local function table_count(t)
   return count
 end
 
--- Initialize the workspace manager
-function WorkspaceManager.init(framework_config)
+-- Initialize the room manager
+function RoomManager.init(framework_config)
   config = framework_config
   socket_client.init(framework_config)
-  wezterm.log_info("WorkspaceManager initialized")
+  wezterm.log_info("RoomManager initialized")
 end
 
 -- Start the backend Rust process
-function WorkspaceManager.start_backend()
+function RoomManager.start_backend()
   if backend_process then
     wezterm.log_info("Backend already running")
     return
@@ -59,7 +59,7 @@ function WorkspaceManager.start_backend()
 end
 
 -- Send message to backend via Unix socket
-function WorkspaceManager.send_to_backend(message)
+function RoomManager.send_to_backend(message)
   local message_json = json.encode(message)
   
   -- Use WezTerm's run_child_process to communicate with backend
@@ -86,14 +86,14 @@ function WorkspaceManager.send_to_backend(message)
   }
 end
 
--- Create a new workspace
-function WorkspaceManager.create_workspace(name, template, window, pane)
+-- Create a new room
+function RoomManager.create_room(name, template, window, pane)
   template = template or "basic"
   
-  wezterm.log_info(string.format("Creating workspace: %s with template: %s", name, template))
+  wezterm.log_info(string.format("Creating room: %s with template: %s", name, template))
   
-  -- Use socket client to create workspace
-  local response = socket_client.create_workspace(name, template)
+  -- Use socket client to create room
+  local response = socket_client.create_room(name, template)
   
   -- wezterm をローカルで require
   local wezterm = require('wezterm')
@@ -110,10 +110,10 @@ function WorkspaceManager.create_workspace(name, template, window, pane)
     local new_tab = window:active_tab()
     
     -- タブタイトルを設定
-    new_tab:set_title(string.format("Workspace: %s", name))
+    new_tab:set_title(string.format("Room: %s", name))
     
-    -- Store workspace info with window reference
-    workspaces[name] = {
+    -- Store room info with window reference
+    rooms[name] = {
       tab = new_tab,
       template = template,
       created_at = os.time(),
@@ -122,81 +122,81 @@ function WorkspaceManager.create_workspace(name, template, window, pane)
       pane = new_pane
     }
     
-    current_workspace = name
+    current_room = name
     
-    wezterm.log_info("Workspace created and tab activated: " .. name)
+    wezterm.log_info("Room created and tab activated: " .. name)
     
     -- プロジェクトディレクトリに移動
     new_pane:send_text("cd ~/projects/" .. name .. " 2>/dev/null || cd ~\n")
   else
-    wezterm.log_error("Window not available for workspace creation")
+    wezterm.log_error("Window not available for room creation")
   end
   
   return response
 end
 
--- Switch to an existing workspace
-function WorkspaceManager.switch_workspace(name)
-  if not workspaces[name] then
-    wezterm.log_error("Workspace not found: " .. name)
+-- Switch to an existing room
+function RoomManager.switch_room(name)
+  if not rooms[name] then
+    wezterm.log_error("Room not found: " .. name)
     return false
   end
   
-  wezterm.log_info("Switching to workspace: " .. name)
+  wezterm.log_info("Switching to room: " .. name)
   
-  local workspace = workspaces[name]
+  local room = rooms[name]
   
   -- 保存されたタブが存在するか確認
-  if workspace.tab then
+  if room.tab then
     -- タブをアクティブ化
-    workspace.tab:activate()
-    current_workspace = name
-    wezterm.log_info("Activated tab for workspace: " .. name)
+    room.tab:activate()
+    current_room = name
+    wezterm.log_info("Activated tab for room: " .. name)
     return true
-  elseif workspace.window then
+  elseif room.window then
     -- タブが存在しない場合は新規作成
     local wezterm = require('wezterm')
-    workspace.window:perform_action(
+    room.window:perform_action(
       wezterm.action.SpawnTab 'CurrentPaneDomain',
-      workspace.pane
+      room.pane
     )
     
-    local new_tab = workspace.window:active_tab()
-    new_tab:set_title(string.format("Workspace: %s", name))
+    local new_tab = room.window:active_tab()
+    new_tab:set_title(string.format("Room: %s", name))
     
-    -- ワークスペース情報を更新
-    workspace.tab = new_tab
-    workspace.pane = workspace.window:active_pane()
+    -- ルーム情報を更新
+    room.tab = new_tab
+    room.pane = room.window:active_pane()
     
-    current_workspace = name
-    wezterm.log_info("Created new tab for workspace: " .. name)
+    current_room = name
+    wezterm.log_info("Created new tab for room: " .. name)
     
     -- プロジェクトディレクトリに移動
-    workspace.pane:send_text("cd ~/projects/" .. name .. " 2>/dev/null || cd ~\n")
+    room.pane:send_text("cd ~/projects/" .. name .. " 2>/dev/null || cd ~\n")
     
     return true
   else
-    wezterm.log_error("Window not found for workspace: " .. name)
+    wezterm.log_error("Window not found for room: " .. name)
   end
   
   return false
 end
 
--- Prompt user to create workspace
-function WorkspaceManager.create_workspace_prompt(window, pane)
+-- Prompt user to create room
+function RoomManager.create_room_prompt(window, pane)
   -- wezterm.actionをrequireで取得
   local wezterm = require('wezterm')
   local act = wezterm.action
   
   window:perform_action(
     act.PromptInputLine {
-      description = 'Enter workspace name:',
+      description = 'Enter room name:',
       action = wezterm.action_callback(function(inner_window, inner_pane, line)
         if line and line ~= "" then
-          -- 実際にワークスペースを作成（タブも作成される）
-          WorkspaceManager.create_workspace(line, "basic", inner_window, inner_pane)
+          -- 実際にルームを作成（タブも作成される）
+          RoomManager.create_room(line, "basic", inner_window, inner_pane)
           
-          wezterm.log_info("Workspace created: " .. line)
+          wezterm.log_info("Room created: " .. line)
         end
       end),
     },
@@ -204,14 +204,14 @@ function WorkspaceManager.create_workspace_prompt(window, pane)
   )
 end
 
--- Prompt user to switch workspace
-function WorkspaceManager.switch_workspace_prompt(window, pane)
+-- Prompt user to switch room
+function RoomManager.switch_room_prompt(window, pane)
   local wezterm = require('wezterm')
   local act = wezterm.action
   local choices = {}
   
-  for name, ws in pairs(workspaces) do
-    local is_current = (name == current_workspace) and " [CURRENT]" or ""
+  for name, ws in pairs(rooms) do
+    local is_current = (name == current_room) and " [CURRENT]" or ""
     table.insert(choices, {
       id = name,
       label = string.format("%s%s", name, is_current),
@@ -219,27 +219,27 @@ function WorkspaceManager.switch_workspace_prompt(window, pane)
   end
   
   if #choices == 0 then
-    wezterm.log_info("No workspaces available. Create one with Ctrl+Shift+N")
+    wezterm.log_info("No rooms available. Create one with Ctrl+Shift+N")
     return
   end
   
-  -- ワークスペース選択ダイアログを表示
+  -- ルーム選択ダイアログを表示
   window:perform_action(
     act.InputSelector {
       action = wezterm.action_callback(function(inner_window, inner_pane, id, label)
         if id then
-          -- ワークスペースが存在しない場合は新規作成
-          if not workspaces[id] then
-            WorkspaceManager.create_workspace(id, "basic", inner_window, inner_pane)
+          -- ルームが存在しない場合は新規作成
+          if not rooms[id] then
+            RoomManager.create_room(id, "basic", inner_window, inner_pane)
           else
-            -- 既存のワークスペースに切り替え
-            WorkspaceManager.switch_workspace(id)
+            -- 既存のルームに切り替え
+            RoomManager.switch_room(id)
           end
           
-          wezterm.log_info("Switched to workspace: " .. id)
+          wezterm.log_info("Switched to room: " .. id)
         end
       end),
-      title = 'Select Workspace',
+      title = 'Select Room',
       choices = choices,
       fuzzy = true,
     },
@@ -248,7 +248,7 @@ function WorkspaceManager.switch_workspace_prompt(window, pane)
 end
 
 -- Kill process prompt
-function WorkspaceManager.kill_process_prompt(window, pane)
+function RoomManager.kill_process_prompt(window, pane)
   local wezterm = require('wezterm')
   local act = wezterm.action
   
@@ -263,7 +263,7 @@ function WorkspaceManager.kill_process_prompt(window, pane)
               process_id = line
             }
           }
-          WorkspaceManager.send_to_backend(message)
+          RoomManager.send_to_backend(message)
         end
       end),
     },
@@ -271,27 +271,27 @@ function WorkspaceManager.kill_process_prompt(window, pane)
   )
 end
 
--- Get current workspace name for tab title
-function WorkspaceManager.get_current_workspace_name(tab)
+-- Get current room name for tab title
+function RoomManager.get_current_room_name(tab)
   if not tab then
     return nil
   end
   
-  for name, workspace in pairs(workspaces) do
+  for name, room in pairs(rooms) do
     -- タブオブジェクトを直接比較するか、タイトルで比較
-    if workspace.tab then
-      local success, tab_id = pcall(function() return workspace.tab:tab_id() end)
+    if room.tab then
+      local success, tab_id = pcall(function() return room.tab:tab_id() end)
       if success and tab_id and tab_id == tab:tab_id() then
         return name
       end
     end
   end
   
-  -- タブタイトルからワークスペース名を取得（フォールバック）
+  -- タブタイトルからルーム名を取得（フォールバック）
   local title = tab:get_title()
   if title then
-    local name = title:match("^Workspace: (.+)$")
-    if name and workspaces[name] then
+    local name = title:match("^Room: (.+)$")
+    if name and rooms[name] then
       return name
     end
   end
@@ -299,47 +299,47 @@ function WorkspaceManager.get_current_workspace_name(tab)
   return nil
 end
 
--- Ensure default workspace exists
-function WorkspaceManager.ensure_default_workspace()
-  if not workspaces["default"] then
-    WorkspaceManager.create_workspace("default", "basic")
+-- Ensure default room exists
+function RoomManager.ensure_default_room()
+  if not rooms["default"] then
+    RoomManager.create_room("default", "basic")
   end
 end
 
--- Spawn Claude Code process in current workspace
-function WorkspaceManager.spawn_claude_code(workspace_name)
-  workspace_name = workspace_name or current_workspace
+-- Spawn Claude Code process in current room
+function RoomManager.spawn_claude_code(room_name)
+  room_name = room_name or current_room
   
-  local process_id = "claude-code-" .. workspace_name
-  local command_args = {"--workspace=" .. workspace_name}
+  local process_id = "claude-code-" .. room_name
+  local command_args = {"--room=" .. room_name}
   
-  return socket_client.spawn_process(workspace_name, process_id, command_args)
+  return socket_client.spawn_process(room_name, process_id, command_args)
 end
 
 -- Test connection to backend
-function WorkspaceManager.test_connection()
+function RoomManager.test_connection()
   return socket_client.test_connection()
 end
 
 -- Get backend status
-function WorkspaceManager.get_backend_status()
+function RoomManager.get_backend_status()
   return socket_client.get_backend_status()
 end
 
--- List all workspaces
-function WorkspaceManager.list_workspaces()
-  return workspaces
+-- List all rooms
+function RoomManager.list_rooms()
+  return rooms
 end
 
 
--- Delete workspace prompt
-function WorkspaceManager.delete_workspace_prompt(window, pane)
+-- Delete room prompt
+function RoomManager.delete_room_prompt(window, pane)
   local wezterm = require('wezterm')
   local act = wezterm.action
   local choices = {}
   
-  for name, ws in pairs(workspaces) do
-    if name ~= current_workspace then  -- 現在のワークスペースは削除不可
+  for name, ws in pairs(rooms) do
+    if name ~= current_room then  -- 現在のルームは削除不可
       table.insert(choices, {
         id = name,
         label = name,
@@ -348,30 +348,30 @@ function WorkspaceManager.delete_workspace_prompt(window, pane)
   end
   
   if #choices == 0 then
-    wezterm.log_info("No other workspaces to delete")
+    wezterm.log_info("No other rooms to delete")
     return
   end
   
   window:perform_action(
     act.InputSelector {
       action = wezterm.action_callback(function(inner_window, inner_pane, id, label)
-        if id and workspaces[id] then
+        if id and rooms[id] then
           -- タブがある場合は閉じる
-          if workspaces[id].tab then
+          if rooms[id].tab then
             -- タブを閉じるアクションを実行
             inner_window:perform_action(
               wezterm.action.CloseCurrentTab { confirm = false },
-              workspaces[id].pane
+              rooms[id].pane
             )
           end
           
-          -- ワークスペースを削除
-          workspaces[id] = nil
+          -- ルームを削除
+          rooms[id] = nil
           
-          wezterm.log_info("Workspace deleted: " .. id)
+          wezterm.log_info("Room deleted: " .. id)
         end
       end),
-      title = 'Delete Workspace',
+      title = 'Delete Room',
       choices = choices,
       fuzzy = true,
     },
@@ -380,4 +380,4 @@ function WorkspaceManager.delete_workspace_prompt(window, pane)
 end
 
 
-return WorkspaceManager
+return RoomManager
