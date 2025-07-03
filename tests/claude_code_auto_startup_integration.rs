@@ -7,7 +7,7 @@ use wezterm_parallel::process::{
     ClaudeLogger, LogConfig, LogLevel,
     ProcessManager, ProcessConfig
 };
-use wezterm_parallel::workspace::manager::WorkspaceManager;
+use wezterm_parallel::room::manager::WorkspaceManager;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
