@@ -1,8 +1,15 @@
 # 機能仕様書
+---
+**Last Updated**: 2025-07-03
+**Version**: 0.1.0
+**Next Review**: 2025-10-01
+---
+
 
 ## 概要
 
 WezTermマルチプロセス開発補助ツールの詳細な機能仕様を定義します。
+上位設計は[ARCHITECTURE.md](ARCHITECTURE.md)、要求仕様は[prd.md](prd.md)で定義しています。テスト仕様は[TESTING.md](TESTING.md)、API詳細は[API.md](API.md)、セキュリティ要件は[SECURITY.md](SECURITY.md)を参照してください。
 
 このドキュメントは機能実装状況を管理するSingle Source of Truthです。READMEやprd.mdから参照されます。
 
@@ -733,3 +740,8 @@ WebSocket API:
   - クロスプラットフォーム対応: Phase 5
   - エラー処理強化: 継続的改善
 ```
+## 関連ドキュメント
+- [プロジェクト概要](../README.md)
+- [ドキュメント体系](DOCUMENTATION-MAP.md)
+- [アーキテクチャ](ARCHITECTURE.md)
+- [貢献ガイド](CONTRIBUTING.md)

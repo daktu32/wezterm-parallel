@@ -1,8 +1,15 @@
 # ドキュメント体系マップ
+---
+**Last Updated**: 2025-07-03
+**Version**: 0.1.0
+**Next Review**: 2025-10-01
+---
+
 
 ## 概要
 
 WezTermマルチプロセス開発補助ツールのドキュメント体系を可視化し、各ドキュメントの役割と相互関係を明確にします。
+各ドキュメント更新時は本ファイルのリンクを基準に整合性を確認してください。メンテナンスルールは[CONTRIBUTING.md](CONTRIBUTING.md)を参照。
 
 ## ドキュメント関係図
 
@@ -545,3 +552,8 @@ cargo test 2>&1 | grep "test result:"
 3. **Pull Request**: 具体的な修正提案
 
 このガイドに従って、高品質で整合性のあるドキュメント体系を維持してください。
+## 関連ドキュメント
+- [プロジェクト概要](../README.md)
+- [ドキュメント体系](DOCUMENTATION-MAP.md)
+- [アーキテクチャ](ARCHITECTURE.md)
+- [貢献ガイド](CONTRIBUTING.md)

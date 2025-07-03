@@ -1,4 +1,10 @@
 # セキュリティ設計書
+---
+**Last Updated**: 2025-07-03
+**Version**: 0.1.0
+**Next Review**: 2025-10-01
+---
+
 
 ## 概要
 
@@ -464,3 +470,8 @@ pub async fn handle_security_alert(alert: SecurityAlert) {
 - [ ] ログの定期的な監査
 - [ ] 異常検知アラートの確認
 - [ ] バックアップの暗号化
+## 関連ドキュメント
+- [プロジェクト概要](../README.md)
+- [ドキュメント体系](DOCUMENTATION-MAP.md)
+- [アーキテクチャ](ARCHITECTURE.md)
+- [貢献ガイド](CONTRIBUTING.md)

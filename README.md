@@ -1,4 +1,10 @@
 # WezTerm マルチプロセス開発補助ツール
+---
+**Last Updated**: 2025-07-03
+**Version**: 0.1.0
+**Next Review**: 2025-10-01
+---
+
 
 **WezTermでClaude Codeを複数プロセス実行するためのマルチプロセス管理ツール**
 
@@ -141,6 +147,11 @@ cargo build --release
 ## 📝 ライセンス
 
 MIT License
+## 📚 詳細ドキュメント
+- 詳細なAPI仕様は[docs/API.md](docs/API.md)を参照
+- アーキテクチャ詳細は[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)を参照
+- 貢献方法は[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)を参照
+- ドキュメント体系は[docs/DOCUMENTATION-MAP.md](docs/DOCUMENTATION-MAP.md)を参照
 
 ## 🔗 参考資料
 
