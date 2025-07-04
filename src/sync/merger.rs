@@ -115,11 +115,15 @@ impl MergeManager {
             return Ok(MergeResult::Success(versions[0].0.clone()));
         }
         
-        // 段階的マージ：最初の2つをマージしてから残りを順次マージ
+        // 段階的マージ：各バージョンをベースと比較してマージ
         let mut current_content = base_content.to_string();
         
-        for (version_content, _process_id) in versions {
-            match self.merge_content(file_path, &current_content, &current_content, version_content)? {
+        // 最初のバージョンから開始
+        current_content = versions[0].0.clone();
+        
+        // 残りのバージョンを順次マージ
+        for (version_content, _process_id) in versions.iter().skip(1) {
+            match self.merge_content(file_path, base_content, &current_content, version_content)? {
                 MergeResult::Success(merged) => {
                     current_content = merged;
                 }
