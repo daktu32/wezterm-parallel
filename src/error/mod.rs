@@ -244,6 +244,84 @@ impl UserError {
         }
     }
 
+    pub fn task_not_found(task_id: &str) -> Self {
+        Self {
+            error_type: ErrorType::ProcessError,
+            message_jp: format!("タスク '{}' が見つかりません", task_id),
+            message_en: format!("Task '{}' not found", task_id),
+            guidance: "タスクIDが正しいか確認するか、タスク一覧を確認してください".to_string(),
+            recovery_actions: vec![
+                RecoveryAction {
+                    description: "アクティブなタスク一覧を表示".to_string(),
+                    command: None,
+                    automatic: false,
+                },
+            ],
+            error_code: "TASK_001".to_string(),
+        }
+    }
+
+    pub fn task_queue_full() -> Self {
+        Self {
+            error_type: ErrorType::ProcessError,
+            message_jp: "タスクキューが満杯です".to_string(),
+            message_en: "Task queue is full".to_string(),
+            guidance: "既存のタスクが完了するまで待つか、タスクをキャンセルしてください".to_string(),
+            recovery_actions: vec![
+                RecoveryAction {
+                    description: "完了済みタスクを自動クリーンアップ".to_string(),
+                    command: None,
+                    automatic: true,
+                },
+                RecoveryAction {
+                    description: "古いタスクを停止".to_string(),
+                    command: None,
+                    automatic: false,
+                },
+            ],
+            error_code: "TASK_002".to_string(),
+        }
+    }
+
+    pub fn task_timeout(task_id: &str, timeout_duration: std::time::Duration) -> Self {
+        Self {
+            error_type: ErrorType::ProcessError,
+            message_jp: format!("タスク '{}' がタイムアウトしました ({:?})", task_id, timeout_duration),
+            message_en: format!("Task '{}' timed out ({:?})", task_id, timeout_duration),
+            guidance: "タスクの処理時間を確認し、必要に応じてタイムアウト値を調整してください".to_string(),
+            recovery_actions: vec![
+                RecoveryAction {
+                    description: "タスクを再実行".to_string(),
+                    command: None,
+                    automatic: false,
+                },
+                RecoveryAction {
+                    description: "タスクをキャンセル".to_string(),
+                    command: None,
+                    automatic: true,
+                },
+            ],
+            error_code: "TASK_003".to_string(),
+        }
+    }
+
+    pub fn task_dependency_failed(task_id: &str, dependency: &str) -> Self {
+        Self {
+            error_type: ErrorType::ProcessError,
+            message_jp: format!("タスク '{}' の依存関係 '{}' が満たされていません", task_id, dependency),
+            message_en: format!("Task '{}' dependency '{}' not met", task_id, dependency),
+            guidance: "依存するタスクまたはリソースが利用可能か確認してください".to_string(),
+            recovery_actions: vec![
+                RecoveryAction {
+                    description: "依存関係を自動解決".to_string(),
+                    command: None,
+                    automatic: true,
+                },
+            ],
+            error_code: "TASK_004".to_string(),
+        }
+    }
+
     /// エラーの重要度を取得
     pub fn severity(&self) -> ErrorSeverity {
         match self.error_type {
@@ -303,6 +381,86 @@ pub enum ErrorSeverity {
 /// エラー結果型のエイリアス
 pub type Result<T> = std::result::Result<T, UserError>;
 
+/// 安全なunwrap操作のためのヘルパーマクロ
+#[macro_export]
+macro_rules! safe_unwrap {
+    ($result:expr, $error_msg:expr) => {
+        match $result {
+            Ok(val) => val,
+            Err(e) => {
+                log::error!("Operation failed: {} - {}", $error_msg, e);
+                return Err(UserError::system_resource_exhausted(&format!("{}: {}", $error_msg, e)));
+            }
+        }
+    };
+    ($option:expr, $error_msg:expr, $error_type:expr) => {
+        match $option {
+            Some(val) => val,
+            None => {
+                log::error!("Value not found: {}", $error_msg);
+                return Err($error_type);
+            }
+        }
+    };
+}
+
+/// 安全なファイル操作ヘルパー
+pub fn safe_file_operation<F, T>(operation: &str, file_path: &str, f: F) -> Result<T>
+where
+    F: FnOnce() -> std::result::Result<T, std::io::Error>,
+{
+    match f() {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            log::error!("File operation '{}' failed for '{}': {}", operation, file_path, e);
+            Err(UserError::file_operation_failed(operation, file_path, &e.to_string()))
+        }
+    }
+}
+
+/// 安全なプロセス操作ヘルパー
+pub fn safe_process_operation<F, T>(process_id: &str, f: F) -> Result<T>
+where
+    F: FnOnce() -> std::result::Result<T, Box<dyn std::error::Error>>,
+{
+    match f() {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            log::error!("Process operation failed for '{}': {}", process_id, e);
+            Err(UserError::process_communication_failed(process_id))
+        }
+    }
+}
+
+/// ロック競合を安全に処理するヘルパー
+pub fn safe_lock_operation<T, F, R>(operation_name: &str, f: F) -> std::result::Result<R, UserError>
+where
+    F: FnOnce() -> std::result::Result<R, T>,
+{
+    match f() {
+        Ok(result) => Ok(result),
+        Err(_) => {
+            log::error!("Lock contention in operation: {}", operation_name);
+            Err(UserError::system_resource_exhausted(&format!("Lock contention: {}", operation_name)))
+        }
+    }
+}
+
+/// 非同期タスクを安全に実行するヘルパー
+pub async fn safe_async_operation<F, Fut, T>(operation_name: &str, f: F) -> Result<T>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = std::result::Result<T, Box<dyn std::error::Error>>>,
+{
+    match f().await {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            log::error!("Async operation '{}' failed: {}", operation_name, e);
+            Err(UserError::system_resource_exhausted(&format!("{}: {}", operation_name, e)))
+        }
+    }
+}
+
 /// 標準エラーからUserErrorへの変換
 impl From<std::io::Error> for UserError {
     fn from(err: std::io::Error) -> Self {
@@ -319,6 +477,22 @@ impl From<serde_json::Error> for UserError {
 impl From<serde_yaml::Error> for UserError {
     fn from(err: serde_yaml::Error) -> Self {
         Self::config_load_failed("YAML設定", &err.to_string())
+    }
+}
+
+impl From<crate::task::TaskError> for UserError {
+    fn from(err: crate::task::TaskError) -> Self {
+        match err {
+            crate::task::TaskError::TaskNotFound(id) => Self::task_not_found(&id),
+            crate::task::TaskError::QueueFull => Self::task_queue_full(),
+            crate::task::TaskError::Timeout(id) => Self::task_timeout(&id, std::time::Duration::from_secs(300)),
+            crate::task::TaskError::DependencyNotMet(dep) => Self::task_dependency_failed("unknown", &dep),
+            crate::task::TaskError::ExecutionFailed(msg) => Self::system_resource_exhausted(&format!("Task execution: {}", msg)),
+            crate::task::TaskError::InvalidConfig(msg) => Self::config_load_failed("Task configuration", &msg),
+            crate::task::TaskError::ResourceUnavailable(res) => Self::system_resource_exhausted(&res),
+            crate::task::TaskError::PersistenceError(msg) => Self::file_operation_failed("persistence", "task_data", &msg),
+            crate::task::TaskError::SerializationError(msg) => Self::config_load_failed("Task serialization", &msg),
+        }
     }
 }
 

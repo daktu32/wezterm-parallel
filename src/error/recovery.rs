@@ -3,6 +3,7 @@
 
 use super::{UserError, ErrorType, ErrorHandlingConfig};
 use crate::room::manager::WorkspaceManager;
+#[allow(unused_imports)] // RestartPolicy is used in tests
 use crate::process::manager::{ProcessManager, RestartPolicy};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};

@@ -514,7 +514,10 @@ fn health_status_to_string(status: &HealthStatus) -> &'static str {
 fn current_timestamp() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_else(|_| {
+            log::warn!("System time error in health check, using fallback timestamp");
+            std::time::Duration::from_secs(0)
+        })
         .as_secs()
 }
 

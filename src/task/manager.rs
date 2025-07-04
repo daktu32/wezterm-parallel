@@ -543,8 +543,11 @@ impl TaskManager {
 
 /// Currently executing task information
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ExecutingTask {
+    #[allow(dead_code)]
     task_id: TaskId,
+    #[allow(dead_code)]
     started_at: u64,
     timeout_at: Option<u64>,
 }

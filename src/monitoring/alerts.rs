@@ -35,12 +35,14 @@ struct AlertEvaluationState {
     memory_history: Vec<u64>,
     
     /// Error count tracking
+    #[allow(dead_code)]
     error_counts: HashMap<String, u32>,
     
     /// Last alert timestamps to prevent spam
     last_alert_times: HashMap<String, u64>,
     
     /// Process restart tracking
+    #[allow(dead_code)]
     process_restarts: HashMap<String, u32>,
 }
 
@@ -64,6 +66,7 @@ pub struct LogAlertSender {
 /// Webhook alert notification sender
 pub struct WebhookAlertSender {
     webhook_url: String,
+    #[allow(dead_code)]
     client: reqwest::Client,
 }
 

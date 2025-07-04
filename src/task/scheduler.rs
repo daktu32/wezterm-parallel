@@ -12,6 +12,7 @@ use tracing::{info, debug};
 #[derive(Debug)]
 pub struct TaskScheduler {
     /// Scheduler configuration
+    #[allow(dead_code)]
     config: SchedulerConfig,
     
     /// Scheduled tasks

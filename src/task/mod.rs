@@ -96,6 +96,14 @@ pub struct TaskSystemStats {
 
 impl TaskSystemStats {
     pub fn new() -> Self {
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_else(|_| {
+                log::warn!("System time error, using 0 timestamp");
+                std::time::Duration::from_secs(0)
+            })
+            .as_secs();
+            
         Self {
             total_tasks: 0,
             active_tasks: 0,
@@ -103,13 +111,19 @@ impl TaskSystemStats {
             completed_tasks: 0,
             failed_tasks: 0,
             avg_completion_time: 0.0,
-            uptime: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-            last_update: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            uptime: current_time,
+            last_update: current_time,
         }
     }
     
     pub fn update(&mut self) {
-        self.last_update = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        self.last_update = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_else(|_| {
+                log::warn!("System time error during update, keeping previous timestamp");
+                std::time::Duration::from_secs(self.last_update)
+            })
+            .as_secs();
     }
 }
 
@@ -172,12 +186,24 @@ pub fn generate_task_id() -> String {
 
 /// Get current timestamp in seconds
 pub fn current_timestamp() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| {
+            log::warn!("System time error, returning fallback timestamp");
+            std::time::Duration::from_secs(0)
+        })
+        .as_secs()
 }
 
 /// Get current timestamp in milliseconds
 pub fn current_timestamp_millis() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| {
+            log::warn!("System time error, returning fallback timestamp");
+            std::time::Duration::from_millis(0)
+        })
+        .as_millis() as u64
 }
 
 /// Format duration for display

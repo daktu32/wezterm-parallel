@@ -4,9 +4,7 @@ use std::time::{SystemTime, Duration};
 use uuid::Uuid;
 use anyhow::{Result, anyhow};
 use notify::{Watcher, RecursiveMode, Event, EventKind};
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::sync::mpsc::{self, Receiver};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChangeType {
@@ -291,7 +289,8 @@ impl FileSyncManager {
         
         // 最新のバックアップファイルを選択（ファイル名のタイムスタンプでソート）
         backup_files.sort();
-        let latest_backup = backup_files.last().unwrap();
+        let latest_backup = backup_files.last()
+            .ok_or_else(|| anyhow!("No backup files found after filtering"))?;
         
         // バックアップからファイルを復元
         std::fs::copy(latest_backup, file_path)?;
@@ -452,6 +451,7 @@ impl Default for FileSyncManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused_imports)]
     use tempfile::TempDir;
     
     #[test]

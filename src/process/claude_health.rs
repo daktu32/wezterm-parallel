@@ -1,11 +1,9 @@
 use std::time::{Duration, Instant, SystemTime};
 use std::collections::HashMap;
-use std::process::Command;
 use tokio::time::sleep;
 use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
-use log::{debug, info, warn, error};
-use uuid::Uuid;
+use log::{debug, info, error};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 

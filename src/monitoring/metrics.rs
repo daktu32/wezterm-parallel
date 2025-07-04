@@ -13,6 +13,7 @@ pub struct MetricsCollector {
     process_cache: HashMap<u32, ProcessMetrics>,
     
     /// Network baseline for delta calculations
+    #[allow(dead_code)]
     network_baseline: Option<NetworkIO>,
     
     /// Last collection timestamp
@@ -498,6 +499,7 @@ impl MetricsCollector {
     }
     
     /// Helper function to extract memory from /proc/meminfo line
+    #[allow(dead_code)]
     fn extract_memory_from_line(&self, line: &str) -> Result<u64, Box<dyn std::error::Error>> {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 2 {
@@ -540,6 +542,7 @@ struct ProcessInfo {
     name: String,
     cpu_usage: f64,
     memory_usage: u64,
+    #[allow(dead_code)]
     command: String,
 }
 
@@ -547,7 +550,10 @@ struct ProcessInfo {
 fn current_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_else(|_| {
+            log::warn!("System time error in metrics, using fallback timestamp");
+            std::time::Duration::from_secs(0)
+        })
         .as_secs()
 }
 

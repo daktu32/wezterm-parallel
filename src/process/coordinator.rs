@@ -1,5 +1,5 @@
 use crate::{CoordinationEvent, CoordinationResponse, ProcessStatus};
-use crate::task::{TaskDistributor, Task, ProcessLoad};
+use crate::task::TaskDistributor;
 use crate::sync::FileSyncManager;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,18 +16,23 @@ pub struct ProcessCoordinator {
     /// 再割り当てが必要なタスク
     reassigned_tasks: Arc<RwLock<Vec<String>>>,
     /// タスク分散マネージャー
+    #[allow(dead_code)]
     task_distributor: Arc<RwLock<TaskDistributor>>,
     /// ファイル同期マネージャー
     file_sync_manager: Arc<RwLock<FileSyncManager>>,
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ProcessState {
     id: String,
     status: ProcessStatus,
     task_count: usize,
+    #[allow(dead_code)]
     cpu_usage: f64,
+    #[allow(dead_code)]
     memory_usage: u64,
+    #[allow(dead_code)]
     uuid: Uuid,
 }
 

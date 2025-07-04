@@ -34,6 +34,7 @@ pub struct MergeManager {
     conflict_resolution_strategy: ConflictResolution,
     process_priorities: HashMap<Uuid, u8>,
     merge_patterns: Vec<MergePattern>,
+    #[allow(dead_code)]
     auto_merge_enabled: bool,
 }
 
@@ -44,7 +45,7 @@ struct MergePattern {
 }
 
 #[derive(Debug, Clone)]
-enum MergeStrategy {
+pub enum MergeStrategy {
     LineByLine,
     BlockBased,
     StructuralMerge,
@@ -116,10 +117,8 @@ impl MergeManager {
         }
         
         // 段階的マージ：各バージョンをベースと比較してマージ
-        let mut current_content = base_content.to_string();
-        
         // 最初のバージョンから開始
-        current_content = versions[0].0.clone();
+        let mut current_content = versions[0].0.clone();
         
         // 残りのバージョンを順次マージ
         for (version_content, _process_id) in versions.iter().skip(1) {
@@ -172,7 +171,7 @@ impl MergeManager {
     
     pub fn resolve_conflict_with_process(
         &self,
-        file_path: &PathBuf,
+        _file_path: &PathBuf,
         _base_content: &str,
         version1: (&str, Uuid),
         version2: (&str, Uuid),
@@ -344,7 +343,7 @@ impl MergeManager {
     
     pub fn create_merge_conflict_markers(
         &self,
-        base_content: &str,
+        _base_content: &str,
         version1: &str,
         version2: &str,
         process1: Uuid,

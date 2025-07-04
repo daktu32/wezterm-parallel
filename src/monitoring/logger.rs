@@ -199,7 +199,13 @@ impl LoggingManager {
         let current_log_size = Arc::clone(&self.current_log_size);
         let max_size = self.config.max_log_size_mb * 1024 * 1024; // Convert MB to bytes
         let retention_count = self.config.log_retention_count;
-        let log_file = self.log_file.as_ref().unwrap().clone();
+        let log_file = match self.log_file.as_ref() {
+            Some(file) => file.clone(),
+            None => {
+                log::warn!("Log file not initialized, rotation skipped");
+                return Ok(());
+            }
+        };
         
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60)); // Check every minute
@@ -308,11 +314,13 @@ impl LoggingManager {
 }
 
 /// Custom writer for log file with size tracking
+#[allow(dead_code)]
 struct LogFileWriter {
     file: Arc<RwLock<std::fs::File>>,
 }
 
 impl LogFileWriter {
+    #[allow(dead_code)]
     fn new(file: Arc<RwLock<std::fs::File>>) -> Self {
         Self { file }
     }

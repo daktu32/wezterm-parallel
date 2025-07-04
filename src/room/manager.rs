@@ -35,7 +35,10 @@ struct PersistedState {
 impl WorkspaceManager {
     pub fn new(state_file_path: Option<PathBuf>) -> Result<Self> {
         let state_path = state_file_path.unwrap_or_else(|| {
-            let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+            let mut path = dirs::config_dir().unwrap_or_else(|| {
+                log::warn!("設定ディレクトリが取得できません。カレントディレクトリを使用します。");
+                PathBuf::from(".")
+            });
             path.push("wezterm-parallel");
             path.push("workspaces.json");
             path
@@ -76,8 +79,13 @@ impl WorkspaceManager {
                 .map_err(|e| UserError::config_load_failed("デフォルトワークスペース", &e.to_string()))?;
         }
 
-        info!("WorkspaceManager initialized with {} workspaces", 
-              manager.workspaces.try_read().map(|w| w.len()).unwrap_or(0));
+        let workspace_count = manager.workspaces.try_read()
+            .map(|w| w.len())
+            .unwrap_or_else(|_| {
+                log::warn!("ワークスペース数の取得でロック競合が発生しました");
+                0
+            });
+        info!("WorkspaceManager initialized with {} workspaces", workspace_count);
 
         Ok(manager)
     }
@@ -381,11 +389,14 @@ impl WorkspaceManager {
             .ok_or_else(|| UserError::room_not_found(workspace_name))?;
 
         // プロジェクトルートを取得（現在のディレクトリ、または指定されたディレクトリ）
-        let project_root = std::env::current_dir().ok();
+        let project_root = std::env::current_dir().unwrap_or_else(|_| {
+            log::warn!("現在のディレクトリが取得できません。カレントディレクトリを使用します。");
+            PathBuf::from(".")
+        });
 
         // Claude Code設定を構築
         let claude_config = match ClaudeCodeConfigBuilder::new(binary_path, workspace_name)
-            .project_root(project_root.unwrap_or_else(|| PathBuf::from(".")))
+            .project_root(project_root)
             .environment("WEZTERM_WORKSPACE", workspace_name)
             .argument("--workspace")
             .argument(workspace_name)

@@ -302,6 +302,7 @@ pub struct MonitoringManager {
     health_status: Arc<RwLock<Option<HealthCheck>>>,
     
     /// Metrics history for analytics
+    #[allow(dead_code)]
     metrics_history: Arc<RwLock<Vec<SystemMetrics>>>,
     
     /// Alert history
@@ -456,7 +457,10 @@ pub mod utils {
     pub fn current_timestamp() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_else(|_| {
+                log::warn!("System time error in monitoring, using fallback timestamp");
+                std::time::Duration::from_secs(0)
+            })
             .as_secs()
     }
 }

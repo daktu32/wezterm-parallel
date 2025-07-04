@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::env;
 use serde::{Deserialize, Serialize};
-use log::{debug, info};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 

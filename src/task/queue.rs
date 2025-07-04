@@ -381,11 +381,16 @@ impl TaskQueue {
 
 /// Queued task wrapper for priority ordering
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct QueuedTask {
     task_id: TaskId,
+    #[allow(dead_code)]
     priority: TaskPriority,
+    #[allow(dead_code)]
     due_date: Option<u64>,
+    #[allow(dead_code)]
     estimated_duration: Option<u64>,
+    #[allow(dead_code)]
     enqueued_at: u64,
     score: f64,
 }

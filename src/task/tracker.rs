@@ -424,6 +424,7 @@ impl TaskTracker {
     }
 
     /// Calculate productivity score for a period
+    #[allow(dead_code)]
     fn calculate_period_productivity_score(&self, summaries: &[DailySummary]) -> f64 {
         if summaries.is_empty() {
             return 0.0;
