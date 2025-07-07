@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{info, debug, warn};
+use crate::logging::LogContext;
+use crate::{log_info, log_debug, log_warn};
 
 /// メモリプール管理
 pub struct MemoryPool {
@@ -87,7 +88,10 @@ impl MemoryPool {
         }
         
         let after_count: usize = self.pools.values().map(|v| v.len()).sum();
-        debug!("メモリプールクリーンアップ: {} → {} バッファ", before_count, after_count);
+        let cleanup_context = LogContext::new("performance", "memory_pool_cleanup")
+            .with_metadata("before_count", serde_json::json!(before_count))
+            .with_metadata("after_count", serde_json::json!(after_count));
+        log_debug!(cleanup_context, "メモリプールクリーンアップ: {} → {} バッファ", before_count, after_count);
     }
 }
 
@@ -150,7 +154,10 @@ impl StringInterner {
         self.strings.retain(|_, arc_str| Arc::strong_count(arc_str) > 1);
         
         let after_count = self.strings.len();
-        debug!("文字列インターナークリーンアップ: {} → {} 文字列", before_count, after_count);
+        let interner_cleanup_context = LogContext::new("performance", "string_interner_cleanup")
+            .with_metadata("before_count", serde_json::json!(before_count))
+            .with_metadata("after_count", serde_json::json!(after_count));
+        log_debug!(interner_cleanup_context, "文字列インターナークリーンアップ: {} → {} 文字列", before_count, after_count);
     }
 }
 
@@ -188,17 +195,26 @@ impl MemoryMonitor {
         let current_usage = self.get_current_memory_usage().await?;
         let usage_ratio = current_usage as f64 / self.memory_limit as f64;
 
-        debug!("メモリ使用量チェック: {}MB / {}MB ({:.1}%)", 
-               current_usage / 1024 / 1024, 
-               self.memory_limit / 1024 / 1024, 
-               usage_ratio * 100.0);
+        let usage_check_context = LogContext::new("performance", "memory_usage_check")
+            .with_metadata("current_usage_mb", serde_json::json!(current_usage / 1024 / 1024))
+            .with_metadata("memory_limit_mb", serde_json::json!(self.memory_limit / 1024 / 1024))
+            .with_metadata("usage_ratio_percent", serde_json::json!(usage_ratio * 100.0));
+        log_debug!(usage_check_context, "メモリ使用量チェック: {}MB / {}MB ({:.1}%)", 
+                   current_usage / 1024 / 1024, 
+                   self.memory_limit / 1024 / 1024, 
+                   usage_ratio * 100.0);
 
         if usage_ratio > 1.0 {
-            warn!("メモリ使用量が制限を超過: {:.1}%", usage_ratio * 100.0);
+            let critical_context = LogContext::new("performance", "memory_critical")
+                .with_metadata("usage_ratio_percent", serde_json::json!(usage_ratio * 100.0));
+            log_warn!(critical_context, "メモリ使用量が制限を超過: {:.1}%", usage_ratio * 100.0);
             self.emergency_cleanup().await;
             Ok(MemoryStatus::Critical)
         } else if usage_ratio > self.warning_threshold {
-            warn!("メモリ使用量が警告レベル: {:.1}%", usage_ratio * 100.0);
+            let warning_context = LogContext::new("performance", "memory_warning")
+                .with_metadata("usage_ratio_percent", serde_json::json!(usage_ratio * 100.0))
+                .with_metadata("warning_threshold", serde_json::json!(self.warning_threshold * 100.0));
+            log_warn!(warning_context, "メモリ使用量が警告レベル: {:.1}%", usage_ratio * 100.0);
             self.perform_cleanup().await;
             Ok(MemoryStatus::Warning)
         } else {
@@ -272,7 +288,8 @@ impl MemoryMonitor {
 
     /// 通常のクリーンアップ
     async fn perform_cleanup(&self) {
-        info!("メモリクリーンアップを実行中...");
+        let cleanup_context = LogContext::new("performance", "memory_cleanup");
+        log_info!(cleanup_context, "メモリクリーンアップを実行中...");
         
         {
             let mut pool = self.memory_pool.write().await;
@@ -287,7 +304,8 @@ impl MemoryMonitor {
 
     /// 緊急クリーンアップ
     async fn emergency_cleanup(&self) {
-        warn!("緊急メモリクリーンアップを実行中...");
+        let emergency_context = LogContext::new("performance", "memory_emergency_cleanup");
+        log_warn!(emergency_context, "緊急メモリクリーンアップを実行中...");
         
         {
             let mut pool = self.memory_pool.write().await;
@@ -405,7 +423,7 @@ mod tests {
         assert_eq!(count, 2); // "hello", "world"
         assert_eq!(hits, 1);  // "hello"の2回目
         assert_eq!(misses, 2); // "hello"の1回目, "world"
-        assert_eq!(hit_rate, 33.333333333333336); // 1/3 * 100
+        assert!((hit_rate - 33.333333333333336).abs() < 1e-10); // 1/3 * 100 (浮動小数点精度対応)
     }
 
     #[tokio::test]

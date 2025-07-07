@@ -225,76 +225,70 @@ impl ProcessMonitor {
     }
 
     async fn check_cpu_alert(&self, metrics: &ProcessMetrics) {
-        if metrics.cpu_usage_percent > self.config.cpu_threshold_percent {
-            if !self.has_recent_alert(&metrics.process_id, &AlertType::HighCpuUsage).await {
-                let alert = Alert {
-                    id: format!("cpu-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
-                    process_id: metrics.process_id.clone(),
-                    alert_type: AlertType::HighCpuUsage,
-                    message: format!("Process '{}' CPU usage: {:.1}% (threshold: {:.1}%)", 
-                                   metrics.process_id, metrics.cpu_usage_percent, self.config.cpu_threshold_percent),
-                    severity: if metrics.cpu_usage_percent > 95.0 { 
-                        AlertSeverity::Critical 
-                    } else { 
-                        AlertSeverity::Warning 
-                    },
-                    timestamp: SystemTime::now(),
-                    acknowledged: false,
-                };
-                
-                self.add_alert(alert).await;
-            }
+        if metrics.cpu_usage_percent > self.config.cpu_threshold_percent && !self.has_recent_alert(&metrics.process_id, &AlertType::HighCpuUsage).await {
+            let alert = Alert {
+                id: format!("cpu-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
+                process_id: metrics.process_id.clone(),
+                alert_type: AlertType::HighCpuUsage,
+                message: format!("Process '{}' CPU usage: {:.1}% (threshold: {:.1}%)", 
+                               metrics.process_id, metrics.cpu_usage_percent, self.config.cpu_threshold_percent),
+                severity: if metrics.cpu_usage_percent > 95.0 { 
+                    AlertSeverity::Critical 
+                } else { 
+                    AlertSeverity::Warning 
+                },
+                timestamp: SystemTime::now(),
+                acknowledged: false,
+            };
+            
+            self.add_alert(alert).await;
         }
     }
 
     async fn check_memory_alert(&self, metrics: &ProcessMetrics) {
-        if metrics.memory_usage_mb > self.config.memory_threshold_mb {
-            if !self.has_recent_alert(&metrics.process_id, &AlertType::HighMemoryUsage).await {
-                let alert = Alert {
-                    id: format!("mem-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
-                    process_id: metrics.process_id.clone(),
-                    alert_type: AlertType::HighMemoryUsage,
-                    message: format!("Process '{}' memory usage: {}MB (threshold: {}MB)", 
-                                   metrics.process_id, metrics.memory_usage_mb, self.config.memory_threshold_mb),
-                    severity: if metrics.memory_usage_mb > self.config.memory_threshold_mb * 2 { 
-                        AlertSeverity::Critical 
-                    } else { 
-                        AlertSeverity::Warning 
-                    },
-                    timestamp: SystemTime::now(),
-                    acknowledged: false,
-                };
-                
-                self.add_alert(alert).await;
-            }
+        if metrics.memory_usage_mb > self.config.memory_threshold_mb && !self.has_recent_alert(&metrics.process_id, &AlertType::HighMemoryUsage).await {
+            let alert = Alert {
+                id: format!("mem-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
+                process_id: metrics.process_id.clone(),
+                alert_type: AlertType::HighMemoryUsage,
+                message: format!("Process '{}' memory usage: {}MB (threshold: {}MB)", 
+                               metrics.process_id, metrics.memory_usage_mb, self.config.memory_threshold_mb),
+                severity: if metrics.memory_usage_mb > self.config.memory_threshold_mb * 2 { 
+                    AlertSeverity::Critical 
+                } else { 
+                    AlertSeverity::Warning 
+                },
+                timestamp: SystemTime::now(),
+                acknowledged: false,
+            };
+            
+            self.add_alert(alert).await;
         }
     }
 
     async fn check_responsiveness_alert(&self, metrics: &ProcessMetrics) {
-        if !metrics.is_responsive {
-            if !self.has_recent_alert(&metrics.process_id, &AlertType::ProcessUnresponsive).await {
-                let alert = Alert {
-                    id: format!("unresponsive-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
-                    process_id: metrics.process_id.clone(),
-                    alert_type: AlertType::ProcessUnresponsive,
-                    message: format!("Process '{}' is unresponsive (response time: {}ms)", 
-                                   metrics.process_id, metrics.response_time_ms),
-                    severity: AlertSeverity::Critical,
-                    timestamp: SystemTime::now(),
-                    acknowledged: false,
-                };
+        if !metrics.is_responsive && !self.has_recent_alert(&metrics.process_id, &AlertType::ProcessUnresponsive).await {
+            let alert = Alert {
+                id: format!("unresponsive-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
+                process_id: metrics.process_id.clone(),
+                alert_type: AlertType::ProcessUnresponsive,
+                message: format!("Process '{}' is unresponsive (response time: {}ms)", 
+                               metrics.process_id, metrics.response_time_ms),
+                severity: AlertSeverity::Critical,
+                timestamp: SystemTime::now(),
+                acknowledged: false,
+            };
+            
+            self.add_alert(alert).await;
+            
+            // Auto-restart if configured
+            if self.config.restart_on_failure && 
+               metrics.consecutive_failures >= self.config.max_consecutive_failures {
+                warn!("Process '{}' has {} consecutive failures, attempting restart", 
+                      metrics.process_id, metrics.consecutive_failures);
                 
-                self.add_alert(alert).await;
-                
-                // Auto-restart if configured
-                if self.config.restart_on_failure && 
-                   metrics.consecutive_failures >= self.config.max_consecutive_failures {
-                    warn!("Process '{}' has {} consecutive failures, attempting restart", 
-                          metrics.process_id, metrics.consecutive_failures);
-                    
-                    if let Err(e) = self.manager.restart_process(&metrics.process_id).await {
-                        error!("Failed to restart unresponsive process '{}': {}", metrics.process_id, e);
-                    }
+                if let Err(e) = self.manager.restart_process(&metrics.process_id).await {
+                    error!("Failed to restart unresponsive process '{}': {}", metrics.process_id, e);
                 }
             }
         }

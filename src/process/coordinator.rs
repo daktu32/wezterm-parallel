@@ -36,6 +36,12 @@ struct ProcessState {
     uuid: Uuid,
 }
 
+impl Default for ProcessCoordinator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProcessCoordinator {
     /// 新しいコーディネーターを作成
     pub fn new() -> Self {

@@ -6,7 +6,8 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
+use crate::logging::LogContext;
+use crate::{log_debug, log_info};
 
 /// パフォーマンスメトリクス
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,18 +97,22 @@ impl MetricsCollector {
                     }
                 }
                 
-                debug!("パフォーマンスメトリクス収集完了");
+                let collection_context = LogContext::new("performance", "metrics_collection");
+                log_debug!(collection_context, "パフォーマンスメトリクス収集完了");
             }
         }));
         
-        info!("メトリクス収集開始: 間隔={:?}", collection_interval);
+        let start_context = LogContext::new("performance", "metrics_start")
+            .with_metadata("collection_interval_ms", serde_json::json!(collection_interval.as_millis()));
+        log_info!(start_context, "メトリクス収集開始: 間隔={:?}", collection_interval);
     }
 
     /// メトリクス収集を停止
     pub fn stop_collection(&mut self) {
         if let Some(handle) = self.collection_handle.take() {
             handle.abort();
-            info!("メトリクス収集停止");
+            let stop_context = LogContext::new("performance", "metrics_stop");
+            log_info!(stop_context, "メトリクス収集停止");
         }
     }
 
@@ -161,10 +166,11 @@ impl MetricsCollector {
 
     /// エラーを記録
     pub async fn record_error(&self, error_type: &str) {
+        // エラーカウントを更新（ロックを早期に解放）
         {
             let mut error_counts = self.error_counts.write().await;
             *error_counts.entry(error_type.to_string()).or_insert(0) += 1;
-        }
+        } // ここでロックが解放される
         
         // エラー率を計算
         self.calculate_error_rate().await;
@@ -172,8 +178,11 @@ impl MetricsCollector {
 
     /// 操作を記録
     pub async fn record_operation(&self, operation_type: &str) {
-        let mut operation_counts = self.operation_counts.write().await;
-        *operation_counts.entry(operation_type.to_string()).or_insert(0) += 1;
+        // 操作カウントを更新（ロックを早期に解放）
+        {
+            let mut operation_counts = self.operation_counts.write().await;
+            *operation_counts.entry(operation_type.to_string()).or_insert(0) += 1;
+        } // ここでロックが解放される
         
         // スループットを計算
         self.calculate_throughput().await;

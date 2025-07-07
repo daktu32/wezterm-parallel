@@ -10,6 +10,7 @@ pub mod monitoring;
 pub mod sync;
 pub mod error;
 pub mod performance;
+pub mod logging;
 
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
@@ -20,8 +21,30 @@ pub enum Message {
     ProcessSpawn { workspace: String, command: String },
     StatusUpdate { process_id: String, status: String },
     TaskQueue { id: String, priority: u8, command: String },
+    // Template System IPC Messages
+    TemplateList,
+    TemplateListResponse { templates: Vec<TemplateInfo> },
+    TemplateGet { name: String },
+    TemplateGetResponse { template: Option<String> },
+    TemplateCreate { name: String, content: String },
+    TemplateCreateResponse { success: bool, error: Option<String> },
+    TemplateDelete { name: String },
+    TemplateDeleteResponse { success: bool, error: Option<String> },
     Ping,
     Pong,
+}
+
+// Template information for IPC communication
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct TemplateInfo {
+    pub name: String,
+    pub description: String,
+    pub author: String,
+    pub version: String,
+    pub created_at: String,
+    pub layout_type: String,
+    pub pane_count: u32,
+    pub auto_start_processes: bool,
 }
 
 // プロセス間協調メッセージ

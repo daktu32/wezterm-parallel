@@ -2,8 +2,8 @@
 -- テンプレート管理統合システム（一覧表示、検索、削除、デフォルト設定）
 
 local wezterm = require 'wezterm'
-local TemplateLoader = require('template_loader')
-local LayoutEngine = require('layout_engine')
+local LayoutEngine = require('ui.layout_engine')
+local TemplateBridge = require('room.template_loader_bridge')
 
 local TemplateManager = {}
 
@@ -32,12 +32,16 @@ function TemplateManager.init(framework_config)
     end
   end
   
-  -- テンプレートローダーとレイアウトエンジンの初期化
-  TemplateLoader.init(framework_config)
-  LayoutEngine.init(framework_config)
+  -- レイアウトエンジンの初期化
+  if LayoutEngine.init then
+    LayoutEngine.init(framework_config)
+  end
+  
+  -- テンプレートブリッジの初期化
+  TemplateBridge.init(framework_config)
   
   -- テンプレートディレクトリの確保
-  TemplateLoader.ensure_template_directories()
+  TemplateBridge.ensure_template_directories()
   
   -- 統計情報の初期化
   TemplateManager.init_statistics()
@@ -63,7 +67,7 @@ function TemplateManager.list_templates(options)
   local sort_by = options.sort_by or "name"  -- name, date, usage
   local filter = options.filter or nil
   
-  local templates = TemplateLoader.list_templates()
+  local templates = TemplateBridge.list_templates()
   local enhanced_templates = {}
   
   -- テンプレート情報の強化
@@ -81,7 +85,7 @@ function TemplateManager.list_templates(options)
     
     -- 詳細情報を含める場合
     if include_details then
-      local template = TemplateLoader.load_template(template_info.file_path)
+      local template = TemplateBridge.load_template(template_info.file_path)
       if template then
         enhanced.pane_count = template.layout and template.layout.panes and #template.layout.panes or 0
         enhanced.workspace_config = template.workspace and true or false
@@ -177,7 +181,7 @@ function TemplateManager.apply_template(template_name, window, pane, options)
   end
   
   local template_info = template_matches[1]
-  local template = TemplateLoader.load_template(template_info.file_path)
+  local template = TemplateBridge.load_template(template_info.file_path)
   
   if not template then
     wezterm.log_error("Failed to load template: " .. template_name)
@@ -378,7 +382,7 @@ function TemplateManager.delete_template(template_name)
   
   if success then
     -- キャッシュからも削除
-    TemplateLoader.clear_cache()
+    TemplateManager.clear_cache()
     
     -- お気に入りから削除
     TemplateManager.remove_from_favorites(template_name)
@@ -515,7 +519,7 @@ function TemplateManager.auto_cleanup()
   end
   
   -- キャッシュクリア
-  TemplateLoader.clear_cache()
+  TemplateManager.clear_cache()
   
   -- 統計情報のクリーンアップ
   local cleaned_stats = {}
@@ -541,7 +545,7 @@ function TemplateManager.get_template_details(template_name)
   end
   
   local template_info = template_matches[1]
-  local template = TemplateLoader.load_template(template_info.file_path)
+  local template = TemplateBridge.load_template(template_info.file_path)
   
   if not template then
     return nil
@@ -574,6 +578,21 @@ function TemplateManager.update_config(new_config)
       config[k] = v
     end
   end
+end
+
+-- ブリッジ統合機能
+function TemplateManager.clear_cache()
+  -- キャッシュクリア（ブリッジに委譲）
+  TemplateBridge.clear_cache()
+  template_cache = {}
+end
+
+function TemplateManager.get_bridge_statistics()
+  return TemplateBridge.get_statistics()
+end
+
+function TemplateManager.check_backend_connection()
+  return TemplateBridge.check_backend_connection()
 end
 
 return TemplateManager

@@ -2,7 +2,7 @@
 -- Handles dynamic pane creation, synchronization, and layout management
 
 local wezterm = require 'wezterm'
-local template_loader = require 'room.template_loader'
+local template_manager = require 'room.template_loader'
 local layout_engine = require 'ui.layout_engine'
 
 local PaneManager = {}
@@ -469,12 +469,12 @@ function PaneManager.apply_template_layout(window, pane, template_path_or_name)
   -- テンプレートの読み込み
   if template_path_or_name:match("%.ya?ml$") then
     -- ファイルパスとして処理
-    template = template_loader.load_template(template_path_or_name)
+    template = template_manager.load_template(template_path_or_name)
   else
     -- テンプレート名として検索
-    local matches = template_loader.find_template(template_path_or_name)
+    local matches = template_manager.find_template(template_path_or_name)
     if #matches > 0 then
-      template = template_loader.load_template(matches[1].file_path)
+      template = template_manager.load_template(matches[1].file_path)
     end
   end
   
@@ -560,7 +560,7 @@ end
 
 -- テンプレート選択UI
 function PaneManager.show_template_selector(window, pane)
-  local templates = template_loader.list_templates()
+  local templates = template_manager.list_templates()
   local choices = {}
   
   for _, template in ipairs(templates) do
@@ -638,14 +638,14 @@ function PaneManager.save_current_layout_as_template(window, pane, template_name
   }
   
   -- テンプレートディレクトリの確保
-  template_loader.ensure_template_directories()
+  template_manager.ensure_template_directories()
   
   -- テンプレートファイルのパス
-  local template_dir = template_loader.get_template_directories()[1]
+  local template_dir = template_manager.get_template_directories()[1]
   local template_file = template_dir .. "/" .. template_name:gsub("[^%w%-_]", "_") .. ".yaml"
   
   -- テンプレートの保存
-  if template_loader.save_template(template, template_file) then
+  if template_manager.save_template(template, template_file) then
     window:toast_notification("WezTerm Multi-Dev", "Layout saved as template: " .. template_name, nil, 3000)
     wezterm.log_info("Saved layout template: " .. template_file)
     return true
@@ -697,13 +697,13 @@ end
 -- テンプレート機能の初期化
 function PaneManager.init_template_features(framework_config)
   -- テンプレートローダーの初期化
-  template_loader.init(framework_config)
+  template_manager.init(framework_config)
   
   -- レイアウトエンジンの初期化
   layout_engine.init(framework_config)
   
   -- テンプレートのプリロード
-  template_loader.preload_templates()
+  template_manager.preload_templates()
   
   wezterm.log_info("Template features initialized")
 end

@@ -8,7 +8,9 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{RwLock, mpsc};
 use tokio::time::sleep;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, debug};
+use crate::logging::LogContext;
+use crate::logging::enhancer::process;
+use crate::{log_info, log_warn, log_debug, log_error};
 
 use crate::room::state::{ProcessInfo, ProcessStatus};
 
@@ -154,7 +156,14 @@ impl ProcessManager {
             }
         }
 
-        info!("Spawning process '{}' in workspace '{}'", process_id, workspace);
+        // 統一ログ: プロセス起動開始
+        let command_string = format!("{} {}", self.config.claude_code_binary, command_args.join(" "));
+        process::log_process_start(&process_id, &command_string);
+        
+        let context = LogContext::new("process", "spawn")
+            .with_entity_id(&process_id)
+            .with_metadata("workspace", serde_json::json!(workspace));
+        log_info!(context, "Spawning process '{}' in workspace '{}'", process_id, workspace);
 
         let mut cmd = Command::new(&self.config.claude_code_binary);
         cmd.args(&command_args);
@@ -176,12 +185,26 @@ impl ProcessManager {
         cmd.env("CLAUDE_WORKSPACE", &workspace);
         cmd.env("CLAUDE_PROCESS_ID", &process_id);
 
+        let start_time = std::time::Instant::now();
         let mut child = cmd.spawn().map_err(|e| {
-            error!("Failed to spawn process '{}': {}", process_id, e);
+            let context = LogContext::new("process", "spawn_error")
+                .with_entity_id(&process_id);
+            log_error!(context, "Failed to spawn process '{}': {}", process_id, e);
+            // 統一ログ: プロセス起動エラー
+            process::log_process_error(&process_id, &format!("Spawn failed: {}", e));
             format!("Failed to spawn process: {}", e)
         })?;
 
         let pid = child.id().unwrap_or(0);
+        let _spawn_duration = start_time.elapsed();
+        
+        // 統一ログ: プロセス起動成功
+        let context = LogContext::new("process", "spawn_success")
+            .with_entity_id(&process_id)
+            .with_metadata("workspace", serde_json::json!(workspace))
+            .with_metadata("pid", serde_json::json!(pid))
+            .with_metadata("command", serde_json::json!(command_string));
+        log_info!(context, "Process spawned successfully");
         
         // Create process info
         let process_info = ProcessInfo {
@@ -228,7 +251,14 @@ impl ProcessManager {
     }
 
     pub async fn kill_process(&self, process_id: &str) -> Result<(), String> {
-        info!("Killing process '{}'", process_id);
+        // 統一ログ: プロセス停止開始
+        let context = LogContext::new("process", "kill_start")
+            .with_entity_id(process_id);
+        log_info!(context, "Initiating process termination");
+        
+        let kill_context = LogContext::new("process", "kill")
+            .with_entity_id(process_id);
+        log_info!(kill_context, "Killing process '{}'", process_id);
 
         let mut processes = self.processes.write().await;
         
@@ -244,7 +274,14 @@ impl ProcessManager {
             // Kill child process
             if let Some(mut child) = managed_process.child.take() {
                 if let Err(e) = child.kill().await {
-                    warn!("Failed to kill process '{}': {}", process_id, e);
+                    let warn_context = LogContext::new("process", "kill_failure")
+                        .with_entity_id(process_id);
+                    log_warn!(warn_context, "Failed to kill process '{}': {}", process_id, e);
+                    // 統一ログ: プロセス停止エラー
+                    process::log_process_error(process_id, &format!("Kill failed: {}", e));
+                } else {
+                    // 統一ログ: プロセス停止成功
+                    process::log_process_stop(process_id, None);
                 }
             }
 
@@ -258,12 +295,18 @@ impl ProcessManager {
 
             Ok(())
         } else {
+            // 統一ログ: プロセス未発見エラー
+            let context = LogContext::new("process", "kill_not_found")
+                .with_entity_id(process_id);
+            log_warn!(context, "Process not found for termination");
             Err(format!("Process '{}' not found", process_id))
         }
     }
 
     pub async fn restart_process(&self, process_id: &str) -> Result<(), String> {
-        info!("Restarting process '{}'", process_id);
+        let restart_context = LogContext::new("process", "restart")
+            .with_entity_id(process_id);
+        log_info!(restart_context, "Restarting process '{}'", process_id);
 
         // Get process info before killing
         let (workspace, command_args, restart_count) = {
@@ -364,7 +407,9 @@ impl ProcessManager {
                     line = stdout_reader.next_line() => {
                         match line {
                             Ok(Some(line)) => {
-                                debug!("Process '{}' stdout: {}", process_id, line);
+                                let debug_context = LogContext::new("process", "stdout")
+                                    .with_entity_id(&process_id);
+                                log_debug!(debug_context, "Process '{}' stdout: {}", process_id, line);
                                 let _ = event_sender.send(ProcessEvent::OutputLine {
                                     process_id: process_id.clone(),
                                     line,
@@ -373,7 +418,9 @@ impl ProcessManager {
                             }
                             Ok(None) => break, // EOF
                             Err(e) => {
-                                error!("Error reading stdout for process '{}': {}", process_id, e);
+                                let error_context = LogContext::new("process", "stdout_error")
+                                    .with_entity_id(&process_id);
+                                log_error!(error_context, "Error reading stdout for process '{}': {}", process_id, e);
                                 break;
                             }
                         }
@@ -381,7 +428,9 @@ impl ProcessManager {
                     line = stderr_reader.next_line() => {
                         match line {
                             Ok(Some(line)) => {
-                                debug!("Process '{}' stderr: {}", process_id, line);
+                                let debug_context = LogContext::new("process", "stderr")
+                                    .with_entity_id(&process_id);
+                                log_debug!(debug_context, "Process '{}' stderr: {}", process_id, line);
                                 let _ = event_sender.send(ProcessEvent::OutputLine {
                                     process_id: process_id.clone(),
                                     line,
@@ -390,7 +439,9 @@ impl ProcessManager {
                             }
                             Ok(None) => break, // EOF
                             Err(e) => {
-                                error!("Error reading stderr for process '{}': {}", process_id, e);
+                                let error_context = LogContext::new("process", "stderr_error")
+                                    .with_entity_id(&process_id);
+                                log_error!(error_context, "Error reading stderr for process '{}': {}", process_id, e);
                                 break;
                             }
                         }
@@ -398,7 +449,9 @@ impl ProcessManager {
                 }
             }
 
-            debug!("Output monitor for process '{}' terminated", process_id);
+            let debug_context = LogContext::new("process", "monitor_terminated")
+                .with_entity_id(&process_id);
+            log_debug!(debug_context, "Output monitor for process '{}' terminated", process_id);
         })
     }
 
@@ -421,7 +474,10 @@ impl ProcessManager {
                     is_healthy,
                 });
                 
-                debug!("Health check for process '{}': {}", process_id, 
+                let health_context = LogContext::new("process", "health_check")
+                    .with_entity_id(&process_id)
+                    .with_metadata("is_healthy", serde_json::json!(is_healthy));
+                log_debug!(health_context, "Health check for process '{}': {}", process_id, 
                        if is_healthy { "healthy" } else { "unhealthy" });
             }
         })
@@ -438,7 +494,10 @@ impl ProcessManager {
             if let Some(ref mut child) = managed_process.child {
                 match child.try_wait() {
                     Ok(Some(exit_status)) => {
-                        info!("Process '{}' finished with exit status: {:?}", process_id, exit_status);
+                        let finish_context = LogContext::new("process", "finished")
+                            .with_entity_id(process_id)
+                            .with_metadata("exit_status", serde_json::json!(exit_status.to_string()));
+                        log_info!(finish_context, "Process '{}' finished with exit status: {:?}", process_id, exit_status);
                         
                         managed_process.info.status = if exit_status.success() {
                             ProcessStatus::Stopped
@@ -458,7 +517,9 @@ impl ProcessManager {
                         // Process still running
                     }
                     Err(e) => {
-                        error!("Error checking process '{}' status: {}", process_id, e);
+                        let error_context = LogContext::new("process", "status_check_error")
+                            .with_entity_id(process_id);
+                        log_error!(error_context, "Error checking process '{}' status: {}", process_id, e);
                         managed_process.info.status = ProcessStatus::Failed;
                         to_remove.push(process_id.clone());
                     }
@@ -481,7 +542,9 @@ impl ProcessManager {
 
         let cleaned_count = initial_count - processes.len();
         if cleaned_count > 0 {
-            info!("Cleaned up {} finished processes", cleaned_count);
+            let cleanup_context = LogContext::new("process", "cleanup")
+                .with_metadata("cleaned_count", serde_json::json!(cleaned_count));
+            log_info!(cleanup_context, "Cleaned up {} finished processes", cleaned_count);
         }
 
         cleaned_count
@@ -493,7 +556,8 @@ impl ProcessManager {
     }
 
     pub async fn shutdown_all(&self) {
-        info!("Shutting down all processes");
+        let shutdown_context = LogContext::new("process", "shutdown_all");
+        log_info!(shutdown_context, "Shutting down all processes");
         
         let process_ids: Vec<String> = {
             let processes = self.processes.read().await;
@@ -502,7 +566,9 @@ impl ProcessManager {
 
         for process_id in process_ids {
             if let Err(e) = self.kill_process(&process_id).await {
-                warn!("Failed to kill process '{}' during shutdown: {}", process_id, e);
+                let warn_context = LogContext::new("process", "shutdown_kill_failure")
+                    .with_entity_id(&process_id);
+                log_warn!(warn_context, "Failed to kill process '{}' during shutdown: {}", process_id, e);
             }
         }
 

@@ -11,6 +11,9 @@ use futures_util::{SinkExt, StreamExt};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn, error, debug};
+use crate::logging::enhancer::ipc;
+use crate::{log_info, log_warn};
+use crate::logging::LogContext;
 use uuid::Uuid;
 use serde_json;
 
@@ -70,10 +73,17 @@ impl WebSocketServer {
         while let Ok((stream, client_addr)) = listener.accept().await {
             if self.state.client_count().await >= self.config.max_clients {
                 warn!("Maximum client limit reached, rejecting connection from {}", client_addr);
+                // 統一ログ: 接続制限
+                let context = LogContext::new("ipc", "connection_rejected")
+                    .with_metadata("client_addr", serde_json::json!(client_addr.to_string()))
+                    .with_metadata("reason", serde_json::json!("max_clients_reached"));
+                log_warn!(context, "WebSocket connection rejected due to client limit");
                 continue;
             }
             
             info!("New WebSocket connection from {}", client_addr);
+            // 統一ログ: 新規接続
+            ipc::log_message_receive("websocket", &client_addr.to_string(), "connection_request", 0);
             
             let state = Arc::clone(&self.state);
             let config = self.config.clone();
@@ -176,6 +186,12 @@ async fn handle_client_connection(
     
     state.register_client(client_info).await;
     info!("Client {} registered", client_id);
+    
+    // 統一ログ: クライアント登録
+    let context = LogContext::new("ipc", "client_registered")
+        .with_entity_id(&client_id)
+        .with_metadata("client_type", serde_json::json!("wezterm"));
+    log_info!(context, "WebSocket client registered successfully");
     
     // Create channels for outgoing messages
     let (outgoing_tx, mut outgoing_rx) = tokio::sync::mpsc::channel::<Message>(100);

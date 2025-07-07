@@ -298,14 +298,10 @@ impl ProcessPool {
         // Decide if we need to scale up or down
         let utilization = self.calculate_utilization(&processes).await;
         
-        if utilization > self.pool_config.scale_up_threshold && queue_length > 0 {
-            if self.can_scale_up().await {
-                self.scale_up().await;
-            }
-        } else if utilization < self.pool_config.scale_down_threshold && queue_length == 0 {
-            if self.can_scale_down().await {
-                self.scale_down().await;
-            }
+        if utilization > self.pool_config.scale_up_threshold && queue_length > 0 && self.can_scale_up().await {
+            self.scale_up().await;
+        } else if utilization < self.pool_config.scale_down_threshold && queue_length == 0 && self.can_scale_down().await {
+            self.scale_down().await;
         }
 
         // Process any pending tasks

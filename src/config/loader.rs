@@ -6,7 +6,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tokio::fs as async_fs;
-use log::{info, warn, debug};
+use crate::logging::enhancer::config;
+use crate::{log_warn, log_info, log_debug};
+use crate::logging::LogContext;
 
 /// Configuration loader with support for multiple sources
 pub struct ConfigLoader {
@@ -111,13 +113,16 @@ impl ConfigLoader {
     
     /// Load configuration synchronously
     pub fn load(&self) -> Result<Config, ConfigError> {
-        info!("Loading configuration from search paths: {:?}", self.search_paths);
+        let load_context = LogContext::new("config", "load_start")
+            .with_metadata("search_paths", serde_json::json!(self.search_paths));
+        log_info!(load_context, "Loading configuration from search paths: {:?}", self.search_paths);
         
         // Try to find and load config file
         let mut config = match self.find_and_load_config() {
             Ok(config) => config,
             Err(ConfigError::FileNotFound(_)) => {
-                warn!("No configuration file found, using defaults");
+                let default_context = LogContext::new("config", "file_not_found");
+                log_warn!(default_context, "No configuration file found, using defaults");
                 Config::default()
             }
             Err(err) => return Err(err),
@@ -132,21 +137,26 @@ impl ConfigLoader {
         // Validate configuration
         self.validate_config(&config)?;
         
-        info!("Configuration loaded successfully");
-        debug!("Final configuration: {:?}", config);
+        let success_context = LogContext::new("config", "load_success");
+        log_info!(success_context, "Configuration loaded successfully");
+        let debug_context = LogContext::new("config", "load_debug");
+        log_debug!(debug_context, "Final configuration: {:?}", config);
         
         Ok(config)
     }
     
     /// Load configuration asynchronously
     pub async fn load_async(&self) -> Result<Config, ConfigError> {
-        info!("Loading configuration asynchronously from search paths: {:?}", self.search_paths);
+        let async_load_context = LogContext::new("config", "load_async_start")
+            .with_metadata("search_paths", serde_json::json!(self.search_paths));
+        log_info!(async_load_context, "Loading configuration asynchronously from search paths: {:?}", self.search_paths);
         
         // Try to find and load config file
         let mut config = match self.find_and_load_config_async().await {
             Ok(config) => config,
             Err(ConfigError::FileNotFound(_)) => {
-                warn!("No configuration file found, using defaults");
+                let async_default_context = LogContext::new("config", "async_file_not_found");
+                log_warn!(async_default_context, "No configuration file found, using defaults");
                 Config::default()
             }
             Err(err) => return Err(err),
@@ -161,22 +171,49 @@ impl ConfigLoader {
         // Validate configuration
         self.validate_config(&config)?;
         
-        info!("Configuration loaded successfully");
-        debug!("Final configuration: {:?}", config);
+        let async_success_context = LogContext::new("config", "load_async_success");
+        log_info!(async_success_context, "Configuration loaded successfully");
+        let async_debug_context = LogContext::new("config", "load_async_debug");
+        log_debug!(async_debug_context, "Final configuration: {:?}", config);
         
         Ok(config)
     }
     
     /// Find and load configuration file
     fn find_and_load_config(&self) -> Result<Config, ConfigError> {
+        let start_time = std::time::Instant::now();
+        
         for path in &self.search_paths {
             if path.exists() {
-                info!("Found configuration file: {}", path.display());
-                let content = fs::read_to_string(path)?;
-                let config: Config = serde_yaml::from_str(&content)?;
+                let found_context = LogContext::new("config", "file_found")
+                    .with_entity_id(&path.display().to_string());
+                log_info!(found_context, "Found configuration file: {}", path.display());
+                
+                let path_str = path.display().to_string();
+                let content = fs::read_to_string(path).map_err(|e| {
+                    // 統一ログ: 設定読み込みエラー
+                    config::log_config_error(&path_str, &e.to_string());
+                    ConfigError::from(e)
+                })?;
+                
+                let config: Config = serde_yaml::from_str(&content).map_err(|e| {
+                    // 統一ログ: 設定パースエラー
+                    config::log_config_error(&path_str, &format!("Parse error: {}", e));
+                    ConfigError::from(e)
+                })?;
+                
+                // 統一ログ: 設定読み込み成功
+                let load_time = start_time.elapsed().as_millis() as u64;
+                config::log_config_load(&path_str, load_time);
+                
                 return Ok(config);
             }
         }
+        
+        // 統一ログ: 設定ファイル未発見
+        let context = LogContext::new("config", "file_not_found")
+            .with_metadata("search_paths", serde_json::json!(self.search_paths));
+        log_warn!(context, "No configuration file found in search paths");
         
         Err(ConfigError::FileNotFound(
             self.search_paths.first().cloned().unwrap_or_default()
@@ -187,7 +224,9 @@ impl ConfigLoader {
     async fn find_and_load_config_async(&self) -> Result<Config, ConfigError> {
         for path in &self.search_paths {
             if path.exists() {
-                info!("Found configuration file: {}", path.display());
+                let async_found_context = LogContext::new("config", "async_file_found")
+                    .with_entity_id(&path.display().to_string());
+                log_info!(async_found_context, "Found configuration file: {}", path.display());
                 let content = async_fs::read_to_string(path).await?;
                 let config: Config = serde_yaml::from_str(&content)?;
                 return Ok(config);
@@ -238,7 +277,10 @@ impl ConfigLoader {
     
     /// Apply a single override value
     fn apply_override(&self, config: &mut Config, path: &str, value: &str) -> Result<(), ConfigError> {
-        debug!("Applying override: {} = {}", path, value);
+        let override_context = LogContext::new("config", "apply_override")
+            .with_metadata("override_path", serde_json::json!(path))
+            .with_metadata("override_value", serde_json::json!(value));
+        log_debug!(override_context, "Applying override: {} = {}", path, value);
         
         match path {
             "server.socket_path" => config.server.socket_path = value.to_string(),
@@ -261,7 +303,9 @@ impl ConfigLoader {
                     .map_err(|_| ConfigError::Environment(format!("Invalid value for {}: {}", path, value)))?;
             }
             _ => {
-                warn!("Unknown configuration override path: {}", path);
+                let unknown_context = LogContext::new("config", "unknown_override_path")
+                    .with_metadata("path", serde_json::json!(path));
+                log_warn!(unknown_context, "Unknown configuration override path: {}", path);
             }
         }
         
@@ -328,7 +372,9 @@ impl ConfigLoader {
         }
         
         fs::write(path, yaml_str)?;
-        info!("Configuration saved to: {}", path.display());
+        let save_context = LogContext::new("config", "save_success")
+            .with_entity_id(&path.display().to_string());
+        log_info!(save_context, "Configuration saved to: {}", path.display());
         
         Ok(())
     }
@@ -343,7 +389,9 @@ impl ConfigLoader {
         }
         
         async_fs::write(path, yaml_str).await?;
-        info!("Configuration saved to: {}", path.display());
+        let async_save_context = LogContext::new("config", "async_save_success")
+            .with_entity_id(&path.display().to_string());
+        log_info!(async_save_context, "Configuration saved to: {}", path.display());
         
         Ok(())
     }

@@ -11,6 +11,12 @@ pub struct MessageRouter {
     processes: Arc<RwLock<HashMap<String, Arc<Mutex<ProcessManager>>>>>,
 }
 
+impl Default for MessageRouter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MessageRouter {
     /// 新しいメッセージルーターを作成
     pub fn new() -> Self {

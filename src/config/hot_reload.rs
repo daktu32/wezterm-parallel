@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, SystemTime};
-use log::{info, warn, error};
+use crate::logging::LogContext;
+use crate::{log_info, log_warn, log_error};
 
 pub struct HotReloader {
     config_path: PathBuf,
@@ -44,14 +45,19 @@ impl HotReloader {
                                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
                                 ) {
                                 Ok(config) => {
-                                    info!("Configuration reloaded from {:?}", config_path);
+                                    let reload_context = LogContext::new("config", "hot_reload_success")
+                                        .with_entity_id(&config_path.display().to_string());
+                                    log_info!(reload_context, "Configuration reloaded from {:?}", config_path);
                                     if let Err(e) = sender.send(config) {
-                                        error!("Failed to send reloaded config: {}", e);
+                                        let send_error_context = LogContext::new("config", "hot_reload_send_error");
+                                        log_error!(send_error_context, "Failed to send reloaded config: {}", e);
                                         break;
                                     }
                                 }
                                 Err(e) => {
-                                    warn!("Failed to reload config: {}", e);
+                                    let reload_error_context = LogContext::new("config", "hot_reload_error")
+                                        .with_entity_id(&config_path.display().to_string());
+                                    log_warn!(reload_error_context, "Failed to reload config: {}", e);
                                 }
                             }
                         }

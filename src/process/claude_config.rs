@@ -34,7 +34,7 @@ pub struct ClaudeCodeConfig {
 }
 
 /// ワークスペース固有の設定
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorkspaceSpecificConfig {
     /// プロジェクトルートディレクトリ
     pub project_root: Option<PathBuf>,
@@ -212,17 +212,6 @@ impl ClaudeCodeConfig {
     }
 }
 
-impl Default for WorkspaceSpecificConfig {
-    fn default() -> Self {
-        Self {
-            project_root: None,
-            project_name: None,
-            additional_env: HashMap::new(),
-            additional_args: Vec::new(),
-            process_priority: None,
-        }
-    }
-}
 
 /// 設定ビルダー - 流暢なインターフェースで設定を構築
 pub struct ClaudeCodeConfigBuilder {

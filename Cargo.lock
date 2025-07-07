@@ -2006,6 +2006,7 @@ dependencies = [
  "dirs",
  "env_logger",
  "futures-util",
+ "lazy_static",
  "log",
  "notify",
  "reqwest",

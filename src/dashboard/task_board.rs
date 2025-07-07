@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn, debug, error};
+use crate::logging::LogContext;
+use crate::{log_info, log_warn, log_debug, log_error};
 
 /// Task board manager for Kanban-style interface
 pub struct TaskBoardManager {
@@ -52,7 +53,9 @@ impl TaskBoardManager {
         // Broadcast initial board state
         self.broadcast_board_update(&default_board.id).await?;
         
-        info!("Task board manager initialized with default board");
+        let init_context = LogContext::new("dashboard", "task_board_init")
+            .with_entity_id(&default_board.id);
+        log_info!(init_context, "Task board manager initialized with default board");
         Ok(())
     }
 
@@ -121,10 +124,14 @@ impl TaskBoardManager {
 
         // Broadcast new board creation
         if let Err(e) = self.broadcast_board_update(&board_id).await {
-            error!("Failed to broadcast board creation: {}", e);
+            let broadcast_error_context = LogContext::new("dashboard", "board_broadcast_error")
+                .with_entity_id(&board_id);
+            log_error!(broadcast_error_context, "Failed to broadcast board creation: {}", e);
         }
 
-        info!("Created new task board: {}", board_id);
+        let create_context = LogContext::new("dashboard", "board_create_success")
+            .with_entity_id(&board_id);
+        log_info!(create_context, "Created new task board: {}", board_id);
         Ok(())
     }
 
@@ -142,10 +149,14 @@ impl TaskBoardManager {
 
         // Broadcast board update
         if let Err(e) = self.broadcast_board_update(&board_id).await {
-            error!("Failed to broadcast board update: {}", e);
+            let update_error_context = LogContext::new("dashboard", "board_update_broadcast_error")
+                .with_entity_id(&board_id);
+            log_error!(update_error_context, "Failed to broadcast board update: {}", e);
         }
 
-        debug!("Updated task board: {}", board_id);
+        let update_context = LogContext::new("dashboard", "board_update_success")
+            .with_entity_id(&board_id);
+        log_debug!(update_context, "Updated task board: {}", board_id);
         Ok(())
     }
 
@@ -162,7 +173,9 @@ impl TaskBoardManager {
             }
         }
 
-        info!("Deleted task board: {}", board_id);
+        let delete_context = LogContext::new("dashboard", "board_delete_success")
+            .with_entity_id(board_id);
+        log_info!(delete_context, "Deleted task board: {}", board_id);
         Ok(())
     }
 
@@ -263,15 +276,23 @@ impl TaskBoardManager {
         };
 
         if let Err(e) = self.broadcast_tx.send(message) {
-            warn!("Failed to broadcast task move: {}", e);
+            let broadcast_warn_context = LogContext::new("dashboard", "task_move_broadcast_failed")
+                .with_entity_id(task_id);
+            log_warn!(broadcast_warn_context, "Failed to broadcast task move: {}", e);
         }
 
         // Also broadcast updated board state
         if let Err(e) = self.broadcast_board_update(board_id).await {
-            error!("Failed to broadcast board update after task move: {}", e);
+            let board_error_context = LogContext::new("dashboard", "task_move_board_update_failed")
+                .with_entity_id(task_id);
+            log_error!(board_error_context, "Failed to broadcast board update after task move: {}", e);
         }
 
-        info!("Moved task {} from {} to {}", task_id, self.status_to_column_id(&old_status), to_column);
+        let move_context = LogContext::new("dashboard", "task_move_success")
+            .with_entity_id(task_id)
+            .with_metadata("from_column", serde_json::json!(self.status_to_column_id(&old_status)))
+            .with_metadata("to_column", serde_json::json!(to_column));
+        log_info!(move_context, "Moved task {} from {} to {}", task_id, self.status_to_column_id(&old_status), to_column);
         Ok(())
     }
 
@@ -299,7 +320,9 @@ impl TaskBoardManager {
         };
 
         if let Err(e) = self.broadcast_tx.send(message) {
-            warn!("Failed to broadcast task progress: {}", e);
+            let progress_warn_context = LogContext::new("dashboard", "task_progress_broadcast_failed")
+                .with_entity_id(task_id);
+            log_warn!(progress_warn_context, "Failed to broadcast task progress: {}", e);
         }
 
         // If task is completed, also send task update
@@ -307,7 +330,10 @@ impl TaskBoardManager {
             self.broadcast_task_update(&task, TaskAction::ProgressUpdated).await;
         }
 
-        debug!("Updated task {} progress to {}%", task_id, progress);
+        let progress_context = LogContext::new("dashboard", "task_progress_update")
+            .with_entity_id(task_id)
+            .with_metadata("progress_percent", serde_json::json!(progress));
+        log_debug!(progress_context, "Updated task {} progress to {}%", task_id, progress);
         Ok(())
     }
 
@@ -329,10 +355,14 @@ impl TaskBoardManager {
 
         // Update board state
         if let Err(e) = self.broadcast_board_update("default").await {
-            error!("Failed to broadcast board update after task creation: {}", e);
+            let creation_error_context = LogContext::new("dashboard", "task_create_board_update_failed")
+                .with_entity_id(&task_id);
+            log_error!(creation_error_context, "Failed to broadcast board update after task creation: {}", e);
         }
 
-        info!("Created task {} from dashboard", task_id);
+        let creation_context = LogContext::new("dashboard", "task_create_success")
+            .with_entity_id(&task_id);
+        log_info!(creation_context, "Created task {} from dashboard", task_id);
         Ok(task_id)
     }
 
@@ -358,7 +388,9 @@ impl TaskBoardManager {
         // Broadcast task update
         self.broadcast_task_update(&task, TaskAction::Updated).await;
 
-        debug!("Updated task {} from dashboard", task_id);
+        let update_task_context = LogContext::new("dashboard", "task_update_success")
+            .with_entity_id(task_id);
+        log_debug!(update_task_context, "Updated task {} from dashboard", task_id);
         Ok(())
     }
 
@@ -373,10 +405,14 @@ impl TaskBoardManager {
 
         // Update board state
         if let Err(e) = self.broadcast_board_update("default").await {
-            error!("Failed to broadcast board update after task deletion: {}", e);
+            let deletion_error_context = LogContext::new("dashboard", "task_delete_board_update_failed")
+                .with_entity_id(task_id);
+            log_error!(deletion_error_context, "Failed to broadcast board update after task deletion: {}", e);
         }
 
-        info!("Deleted task {} from dashboard", task_id);
+        let deletion_context = LogContext::new("dashboard", "task_delete_success")
+            .with_entity_id(task_id);
+        log_info!(deletion_context, "Deleted task {} from dashboard", task_id);
         Ok(())
     }
 
@@ -399,7 +435,9 @@ impl TaskBoardManager {
         let task_json = match serde_json::to_value(task) {
             Ok(json) => json,
             Err(e) => {
-                error!("Failed to serialize task: {}", e);
+                let serialize_error_context = LogContext::new("dashboard", "task_serialize_error")
+                    .with_entity_id(&task.id);
+                log_error!(serialize_error_context, "Failed to serialize task: {}", e);
                 return;
             }
         };
@@ -411,7 +449,9 @@ impl TaskBoardManager {
         };
 
         if let Err(e) = self.broadcast_tx.send(message) {
-            warn!("Failed to broadcast task update: {}", e);
+            let task_broadcast_warn_context = LogContext::new("dashboard", "task_update_broadcast_failed")
+                .with_entity_id(&task.id);
+            log_warn!(task_broadcast_warn_context, "Failed to broadcast task update: {}", e);
         }
     }
 
@@ -446,10 +486,14 @@ impl TaskBoardManager {
 
         // Send initial board state
         if let Err(e) = self.broadcast_board_update(board_id).await {
-            error!("Failed to send initial board state: {}", e);
+            let initial_state_error_context = LogContext::new("dashboard", "realtime_initial_state_failed")
+                .with_entity_id(board_id);
+            log_error!(initial_state_error_context, "Failed to send initial board state: {}", e);
         }
 
-        info!("Started real-time updates for board: {}", board_id);
+        let realtime_context = LogContext::new("dashboard", "realtime_updates_start")
+            .with_entity_id(board_id);
+        log_info!(realtime_context, "Started real-time updates for board: {}", board_id);
         Ok(())
     }
 }
@@ -537,7 +581,7 @@ mod tests {
         let task1 = crate::task::Task::new("Task 1".to_string(), TaskCategory::Development);
         let task2 = crate::task::Task::new("Task 2".to_string(), TaskCategory::Development);
         
-        let task1_id = task_manager.create_task(task1).await.unwrap();
+        let _task1_id = task_manager.create_task(task1).await.unwrap();
         let task2_id = task_manager.create_task(task2).await.unwrap();
         
         // Update task2 status after creation
