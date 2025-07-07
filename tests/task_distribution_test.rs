@@ -2,7 +2,6 @@ use wezterm_parallel::task::{
     distributor::{TaskDistributor, DistributedTask, TaskDependency, ProcessLoad},
     TaskStatus, TaskPriority,
 };
-use std::collections::HashMap;
 use uuid::Uuid;
 
 #[test]

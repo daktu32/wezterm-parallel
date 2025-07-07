@@ -2,7 +2,6 @@ use wezterm_parallel::sync::{
     file_sync::{FileSyncManager, FileChange, ChangeType, ConflictResolution},
     merger::{MergeManager, MergeResult, ConflictType},
 };
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::SystemTime;
 use tempfile::TempDir;
@@ -10,7 +9,7 @@ use uuid::Uuid;
 
 #[test]
 fn test_file_change_detection() {
-    let sync_manager = FileSyncManager::new();
+    let _sync_manager = FileSyncManager::new();
     let temp_dir = TempDir::new().unwrap();
     let file_path = temp_dir.path().join("test_file.txt");
     
@@ -66,7 +65,7 @@ fn test_file_conflict_detection() {
 
 #[test]
 fn test_automatic_conflict_resolution() {
-    let mut merge_manager = MergeManager::new();
+    let merge_manager = MergeManager::new();
     
     let file_path = PathBuf::from("test.txt");
     let base_content = "Line 1\nLine 2\nLine 3";
@@ -91,7 +90,7 @@ fn test_automatic_conflict_resolution() {
 
 #[test]
 fn test_manual_conflict_resolution() {
-    let mut merge_manager = MergeManager::new();
+    let merge_manager = MergeManager::new();
     
     let file_path = PathBuf::from("conflict.txt");
     let base_content = "Original line";
@@ -223,7 +222,7 @@ fn test_cross_process_synchronization() {
 
 #[test]
 fn test_merge_multiple_changes() {
-    let mut merge_manager = MergeManager::new();
+    let merge_manager = MergeManager::new();
     
     let file_path = PathBuf::from("multi_change.txt");
     let base_content = "Line 1\nLine 2\nLine 3\nLine 4";

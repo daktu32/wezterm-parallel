@@ -1,0 +1,142 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+    
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build Rust documentation
+      run: |
+        cargo doc --no-deps --all-features
+        echo '<meta http-equiv="refresh" content="0; url=wezterm_parallel">' > target/doc/index.html
+    
+    - name: Create documentation site structure
+      run: |
+        mkdir -p _site
+        cp -r target/doc/* _site/
+        
+        # ルートインデックスページを作成
+        cat > _site/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>WezTerm Multi-Process Development Framework</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; }
+                .header { border-bottom: 1px solid #eee; padding-bottom: 1rem; margin-bottom: 2rem; }
+                .nav { display: flex; gap: 2rem; margin-bottom: 2rem; }
+                .nav a { text-decoration: none; color: #0066cc; }
+                .nav a:hover { text-decoration: underline; }
+                .section { margin-bottom: 2rem; }
+                .code { background: #f5f5f5; padding: 1rem; border-radius: 4px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>WezTerm Multi-Process Development Framework</h1>
+                <p>WezTermでClaude Codeを複数プロセス実行するための開発補助ツール</p>
+            </div>
+            
+            <div class="nav">
+                <a href="wezterm_parallel/index.html">🦀 API Documentation</a>
+                <a href="https://github.com/daktu32/wezterm-parallel">📦 GitHub Repository</a>
+                <a href="https://github.com/daktu32/wezterm-parallel/blob/main/README.md">📖 README</a>
+                <a href="https://github.com/daktu32/wezterm-parallel/blob/main/docs/">📚 Documentation</a>
+            </div>
+            
+            <div class="section">
+                <h2>主な機能</h2>
+                <ul>
+                    <li>複数Claude Codeプロセスの管理</li>
+                    <li>ワークスペース単位でのプロセス整理</li>
+                    <li>基本的なタスク管理</li>
+                    <li>シンプルな監視機能</li>
+                    <li>WebSocketダッシュボード</li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>クイックスタート</h2>
+                <div class="code">
+                    <pre># インストール
+cargo install --git https://github.com/daktu32/wezterm-parallel
+
+# 実行
+wezterm-parallel --help</pre>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>ドキュメント</h2>
+                <ul>
+                    <li><a href="wezterm_parallel/index.html">API Documentation</a> - Rustコードの詳細なAPI仕様</li>
+                    <li><a href="https://github.com/daktu32/wezterm-parallel/tree/main/docs">Documentation</a> - 設計ドキュメント、ユーザーガイド</li>
+                    <li><a href="https://github.com/daktu32/wezterm-parallel/blob/main/DEVELOPMENT_ROADMAP.md">Development Roadmap</a> - 開発計画</li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>制限事項</h2>
+                <ul>
+                    <li>個人開発・実験用途のみ</li>
+                    <li>本格運用には不向き</li>
+                    <li>エラーハンドリングが不完全</li>
+                    <li>テストカバレッジが限定的</li>
+                </ul>
+            </div>
+        </body>
+        </html>
+        EOF
+    
+    - name: Upload pages artifact
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: _site
+
+  deploy:
+    name: Deploy to Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2

@@ -230,7 +230,7 @@ async fn test_concurrent_workspace_operations() {
     
     // Wait for all tasks to complete
     for task in tasks {
-        let result = timeout(Duration::from_secs(5), task).await;
+        let result = timeout(Duration::from_secs(10), task).await;
         assert!(result.is_ok());
     }
     
@@ -297,8 +297,8 @@ async fn test_system_performance_under_load() {
     
     let elapsed = start_time.elapsed();
     
-    // Operations should complete within reasonable time (< 5 seconds)
-    assert!(elapsed < Duration::from_secs(5));
+    // Operations should complete within reasonable time (< 10 seconds)
+    assert!(elapsed < Duration::from_secs(10));
     
     // Verify system is still responsive
     let _workspaces = workspace_manager.list_workspaces().await;

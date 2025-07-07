@@ -4,8 +4,11 @@
 
 個人開発者がClaude Codeを効率的に使うためのマルチプロセス管理フレームワークです。
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
+![CI](https://github.com/daktu32/wezterm-parallel/workflows/CI%2FCD%20Pipeline/badge.svg)
+![Tests](https://img.shields.io/badge/tests-251/251-green)
+![License](https://img.shields.io/badge/license-MIT-blue)
 ![Status](https://img.shields.io/badge/status-stable-green)
 
 ## 🎆 特徴

@@ -7,7 +7,7 @@ use tempfile::TempDir;
 use wezterm_parallel::room::manager::WorkspaceManager;
 use wezterm_parallel::room::integration::IntegratedWorkspaceManager;
 use wezterm_parallel::process::manager::{ProcessManager, ProcessConfig, RestartPolicy};
-use wezterm_parallel::room::state::{ProcessStatus, ProcessInfo};
+use wezterm_parallel::room::state::ProcessStatus;
 
 #[tokio::test]
 async fn test_workspace_creation_starts_process() {

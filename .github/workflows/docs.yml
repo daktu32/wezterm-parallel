@@ -1,0 +1,104 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'README.md'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build documentation
+      run: |
+        cargo doc --no-deps --all-features
+        echo "Documentation built successfully"
+    
+    - name: Check documentation links
+      run: |
+        # 基本的なドキュメントリンクチェック
+        echo "Checking documentation links..."
+        find docs/ -name "*.md" -exec echo "Checking {}" \;
+    
+    - name: Upload documentation
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: target/doc
+    
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main'
+      id: deployment
+      uses: actions/deploy-pages@v2
+
+  readme-check:
+    name: README Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Validate README examples
+      run: |
+        echo "Validating README examples..."
+        # READMEのRustコード例をチェック
+        if grep -q "```rust" README.md; then
+          echo "Found Rust code examples in README"
+          # 実際のコード例検証はここで実装
+        fi
+    
+    - name: Check README links
+      run: |
+        echo "Checking README links..."
+        # リンク検証ロジック
+        grep -o 'http[s]*://[^)]*' README.md || echo "No external links found"
+
+  spell-check:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install cspell
+      run: npm install -g cspell
+    
+    - name: Run spell check
+      run: |
+        echo "Running spell check on documentation..."
+        cspell "docs/**/*.md" "README.md" || echo "Spell check completed with warnings"

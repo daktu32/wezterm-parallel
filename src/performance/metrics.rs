@@ -464,7 +464,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_metrics_collector() {
-        let mut collector = MetricsCollector::new(10, Duration::from_millis(50));
+        let collector = MetricsCollector::new(10, Duration::from_millis(50));
         
         collector.update_cpu_usage(50.0).await;
         collector.update_memory_usage(1024 * 1024 * 100, 1024 * 1024 * 150).await; // 100MB, 150MB peak

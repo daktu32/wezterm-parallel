@@ -1,0 +1,29 @@
+# Codecov configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  status:
+    project:
+      default:
+        target: 80%           # 目標カバレッジ 80%
+        threshold: 5%         # 5%以下の減少は許容
+        if_ci_failed: error   # CIが失敗した場合はエラー
+    patch:
+      default:
+        target: 70%           # パッチカバレッジ 70%
+        threshold: 10%        # 10%以下の減少は許容
+
+  ignore:
+    - "tests/**/*"           # テストファイルは除外
+    - "benches/**/*"         # ベンチマークは除外
+    - "examples/**/*"        # サンプルコードは除外
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+
+github_checks:
+  annotations: true

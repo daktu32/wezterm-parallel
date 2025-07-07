@@ -1,4 +1,4 @@
-use wezterm_parallel::process::{ProcessManager, ProcessConfig, ProcessInfo};
+use wezterm_parallel::process::{ProcessManager, ProcessConfig};
 use wezterm_parallel::{CoordinationMessage, CoordinationEvent, CoordinationResponse, ProcessStatus};
 use std::sync::Arc;
 use tokio::sync::Mutex;

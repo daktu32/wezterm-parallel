@@ -1,0 +1,74 @@
+# cargo-deny configuration
+# https://embarkstudios.github.io/cargo-deny/
+
+[licenses]
+# 許可するライセンス
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+]
+
+# 禁止するライセンス
+deny = [
+    "GPL-2.0",
+    "GPL-3.0",
+    "AGPL-1.0",
+    "AGPL-3.0",
+]
+
+# コピーレフトライセンスの警告
+copyleft = "warn"
+
+# ライセンスが不明な場合の処理
+unlicensed = "deny"
+
+# 複数ライセンスの場合の処理
+multiple-versions = "warn"
+
+[bans]
+# 禁止する依存関係
+deny = [
+    # セキュリティ上問題のあるクレート
+    { name = "openssl", version = "*" },  # rustlsを推奨
+]
+
+# 重複する依存関係への対処
+multiple-versions = "warn"
+
+# 古いバージョンの警告
+wildcards = "warn"
+
+[advisories]
+# セキュリティアドバイザリのチェック
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+
+# 脆弱性のあるパッケージを拒否
+vulnerability = "deny"
+
+# 非推奨パッケージの警告
+unmaintained = "warn"
+
+# セキュリティに関する通知
+notice = "warn"
+
+# 無視するアドバイザリ (必要に応じて追加)
+ignore = []
+
+[sources]
+# 許可するソース
+unknown-registry = "warn"
+unknown-git = "warn"
+
+# 許可するGitリポジトリ
+allow-git = []
+
+# 許可するレジストリ
+allow-registry = [
+    "https://github.com/rust-lang/crates.io-index"
+]

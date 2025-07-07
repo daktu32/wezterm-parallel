@@ -1,7 +1,17 @@
 [package]
 name = "wezterm-parallel"
-version = "0.1.0"
-edition = "2024"
+version = "0.3.0"
+edition = "2021"
+authors = ["WezTerm Parallel Contributors"]
+description = "WezTermでClaude Codeを複数プロセス実行するための開発補助ツール"
+documentation = "https://daktu32.github.io/wezterm-parallel/"
+homepage = "https://github.com/daktu32/wezterm-parallel"
+repository = "https://github.com/daktu32/wezterm-parallel"
+license = "MIT"
+keywords = ["wezterm", "claude-code", "development", "process-management", "terminal"]
+categories = ["development-tools", "command-line-utilities"]
+readme = "README.md"
+rust-version = "1.70"
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }

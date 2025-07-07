@@ -484,7 +484,6 @@ mod rand {
         }
     }
     
-    pub fn thread_rng() -> () {
-        ()
+    pub fn thread_rng() {
     }
 }

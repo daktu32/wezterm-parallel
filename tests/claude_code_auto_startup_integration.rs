@@ -15,9 +15,9 @@ use tokio::test;
 
 /// 統合テスト用のセットアップ
 struct TestEnvironment {
-    temp_dir: TempDir,
+    _temp_dir: TempDir,
     workspace_manager: WorkspaceManager,
-    process_manager: Arc<ProcessManager>,
+    _process_manager: Arc<ProcessManager>,
     health_monitor: ClaudeHealthMonitor,
     logger: tokio::sync::Mutex<ClaudeLogger>,
 }
@@ -53,12 +53,12 @@ impl TestEnvironment {
             log_level: LogLevel::Debug,
             ..Default::default()
         };
-        let mut logger = ClaudeLogger::new(Some(log_config)).unwrap();
+        let logger = ClaudeLogger::new(Some(log_config)).unwrap();
         
         Self {
-            temp_dir,
+            _temp_dir: temp_dir,
             workspace_manager,
-            process_manager,
+            _process_manager: process_manager,
             health_monitor,
             logger: tokio::sync::Mutex::new(logger),
         }
