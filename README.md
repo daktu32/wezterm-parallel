@@ -40,65 +40,95 @@
 
 ## 🛠️ セットアップ
 
-### 前提条件
+### 🚀 新規ユーザー向け
 
-- WezTerm
-- Rust 1.70+
-- Git
+**5分で動作確認してみませんか？**
 
-### インストール
+➡️ **[クイックスタートガイド](QUICKSTART.md)** - 最小設定で即座に体験
+
+### 📖 本格利用向け
+
+**カスタマイズしてガッツリ使いたい方は：**
+
+➡️ **[詳細セットアップガイド](SETUP-GUIDE.md)** - 設定・カスタマイズ・高度機能
+
+### ⚡ インストール概要
 
 ```bash
-# リポジトリのクローン
+# 方法1: GitHubからビルド (推奨)
 git clone https://github.com/daktu32/wezterm-parallel.git
 cd wezterm-parallel
-
-# ビルド
 cargo build --release
 
-# 起動
-cargo run
+# 方法2: Cargoから直接インストール
+cargo install --git https://github.com/daktu32/wezterm-parallel
 ```
 
-## 🚀 基本的な使い方
+### 📋 必要なもの
 
-### 1. フレームワーク起動
+| 必須 | オプション |
+|------|------------|
+| WezTerm 20240203+ | Claude Code |
+| Rust 1.70+ | Git |
+| 512MB+ RAM | 1GB+ RAM (推奨) |
 
-```bash
-cargo run
-```
+## 🚀 使い方概要
 
-### 2. 基本テスト
+### 🎯 3ステップで開始
 
-```bash
-# Ping テスト
-echo '{"Ping": null}' | nc -U /tmp/wezterm-parallel.sock
+1. **フレームワーク起動**: `wezterm-parallel`
+2. **ワークスペース作成**: API または WezTerm キーバインド
+3. **ダッシュボード確認**: `http://localhost:8081`
 
-# ワークスペース作成
-echo '{"WorkspaceCreate":{"name":"test","template":"default"}}' | nc -U /tmp/wezterm-parallel.sock
+**詳しい手順は**:
+- 📚 [クイックスタートガイド](QUICKSTART.md) - 5分でお試し
+- 📖 [詳細セットアップガイド](SETUP-GUIDE.md) - 本格利用
 
-# タスク作成
-echo '{"TaskQueue":{"id":"task-1","priority":5,"command":"テストタスク"}}' | nc -U /tmp/wezterm-parallel.sock
-```
+### 💡 主な操作方法
 
-### 3. WebSocketダッシュボード
+| 操作 | WezTermキーバインド | WebAPI | ダッシュボード |
+|------|-------------------|--------|---------------|
+| ワークスペース作成 | `Ctrl+Shift+N` | `POST /api/workspaces` | ✅ |
+| ワークスペース切替 | `Ctrl+Shift+W` | `GET /api/workspaces` | ✅ |
+| プロセス管理 | `Ctrl+Alt+P` | `POST /api/processes` | ✅ |
+| ダッシュボード表示 | `Ctrl+Shift+D` | `http://localhost:8081` | - |
 
-ブラウザで `ws://localhost:9999` に接続（メトリクス、タスク管理、カンバンボード）
+## 📚 ドキュメント
+
+### 🚀 はじめに
+- **[クイックスタートガイド](QUICKSTART.md)** - 5分で動作確認
+- **[詳細セットアップガイド](SETUP-GUIDE.md)** - 本格設定・カスタマイズ
+
+### 📖 利用ガイド
+- **[ユーザーガイド](docs/USER-GUIDE.md)** - 実用例・ベストプラクティス
+- **[API Documentation](https://daktu32.github.io/wezterm-parallel/)** - プログラム的操作
+- **[FAQ](docs/FAQ.md)** - よくある質問
+
+### 🔧 開発・保守
+- **[開発ロードマップ](DEVELOPMENT_ROADMAP.md)** - 機能計画・進捗
+- **[CI/CDガイド](docs/CI-CD.md)** - 品質保証・リリースプロセス
+- **[コントリビューションガイド](docs/CONTRIBUTING.md)** - 開発参加方法
 
 ## 📊 プロジェクト構造
 
 ```
 wezterm-parallel/
-├── src/                    # Rust コード
-│   ├── workspace/          # ワークスペース管理
-│   ├── process/            # プロセス管理
-│   ├── task/               # タスク管理システム
-│   ├── monitoring/         # 監視・メトリクス機能
+├── src/                    # Rust コア実装 (19,335行)
+│   ├── room/               # ワークスペース (Room) 管理
+│   ├── process/            # プロセス管理・Claude Code統合
+│   ├── task/               # タスク管理・分散システム
+│   ├── sync/               # ファイル同期・競合解決
 │   ├── dashboard/          # WebSocketダッシュボード
+│   ├── logging/            # 統一ログシステム
 │   └── main.rs             # エントリポイント
-├── lua/                    # WezTerm Lua設定
-├── config/                 # 設定テンプレート
-└── tests/                  # ライブラリテスト
+├── lua/                    # WezTerm統合 (7,175行)
+│   ├── room/               # Room管理Lua統合
+│   ├── ui/                 # ダッシュボード・ペイン管理
+│   └── config/             # 設定・キーバインド
+├── .github/workflows/      # CI/CD自動化
+├── docs/                   # ドキュメント
+├── config/templates/       # 設定テンプレート
+└── tests/                  # 251個のテスト
 ```
 
 ## 🧪 開発コマンド

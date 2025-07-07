@@ -1,0 +1,43 @@
+# WezTerm Parallel - クイックスタート設定
+# 最小構成での動作確認用設定ファイル
+# このファイルは初回セットアップを簡単にするためのものです
+
+# 基本設定
+server:
+  host: "127.0.0.1"
+  port: 8080                    # REST API ポート
+  websocket_port: 8081          # WebSocket ダッシュボード ポート
+
+# プロセス管理 - 初心者向けの安全な設定
+process_management:
+  auto_restart: true            # プロセス自動再起動
+  health_check_interval: 30     # ヘルスチェック間隔（秒）
+  max_processes_per_workspace: 4 # ワークスペースあたりの最大プロセス数
+
+# ワークスペース設定
+workspace:
+  default_template: "basic"     # デフォルトテンプレート
+  auto_save_interval: 300       # 自動保存間隔（秒）
+
+# ログ設定 - パフォーマンス重視
+logging:
+  level: "info"                 # ログレベル（debug より軽量）
+  file_enabled: true            # ファイルログ有効化
+  console_enabled: false        # コンソールログ無効（起動を高速化）
+  max_file_size_mb: 10          # ログファイルサイズ制限
+
+# ダッシュボード設定 - 軽量化
+dashboard:
+  enabled: true                 # ダッシュボード有効化
+  update_interval: 5000         # 更新間隔（軽量化のため5秒）
+
+# セキュリティ設定 - ローカル開発用
+security:
+  cors_enabled: true            # CORS有効化
+  api_key_required: false       # APIキー不要（ローカル開発）
+
+# Claude Code統合（オプション）
+claude_code:
+  auto_detect: true             # バイナリ自動検出
+  auto_start: false             # 自動起動無効（初回は手動で確認）
+  timeout: 30                   # タイムアウト（秒）
