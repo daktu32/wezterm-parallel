@@ -35,6 +35,7 @@ struct PersistedState {
 }
 
 impl WorkspaceManager {
+    #[allow(clippy::result_large_err)]
     pub fn new(state_file_path: Option<PathBuf>) -> Result<Self> {
         let state_path = state_file_path.unwrap_or_else(|| {
             let mut path = dirs::config_dir().unwrap_or_else(|| {

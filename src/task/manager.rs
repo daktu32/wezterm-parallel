@@ -9,6 +9,9 @@ use crate::process::manager::ProcessManager;
 use crate::room::WorkspaceManager;
 
 use serde::{Deserialize, Serialize};
+
+/// Type alias for task event listeners
+type TaskEventListener = Box<dyn Fn(&TaskEvent) + Send + Sync>;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -46,7 +49,7 @@ pub struct TaskManager {
     process_manager: Option<Arc<ProcessManager>>,
 
     /// Event listeners
-    event_listeners: RwLock<Vec<Box<dyn Fn(&TaskEvent) + Send + Sync>>>,
+    event_listeners: RwLock<Vec<TaskEventListener>>,
 }
 
 impl TaskManager {
@@ -492,7 +495,7 @@ impl TaskManager {
     }
 
     /// Add task event listener
-    pub async fn add_event_listener(&self, listener: Box<dyn Fn(&TaskEvent) + Send + Sync>) {
+    pub async fn add_event_listener(&self, listener: TaskEventListener) {
         let mut listeners = self.event_listeners.write().await;
         listeners.push(listener);
     }

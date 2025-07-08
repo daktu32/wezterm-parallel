@@ -139,13 +139,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Initialize file sync manager
-    let file_sync_manager = Arc::new(tokio::sync::RwLock::new(FileSyncManager::new()));
+    let file_sync_manager = Arc::new(tokio::sync::Mutex::new(FileSyncManager::new()));
     let sync_init_context = LogContext::new("system", "file_sync_init");
     log_info!(sync_init_context, "File sync manager initialized");
 
     // Start file watching for current directory
     {
-        let mut sync_manager = file_sync_manager.write().await;
+        let mut sync_manager = file_sync_manager.lock().await;
         if let Err(e) = sync_manager.start_watching(".") {
             let sync_warn_context = LogContext::new("system", "file_watch_failure");
             log_warn!(sync_warn_context, "Failed to start file watching: {}", e);

@@ -72,7 +72,7 @@ impl UnifiedLogLevel {
     }
 
     /// 文字列からログレベルを変換
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn from_string(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "TRACE" => Some(UnifiedLogLevel::Trace),
             "DEBUG" => Some(UnifiedLogLevel::Debug),
@@ -266,10 +266,10 @@ mod tests {
     fn test_log_level_conversion() {
         assert_eq!(UnifiedLogLevel::Info.as_str(), "INFO");
         assert_eq!(
-            UnifiedLogLevel::from_str("DEBUG"),
+            UnifiedLogLevel::from_string("DEBUG"),
             Some(UnifiedLogLevel::Debug)
         );
-        assert_eq!(UnifiedLogLevel::from_str("invalid"), None);
+        assert_eq!(UnifiedLogLevel::from_string("invalid"), None);
     }
 
     #[test]

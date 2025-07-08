@@ -119,7 +119,7 @@ pub enum MetricSubscription {
 #[serde(tag = "type", content = "data")]
 pub enum DashboardMessage {
     /// Metrics update
-    MetricsUpdate(MetricsUpdate),
+    MetricsUpdate(Box<MetricsUpdate>),
 
     /// Alert notification
     Alert(AlertNotification),

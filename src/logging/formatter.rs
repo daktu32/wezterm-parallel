@@ -5,6 +5,9 @@ use super::{UnifiedLogEntry, UnifiedLogLevel};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
+/// Type alias for field extractor function
+type FieldExtractor = Box<dyn Fn(&UnifiedLogEntry) -> String + Send + Sync>;
+
 /// ログフォーマッター
 pub trait LogFormatter {
     fn format(&self, entry: &UnifiedLogEntry) -> String;
@@ -299,13 +302,12 @@ impl LogFormatter for LogFmtFormatter {
 /// カスタムフォーマッター（ユーザー定義）
 pub struct CustomFormatter {
     template: String,
-    field_extractors: HashMap<String, Box<dyn Fn(&UnifiedLogEntry) -> String + Send + Sync>>,
+    field_extractors: HashMap<String, FieldExtractor>,
 }
 
 impl CustomFormatter {
     pub fn new(template: &str) -> Self {
-        let mut extractors: HashMap<String, Box<dyn Fn(&UnifiedLogEntry) -> String + Send + Sync>> =
-            HashMap::new();
+        let mut extractors: HashMap<String, FieldExtractor> = HashMap::new();
 
         // 基本フィールドのエクストラクター
         extractors.insert("timestamp".to_string(), Box::new(|e| e.timestamp.clone()));

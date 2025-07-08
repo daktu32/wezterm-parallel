@@ -19,7 +19,7 @@ pub struct ProcessCoordinator {
     #[allow(dead_code)]
     task_distributor: Arc<RwLock<TaskDistributor>>,
     /// ファイル同期マネージャー
-    file_sync_manager: Arc<RwLock<FileSyncManager>>,
+    file_sync_manager: Arc<tokio::sync::Mutex<FileSyncManager>>,
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +50,7 @@ impl ProcessCoordinator {
             task_assignments: Arc::new(RwLock::new(HashMap::new())),
             reassigned_tasks: Arc::new(RwLock::new(Vec::new())),
             task_distributor: Arc::new(RwLock::new(TaskDistributor::new())),
-            file_sync_manager: Arc::new(RwLock::new(FileSyncManager::new())),
+            file_sync_manager: Arc::new(tokio::sync::Mutex::new(FileSyncManager::new())),
         }
     }
 
@@ -71,7 +71,7 @@ impl ProcessCoordinator {
         );
 
         // ファイル同期マネージャーにプロセスを登録
-        let mut file_sync = self.file_sync_manager.write().await;
+        let mut file_sync = self.file_sync_manager.lock().await;
         file_sync.register_process(process_uuid);
     }
 

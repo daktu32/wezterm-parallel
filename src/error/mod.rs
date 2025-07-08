@@ -413,6 +413,7 @@ macro_rules! safe_unwrap {
 }
 
 /// 安全なファイル操作ヘルパー
+#[allow(clippy::result_large_err)]
 pub fn safe_file_operation<F, T>(operation: &str, file_path: &str, f: F) -> Result<T>
 where
     F: FnOnce() -> std::result::Result<T, std::io::Error>,
@@ -431,6 +432,7 @@ where
 }
 
 /// 安全なプロセス操作ヘルパー
+#[allow(clippy::result_large_err)]
 pub fn safe_process_operation<F, T>(process_id: &str, f: F) -> Result<T>
 where
     F: FnOnce() -> std::result::Result<T, Box<dyn std::error::Error>>,
@@ -445,6 +447,7 @@ where
 }
 
 /// ロック競合を安全に処理するヘルパー
+#[allow(clippy::result_large_err)]
 pub fn safe_lock_operation<T, F, R>(operation_name: &str, f: F) -> std::result::Result<R, UserError>
 where
     F: FnOnce() -> std::result::Result<R, T>,

@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 lazy_static! {
     static ref STRATEGY_MANAGER: Arc<Mutex<StrategyManager>> =
-        { Arc::new(Mutex::new(StrategyManager::from_environment())) };
+        Arc::new(Mutex::new(StrategyManager::from_environment()));
 }
 
 /// コンテキスト付きログ出力のメイン関数

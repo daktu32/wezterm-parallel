@@ -230,9 +230,8 @@ impl MetricsCollector {
     fn collect_load_average(&self) -> [f64; 3] {
         #[cfg(unix)]
         {
-            match self.system.load_average() {
-                sysinfo::LoadAvg { one, five, fifteen } => [one, five, fifteen],
-            }
+            let sysinfo::LoadAvg { one, five, fifteen } = self.system.load_average();
+            [one, five, fifteen]
         }
 
         #[cfg(not(unix))]

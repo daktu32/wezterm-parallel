@@ -8,6 +8,22 @@ use tokio::sync::{mpsc, RwLock, Semaphore};
 use tokio::task::JoinHandle;
 use tracing::{debug, info, warn};
 
+/// Type alias for complex async execution function
+type AsyncExecutionFn<'a> = std::pin::Pin<
+    Box<
+        dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+            + Send
+            + 'a,
+    >,
+>;
+
+/// Type alias for batch processor function
+type BatchProcessorFn<T> = Arc<
+    dyn Fn(Vec<T>) -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>>
+        + Send
+        + Sync,
+>;
+
 /// 非同期タスクプール
 pub struct AsyncTaskPool {
     pool_size: usize,
@@ -19,15 +35,7 @@ pub struct AsyncTaskPool {
 
 /// 非同期タスクトレイト
 pub trait AsyncTask: Send + Sync {
-    fn execute(
-        &self,
-    ) -> std::pin::Pin<
-        Box<
-            dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
-                + Send
-                + '_,
-        >,
-    >;
+    fn execute(&self) -> AsyncExecutionFn<'_>;
     fn priority(&self) -> TaskPriority;
     fn estimated_duration(&self) -> Duration;
     fn task_type(&self) -> &'static str;
@@ -74,7 +82,7 @@ impl AsyncTaskPool {
 
             // 優先度によるソート
             let mut sorted_queue: Vec<_> = queue.drain(..).collect();
-            sorted_queue.sort_by(|a, b| b.priority().cmp(&a.priority()));
+            sorted_queue.sort_by_key(|b| std::cmp::Reverse(b.priority()));
             queue.extend(sorted_queue);
 
             let mut stats = self.stats.write().await;
@@ -216,11 +224,7 @@ pub struct BatchProcessor<T> {
     batch_size: usize,
     flush_interval: Duration,
     buffer: Arc<RwLock<Vec<T>>>,
-    processor: Arc<
-        dyn Fn(Vec<T>) -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>>
-            + Send
-            + Sync,
-    >,
+    processor: BatchProcessorFn<T>,
     flush_handle: Option<JoinHandle<()>>,
 }
 

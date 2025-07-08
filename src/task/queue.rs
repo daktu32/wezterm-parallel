@@ -455,7 +455,7 @@ impl Eq for QueuedTask {}
 
 impl PartialOrd for QueuedTask {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.score.partial_cmp(&other.score)
+        Some(self.cmp(other))
     }
 }
 

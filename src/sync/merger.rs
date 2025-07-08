@@ -1,7 +1,7 @@
 use super::file_sync::ConflictResolution;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use uuid::Uuid;
 
@@ -68,7 +68,7 @@ impl MergeManager {
 
     pub fn merge_content(
         &self,
-        file_path: &PathBuf,
+        file_path: &Path,
         base_content: &str,
         version1: &str,
         version2: &str,
@@ -90,7 +90,7 @@ impl MergeManager {
                 // マージ不可 - 競合として扱う
                 Ok(MergeResult::Conflict(ConflictInfo {
                     conflict_type: ConflictType::ContentConflict,
-                    file_path: file_path.clone(),
+                    file_path: file_path.to_path_buf(),
                     base_content: base_content.to_string(),
                     version1_content: version1.to_string(),
                     version2_content: version2.to_string(),
@@ -104,7 +104,7 @@ impl MergeManager {
 
     pub fn merge_multiple_versions(
         &self,
-        file_path: &PathBuf,
+        file_path: &Path,
         base_content: &str,
         versions: &[(String, Uuid)],
     ) -> Result<MergeResult> {
@@ -137,7 +137,7 @@ impl MergeManager {
 
     pub fn resolve_conflict(
         &self,
-        file_path: &PathBuf,
+        file_path: &Path,
         _base_content: &str,
         version1: &str,
         version2: &str,
@@ -172,7 +172,7 @@ impl MergeManager {
 
     pub fn resolve_conflict_with_process(
         &self,
-        _file_path: &PathBuf,
+        _file_path: &Path,
         _base_content: &str,
         version1: (&str, Uuid),
         version2: (&str, Uuid),
@@ -255,7 +255,7 @@ impl MergeManager {
         });
     }
 
-    fn get_merge_strategy(&self, file_path: &PathBuf) -> MergeStrategy {
+    fn get_merge_strategy(&self, file_path: &Path) -> MergeStrategy {
         if let Some(extension) = file_path.extension().and_then(|e| e.to_str()) {
             for pattern in &self.merge_patterns {
                 if pattern.file_extension == extension {
@@ -270,7 +270,7 @@ impl MergeManager {
 
     fn merge_line_by_line(
         &self,
-        file_path: &PathBuf,
+        file_path: &Path,
         base_content: &str,
         version1: &str,
         version2: &str,
@@ -302,7 +302,7 @@ impl MergeManager {
                 // 両方が異なる変更 - 競合
                 return Ok(MergeResult::Conflict(ConflictInfo {
                     conflict_type: ConflictType::ContentConflict,
-                    file_path: file_path.clone(),
+                    file_path: file_path.to_path_buf(),
                     base_content: base_content.to_string(),
                     version1_content: version1.to_string(),
                     version2_content: version2.to_string(),
@@ -320,7 +320,7 @@ impl MergeManager {
 
     fn merge_block_based(
         &self,
-        file_path: &PathBuf,
+        file_path: &Path,
         base_content: &str,
         version1: &str,
         version2: &str,
@@ -332,7 +332,7 @@ impl MergeManager {
 
     fn merge_structural(
         &self,
-        file_path: &PathBuf,
+        file_path: &Path,
         base_content: &str,
         version1: &str,
         version2: &str,
@@ -355,7 +355,7 @@ impl MergeManager {
         )
     }
 
-    pub fn validate_merge_result(&self, file_path: &PathBuf, merged_content: &str) -> Result<bool> {
+    pub fn validate_merge_result(&self, file_path: &Path, merged_content: &str) -> Result<bool> {
         // マージ結果の検証
         // 基本的な構文チェックなど
 

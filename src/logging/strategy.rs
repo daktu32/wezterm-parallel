@@ -157,8 +157,10 @@ impl LoggingStrategy {
 
     /// 開発環境用設定
     pub fn development() -> Self {
-        let mut strategy = Self::default();
-        strategy.default_level = UnifiedLogLevel::Debug;
+        let mut strategy = Self {
+            default_level: UnifiedLogLevel::Debug,
+            ..Default::default()
+        };
 
         // 開発時はより詳細なログを出力
         strategy
@@ -193,8 +195,10 @@ impl LoggingStrategy {
 
     /// プロダクション環境用設定
     pub fn production() -> Self {
-        let mut strategy = Self::default();
-        strategy.default_level = UnifiedLogLevel::Warn;
+        let mut strategy = Self {
+            default_level: UnifiedLogLevel::Warn,
+            ..Default::default()
+        };
 
         // プロダクションでは重要なログのみ
         strategy
@@ -224,8 +228,10 @@ impl LoggingStrategy {
 
     /// デバッグ専用設定
     pub fn debug() -> Self {
-        let mut strategy = Self::default();
-        strategy.default_level = UnifiedLogLevel::Trace;
+        let mut strategy = Self {
+            default_level: UnifiedLogLevel::Trace,
+            ..Default::default()
+        };
 
         // すべてのコンポーネントでTRACEレベル
         for component in [

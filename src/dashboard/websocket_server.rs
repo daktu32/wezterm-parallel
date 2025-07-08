@@ -133,7 +133,7 @@ impl WebSocketServer {
                 // Check for metrics updates
                 let mut metrics_rx = state.metrics_rx.write().await;
                 while let Ok(update) = metrics_rx.try_recv() {
-                    let message = DashboardMessage::MetricsUpdate(update);
+                    let message = DashboardMessage::MetricsUpdate(Box::new(update));
                     state.broadcast(message);
                 }
             }
@@ -241,7 +241,7 @@ async fn handle_client_connection(
                 };
 
                 if let Ok(json) = serde_json::to_string(&ws_message) {
-                    if let Err(_) = outgoing_sender.send(Message::Text(json)).await {
+                    if (outgoing_sender.send(Message::Text(json)).await).is_err() {
                         break; // Channel closed
                     }
                 } else {
@@ -289,7 +289,7 @@ async fn handle_client_connection(
                 break;
             }
             Ok(Message::Ping(data)) => {
-                if let Err(_) = outgoing_tx.send(Message::Pong(data)).await {
+                if (outgoing_tx.send(Message::Pong(data)).await).is_err() {
                     error!("Failed to send pong to client {}", client_id);
                     break;
                 }
@@ -352,7 +352,7 @@ async fn handle_client_message(
 
                     let ws_message = super::WebSocketMessage {
                         id: ws_msg.id,
-                        payload: DashboardMessage::MetricsUpdate(update),
+                        payload: DashboardMessage::MetricsUpdate(Box::new(update)),
                     };
 
                     if let Ok(json) = serde_json::to_string(&ws_message) {

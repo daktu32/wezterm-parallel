@@ -352,16 +352,13 @@ impl AlertManager {
                 "Process" => {
                     // Check if process is now healthy
                     for (process_name, process_metrics) in &metrics.process_metrics {
-                        if alert_id.contains(process_name) {
-                            if alert_id.contains("failed")
-                                && process_metrics.status == super::ProcessStatus::Running
-                            {
-                                should_resolve = true;
-                            } else if alert_id.contains("cpu_high")
-                                && process_metrics.cpu_usage <= 70.0
-                            {
-                                should_resolve = true;
-                            }
+                        if alert_id.contains(process_name)
+                            && ((alert_id.contains("failed")
+                                && process_metrics.status == super::ProcessStatus::Running)
+                                || (alert_id.contains("cpu_high")
+                                    && process_metrics.cpu_usage <= 70.0))
+                        {
+                            should_resolve = true;
                         }
                     }
                 }
@@ -394,6 +391,7 @@ impl AlertManager {
     }
 
     /// Create alert if needed (prevents spam)
+    #[allow(clippy::too_many_arguments)]
     async fn create_alert_if_needed(
         &self,
         alert_id: &str,
