@@ -1,0 +1,205 @@
+# workspace-template.yaml
+# デモ用ワークスペーステンプレート
+
+workspace:
+  name: "todo-app-demo"
+  version: "1.0.0"
+  description: "ToDoアプリ開発デモ用ワークスペース"
+  template_type: "web-dev-4pane"
+
+layout:
+  window:
+    title: "Claude Code Parallel Demo - Todo App"
+    size:
+      width: 1920
+      height: 1080
+  
+  panes:
+    - id: "director"
+      title: "🎯 Director"
+      position:
+        x: 0
+        y: 0
+        width: 0.5
+        height: 0.5
+      role: "coordinator"
+      working_directory: "/tmp/demo/coordinator"
+      
+    - id: "frontend"
+      title: "🎨 Frontend (React)"
+      position:
+        x: 0.5
+        y: 0
+        width: 0.5
+        height: 0.5
+      role: "developer"
+      working_directory: "/tmp/demo/frontend"
+      
+    - id: "backend"
+      title: "🔧 Backend (Node.js)"
+      position:
+        x: 0
+        y: 0.5
+        width: 0.5
+        height: 0.5
+      role: "developer"
+      working_directory: "/tmp/demo/backend"
+      
+    - id: "tester"
+      title: "🧪 Tester"
+      position:
+        x: 0.5
+        y: 0.5
+        width: 0.5
+        height: 0.5
+      role: "qa"
+      working_directory: "/tmp/demo/tests"
+
+processes:
+  - id: "director"
+    name: "Director Claude"
+    type: "claude_code"
+    pane_id: "director"
+    config:
+      model: "claude-3-5-sonnet"
+      temperature: 0.7
+      max_tokens: 4000
+      system_prompt: |
+        あなたはプロジェクトディレクターです。
+        チーム全体の調整、タスク分散、品質管理を担当します。
+        3つのエンジニア（フロントエンド、バックエンド、テスター）を管理し、
+        ToDoアプリプロジェクトを成功に導いてください。
+      tools:
+        - "task_distribution"
+        - "progress_monitoring" 
+        - "quality_assurance"
+        - "team_coordination"
+    
+  - id: "frontend"
+    name: "Frontend Engineer Claude"
+    type: "claude_code"
+    pane_id: "frontend"
+    config:
+      model: "claude-3-5-sonnet"
+      temperature: 0.3
+      max_tokens: 4000
+      system_prompt: |
+        あなたはフロントエンドエンジニアです。
+        React + TypeScript + Tailwind CSS を使用して、
+        美しく使いやすいToDoアプリのUIを実装してください。
+        バックエンドAPIとの連携も担当します。
+      tools:
+        - "code_generation"
+        - "file_management"
+        - "npm_commands"
+        - "react_development"
+        
+  - id: "backend"
+    name: "Backend Engineer Claude"
+    type: "claude_code"
+    pane_id: "backend"
+    config:
+      model: "claude-3-5-sonnet"
+      temperature: 0.3
+      max_tokens: 4000
+      system_prompt: |
+        あなたはバックエンドエンジニアです。
+        Node.js + Express + SQLite を使用して、
+        堅牢で効率的なToDo API サーバーを実装してください。
+        RESTful API設計とデータベース管理を担当します。
+      tools:
+        - "code_generation"
+        - "file_management"
+        - "npm_commands"
+        - "database_management"
+        
+  - id: "tester"
+    name: "QA Tester Claude"
+    type: "claude_code"
+    pane_id: "tester"
+    config:
+      model: "claude-3-5-sonnet"
+      temperature: 0.4
+      max_tokens: 4000
+      system_prompt: |
+        あなたはQAテスターです。
+        Jest, React Testing Library, Supertest を使用して、
+        包括的なテストスイートを実装してください。
+        品質保証と継続的テストを担当します。
+      tools:
+        - "test_generation"
+        - "test_execution"
+        - "quality_assurance"
+        - "bug_reporting"
+
+communication:
+  ipc:
+    protocol: "unix_socket"
+    coordinator: "director"
+    channels:
+      - name: "task_assignment"
+        description: "タスクの割り当て・更新"
+      - name: "progress_update" 
+        description: "進捗状況の報告"
+      - name: "collaboration"
+        description: "エンジニア間の協調"
+      - name: "quality_check"
+        description: "品質確認・レビュー"
+  
+  synchronization:
+    interval: 30  # seconds
+    auto_sync: true
+    conflict_resolution: "coordinator_decision"
+
+monitoring:
+  metrics:
+    - "task_completion_rate"
+    - "code_quality_score"
+    - "test_coverage"
+    - "build_success_rate"
+    - "api_response_time"
+  
+  alerts:
+    - condition: "build_failure"
+      action: "notify_coordinator"
+    - condition: "test_failure"
+      action: "notify_coordinator"
+    - condition: "process_hang"
+      action: "restart_process"
+
+resources:
+  directories:
+    shared: "/tmp/demo/shared"
+    artifacts: "/tmp/demo/artifacts"
+    logs: "/tmp/demo/logs"
+  
+  files:
+    project_plan: "shared/project-plan.md"
+    api_spec: "shared/api-specification.json"
+    progress_log: "logs/progress.log"
+    integration_report: "artifacts/integration-report.json"
+
+environment:
+  variables:
+    NODE_ENV: "development"
+    API_PORT: "3001"
+    FRONTEND_PORT: "3000"
+    DB_PATH: "/tmp/demo/backend/todos.db"
+    LOG_LEVEL: "debug"
+
+startup_sequence:
+  1:
+    step: "Initialize directories"
+    command: "mkdir -p /tmp/demo/{frontend,backend,tests,shared,artifacts,logs}"
+  2:
+    step: "Start coordinator"
+    process: "director"
+  3:
+    step: "Distribute initial tasks"
+    action: "send_task_assignments"
+  4:
+    step: "Start parallel development"
+    processes: ["frontend", "backend", "tester"]
+  5:
+    step: "Begin monitoring"
+    action: "start_progress_tracking"
