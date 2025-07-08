@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::time::{timeout, sleep};
 use tempfile::TempDir;
 use wezterm_parallel::{
-    workspace::{WorkspaceManager, IntegratedWorkspaceManager},
+    room::{WorkspaceManager, IntegratedWorkspaceManager},
     process::manager::{ProcessManager, ProcessConfig},
     dashboard::{WebSocketServer, DashboardConfig},
     Message,
