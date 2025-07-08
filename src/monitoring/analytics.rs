@@ -1,8 +1,8 @@
 // WezTerm Multi-Process Development Framework - Analytics System
 // Provides advanced analytics and insights for system performance and usage
 
-use super::{SystemMetrics, Alert, HealthCheck};
-use serde::{Serialize, Deserialize};
+use super::{Alert, HealthCheck, SystemMetrics};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -11,16 +11,16 @@ use tokio::sync::RwLock;
 pub struct AnalyticsManager {
     /// Historical metrics data
     metrics_history: Arc<RwLock<Vec<SystemMetrics>>>,
-    
+
     /// Alert history for pattern analysis
     alert_history: Arc<RwLock<Vec<Alert>>>,
-    
+
     /// Health check history
     health_history: Arc<RwLock<Vec<HealthCheck>>>,
-    
+
     /// Performance baselines
     baselines: Arc<RwLock<PerformanceBaselines>>,
-    
+
     /// Usage patterns
     #[allow(dead_code)]
     usage_patterns: Arc<RwLock<UsagePatterns>>,
@@ -31,19 +31,19 @@ pub struct AnalyticsManager {
 pub struct PerformanceBaselines {
     /// Average CPU usage baseline
     pub cpu_baseline: f64,
-    
+
     /// Average memory usage baseline
     pub memory_baseline: u64,
-    
+
     /// Average disk usage baseline
     pub disk_baseline: u64,
-    
+
     /// Response time baselines by component
     pub response_time_baselines: HashMap<String, u64>,
-    
+
     /// Baseline calculation timestamp
     pub calculated_at: u64,
-    
+
     /// Number of samples used for baseline
     pub sample_count: usize,
 }
@@ -53,16 +53,16 @@ pub struct PerformanceBaselines {
 pub struct UsagePatterns {
     /// Peak usage hours
     pub peak_hours: Vec<u8>,
-    
+
     /// Average session duration
     pub avg_session_duration: u64,
-    
+
     /// Most used components
     pub component_usage: HashMap<String, u64>,
-    
+
     /// Workspace usage patterns
     pub workspace_patterns: HashMap<String, WorkspaceUsage>,
-    
+
     /// Error frequency patterns
     pub error_patterns: HashMap<String, u32>,
 }
@@ -82,25 +82,25 @@ pub struct WorkspaceUsage {
 pub struct AnalyticsReport {
     /// Report generation timestamp
     pub generated_at: u64,
-    
+
     /// Report time range
     pub time_range: TimeRange,
-    
+
     /// Performance analysis
     pub performance: PerformanceAnalysis,
-    
+
     /// Reliability analysis
     pub reliability: ReliabilityAnalysis,
-    
+
     /// Usage analysis
     pub usage: UsageAnalysis,
-    
+
     /// Trend analysis
     pub trends: TrendAnalysis,
-    
+
     /// Recommendations
     pub recommendations: Vec<Recommendation>,
-    
+
     /// Executive summary
     pub summary: ExecutiveSummary,
 }
@@ -118,16 +118,16 @@ pub struct TimeRange {
 pub struct PerformanceAnalysis {
     /// Average performance metrics
     pub averages: PerformanceAverages,
-    
+
     /// Peak performance metrics
     pub peaks: PerformancePeaks,
-    
+
     /// Performance variance
     pub variance: PerformanceVariance,
-    
+
     /// Performance score (0-100)
     pub performance_score: f64,
-    
+
     /// Bottleneck identification
     pub bottlenecks: Vec<Bottleneck>,
 }
@@ -184,19 +184,19 @@ pub enum BottleneckSeverity {
 pub struct ReliabilityAnalysis {
     /// System uptime percentage
     pub uptime_percentage: f64,
-    
+
     /// Mean time between failures (MTBF)
     pub mtbf_hours: f64,
-    
+
     /// Mean time to recovery (MTTR)
     pub mttr_minutes: f64,
-    
+
     /// Error rate analysis
     pub error_rates: HashMap<String, f64>,
-    
+
     /// Service level indicators
     pub sli_metrics: SLIMetrics,
-    
+
     /// Reliability score (0-100)
     pub reliability_score: f64,
 }
@@ -216,13 +216,13 @@ pub struct SLIMetrics {
 pub struct UsageAnalysis {
     /// Active users/sessions
     pub active_sessions: u32,
-    
+
     /// Feature usage statistics
     pub feature_usage: HashMap<String, FeatureUsage>,
-    
+
     /// Resource utilization
     pub resource_utilization: ResourceUtilization,
-    
+
     /// User behavior patterns
     pub behavior_patterns: BehaviorPatterns,
 }
@@ -270,16 +270,16 @@ pub struct Workflow {
 pub struct TrendAnalysis {
     /// Performance trends
     pub performance_trends: Vec<TrendData>,
-    
+
     /// Usage trends
     pub usage_trends: Vec<TrendData>,
-    
+
     /// Error trends
     pub error_trends: Vec<TrendData>,
-    
+
     /// Capacity planning insights
     pub capacity_insights: CapacityInsights,
-    
+
     /// Forecast predictions
     pub forecasts: Vec<Forecast>,
 }
@@ -376,62 +376,68 @@ impl AnalyticsManager {
             usage_patterns: Arc::new(RwLock::new(UsagePatterns::default())),
         }
     }
-    
+
     /// Add metrics data for analysis
     pub async fn add_metrics(&self, metrics: SystemMetrics) {
         let mut history = self.metrics_history.write().await;
         history.push(metrics);
-        
+
         // Keep only last 1000 entries to manage memory
         if history.len() > 1000 {
             history.drain(0..100);
         }
-        
+
         // Update baselines periodically
         if history.len() % 100 == 0 {
             self.update_baselines().await;
         }
     }
-    
+
     /// Add alert data for analysis
     pub async fn add_alert(&self, alert: Alert) {
         let mut history = self.alert_history.write().await;
         history.push(alert);
-        
+
         // Keep only last 500 alerts
         if history.len() > 500 {
             history.drain(0..50);
         }
     }
-    
+
     /// Add health check data for analysis
     pub async fn add_health_check(&self, health_check: HealthCheck) {
         let mut history = self.health_history.write().await;
         history.push(health_check);
-        
+
         // Keep only last 200 health checks
         if history.len() > 200 {
             history.drain(0..20);
         }
     }
-    
+
     /// Generate comprehensive analytics report
     pub async fn generate_report(&self, time_range: TimeRange) -> AnalyticsReport {
         let generated_at = current_timestamp();
-        
+
         // Gather data within time range
         let metrics = self.get_metrics_in_range(&time_range).await;
         let alerts = self.get_alerts_in_range(&time_range).await;
         let health_checks = self.get_health_checks_in_range(&time_range).await;
-        
+
         // Perform analyses
         let performance = self.analyze_performance(&metrics).await;
-        let reliability = self.analyze_reliability(&metrics, &alerts, &health_checks).await;
+        let reliability = self
+            .analyze_reliability(&metrics, &alerts, &health_checks)
+            .await;
         let usage = self.analyze_usage(&metrics).await;
         let trends = self.analyze_trends(&metrics, &alerts).await;
-        let recommendations = self.generate_recommendations(&performance, &reliability, &usage, &trends).await;
-        let summary = self.generate_executive_summary(&performance, &reliability, &usage, &recommendations).await;
-        
+        let recommendations = self
+            .generate_recommendations(&performance, &reliability, &usage, &trends)
+            .await;
+        let summary = self
+            .generate_executive_summary(&performance, &reliability, &usage, &recommendations)
+            .await;
+
         AnalyticsReport {
             generated_at,
             time_range,
@@ -443,34 +449,37 @@ impl AnalyticsManager {
             summary,
         }
     }
-    
+
     /// Get metrics within time range
     async fn get_metrics_in_range(&self, time_range: &TimeRange) -> Vec<SystemMetrics> {
         let history = self.metrics_history.read().await;
-        history.iter()
+        history
+            .iter()
             .filter(|m| m.timestamp >= time_range.start && m.timestamp <= time_range.end)
             .cloned()
             .collect()
     }
-    
+
     /// Get alerts within time range
     async fn get_alerts_in_range(&self, time_range: &TimeRange) -> Vec<Alert> {
         let history = self.alert_history.read().await;
-        history.iter()
+        history
+            .iter()
             .filter(|a| a.timestamp >= time_range.start && a.timestamp <= time_range.end)
             .cloned()
             .collect()
     }
-    
+
     /// Get health checks within time range
     async fn get_health_checks_in_range(&self, time_range: &TimeRange) -> Vec<HealthCheck> {
         let history = self.health_history.read().await;
-        history.iter()
+        history
+            .iter()
             .filter(|h| h.timestamp >= time_range.start && h.timestamp <= time_range.end)
             .cloned()
             .collect()
     }
-    
+
     /// Analyze performance metrics
     async fn analyze_performance(&self, metrics: &[SystemMetrics]) -> PerformanceAnalysis {
         if metrics.is_empty() {
@@ -498,69 +507,89 @@ impl AnalyticsManager {
                 bottlenecks: vec![],
             };
         }
-        
+
         // Calculate averages
         let avg_cpu = metrics.iter().map(|m| m.cpu_usage).sum::<f64>() / metrics.len() as f64;
         let avg_memory = metrics.iter().map(|m| m.memory_usage).sum::<u64>() / metrics.len() as u64;
         let avg_disk = metrics.iter().map(|m| m.disk_usage).sum::<u64>() / metrics.len() as u64;
-        
+
         // Find peaks
         let max_cpu = metrics.iter().map(|m| m.cpu_usage).fold(0.0, f64::max);
         let max_memory = metrics.iter().map(|m| m.memory_usage).max().unwrap_or(0);
         let max_disk = metrics.iter().map(|m| m.disk_usage).max().unwrap_or(0);
-        let peak_timestamp = metrics.iter()
+        let peak_timestamp = metrics
+            .iter()
             .max_by_key(|m| m.cpu_usage as u64)
             .map(|m| m.timestamp)
             .unwrap_or(0);
-        
+
         // Calculate variance
         let cpu_variance = if metrics.len() > 1 {
-            metrics.iter()
+            metrics
+                .iter()
                 .map(|m| (m.cpu_usage - avg_cpu).powi(2))
-                .sum::<f64>() / (metrics.len() - 1) as f64
+                .sum::<f64>()
+                / (metrics.len() - 1) as f64
         } else {
             0.0
         };
-        
+
         let memory_variance = if metrics.len() > 1 {
-            metrics.iter()
+            metrics
+                .iter()
                 .map(|m| (m.memory_usage as f64 - avg_memory as f64).powi(2))
-                .sum::<f64>() / (metrics.len() - 1) as f64
+                .sum::<f64>()
+                / (metrics.len() - 1) as f64
         } else {
             0.0
         };
-        
+
         // Calculate performance score (simplified)
         let performance_score = if max_cpu < 80.0 && avg_cpu < 50.0 {
             90.0 - (avg_cpu / 100.0) * 30.0
         } else {
             60.0 - (avg_cpu / 100.0) * 50.0
         };
-        
+
         // Identify bottlenecks
         let mut bottlenecks = Vec::new();
-        
+
         if avg_cpu > 70.0 {
             bottlenecks.push(Bottleneck {
                 component: "CPU".to_string(),
                 metric: "average_usage".to_string(),
-                severity: if avg_cpu > 90.0 { BottleneckSeverity::Critical } else { BottleneckSeverity::High },
+                severity: if avg_cpu > 90.0 {
+                    BottleneckSeverity::Critical
+                } else {
+                    BottleneckSeverity::High
+                },
                 impact_score: avg_cpu,
-                recommendation: "Consider optimizing CPU-intensive operations or scaling horizontally".to_string(),
+                recommendation:
+                    "Consider optimizing CPU-intensive operations or scaling horizontally"
+                        .to_string(),
             });
         }
-        
-        let memory_usage_pct = if avg_memory > 0 { (avg_memory as f64 / (8 * 1024 * 1024 * 1024) as f64) * 100.0 } else { 0.0 };
+
+        let memory_usage_pct = if avg_memory > 0 {
+            (avg_memory as f64 / (8 * 1024 * 1024 * 1024) as f64) * 100.0
+        } else {
+            0.0
+        };
         if memory_usage_pct > 80.0 {
             bottlenecks.push(Bottleneck {
                 component: "Memory".to_string(),
                 metric: "average_usage".to_string(),
-                severity: if memory_usage_pct > 95.0 { BottleneckSeverity::Critical } else { BottleneckSeverity::High },
+                severity: if memory_usage_pct > 95.0 {
+                    BottleneckSeverity::Critical
+                } else {
+                    BottleneckSeverity::High
+                },
                 impact_score: memory_usage_pct,
-                recommendation: "Consider increasing memory or optimizing memory usage patterns".to_string(),
+                recommendation: "Consider increasing memory or optimizing memory usage patterns"
+                    .to_string(),
             });
         }
-        
+
         PerformanceAnalysis {
             averages: PerformanceAverages {
                 cpu_usage: avg_cpu,
@@ -585,34 +614,43 @@ impl AnalyticsManager {
             bottlenecks,
         }
     }
-    
+
     /// Analyze system reliability
-    async fn analyze_reliability(&self, _metrics: &[SystemMetrics], alerts: &[Alert], health_checks: &[HealthCheck]) -> ReliabilityAnalysis {
+    async fn analyze_reliability(
+        &self,
+        _metrics: &[SystemMetrics],
+        alerts: &[Alert],
+        health_checks: &[HealthCheck],
+    ) -> ReliabilityAnalysis {
         // Calculate uptime based on health checks
-        let healthy_checks = health_checks.iter()
+        let healthy_checks = health_checks
+            .iter()
             .filter(|h| h.overall_status == super::HealthStatus::Healthy)
             .count();
-        
+
         let uptime_percentage = if !health_checks.is_empty() {
             (healthy_checks as f64 / health_checks.len() as f64) * 100.0
         } else {
             100.0
         };
-        
+
         // Calculate error rates
         let mut error_rates = HashMap::new();
         for alert in alerts {
-            if alert.severity == super::AlertSeverity::Error || alert.severity == super::AlertSeverity::Critical {
+            if alert.severity == super::AlertSeverity::Error
+                || alert.severity == super::AlertSeverity::Critical
+            {
                 *error_rates.entry(alert.category.clone()).or_insert(0.0) += 1.0;
             }
         }
-        
-        let reliability_score = uptime_percentage * 0.7 + (100.0 - error_rates.values().sum::<f64>().min(100.0)) * 0.3;
-        
+
+        let reliability_score =
+            uptime_percentage * 0.7 + (100.0 - error_rates.values().sum::<f64>().min(100.0)) * 0.3;
+
         ReliabilityAnalysis {
             uptime_percentage,
             mtbf_hours: 168.0, // Placeholder: 1 week
-            mttr_minutes: 5.0,  // Placeholder: 5 minutes
+            mttr_minutes: 5.0, // Placeholder: 5 minutes
             error_rates,
             sli_metrics: SLIMetrics {
                 availability: uptime_percentage / 100.0,
@@ -624,44 +662,51 @@ impl AnalyticsManager {
             reliability_score,
         }
     }
-    
+
     /// Analyze usage patterns
     async fn analyze_usage(&self, metrics: &[SystemMetrics]) -> UsageAnalysis {
         let active_sessions = metrics.len() as u32; // Simplified
-        
+
         let mut feature_usage = HashMap::new();
-        feature_usage.insert("workspace_management".to_string(), FeatureUsage {
-            usage_count: 100,
-            unique_sessions: 10,
-            avg_duration: 1800,
-            success_rate: 95.0,
-        });
-        
+        feature_usage.insert(
+            "workspace_management".to_string(),
+            FeatureUsage {
+                usage_count: 100,
+                unique_sessions: 10,
+                avg_duration: 1800,
+                success_rate: 95.0,
+            },
+        );
+
         let resource_utilization = ResourceUtilization {
             cpu_utilization: if !metrics.is_empty() {
                 metrics.iter().map(|m| m.cpu_usage).sum::<f64>() / metrics.len() as f64
-            } else { 0.0 },
-            memory_utilization: 75.0, // Placeholder
-            disk_utilization: 60.0,   // Placeholder
+            } else {
+                0.0
+            },
+            memory_utilization: 75.0,  // Placeholder
+            disk_utilization: 60.0,    // Placeholder
             network_utilization: 30.0, // Placeholder
             efficiency_score: 80.0,
         };
-        
+
         let behavior_patterns = BehaviorPatterns {
             peak_usage_hours: vec![9, 10, 11, 14, 15, 16], // 9-11 AM, 2-4 PM
-            avg_session_duration: 3600, // 1 hour
-            common_workflows: vec![
-                Workflow {
-                    name: "Development Session".to_string(),
-                    steps: vec!["create_workspace".to_string(), "start_tasks".to_string(), "monitor_progress".to_string()],
-                    frequency: 50,
-                    success_rate: 92.0,
-                    avg_duration: 7200, // 2 hours
-                }
-            ],
+            avg_session_duration: 3600,                    // 1 hour
+            common_workflows: vec![Workflow {
+                name: "Development Session".to_string(),
+                steps: vec![
+                    "create_workspace".to_string(),
+                    "start_tasks".to_string(),
+                    "monitor_progress".to_string(),
+                ],
+                frequency: 50,
+                success_rate: 92.0,
+                avg_duration: 7200, // 2 hours
+            }],
             abandonment_points: vec!["task_creation".to_string()],
         };
-        
+
         UsageAnalysis {
             active_sessions,
             feature_usage,
@@ -669,15 +714,16 @@ impl AnalyticsManager {
             behavior_patterns,
         }
     }
-    
+
     /// Analyze trends
     async fn analyze_trends(&self, metrics: &[SystemMetrics], alerts: &[Alert]) -> TrendAnalysis {
         let mut performance_trends = Vec::new();
         let mut error_trends = Vec::new();
-        
+
         // Simple trend analysis - in production, this would use more sophisticated algorithms
         for (i, metric) in metrics.iter().enumerate() {
-            if i % 10 == 0 { // Sample every 10th metric
+            if i % 10 == 0 {
+                // Sample every 10th metric
                 performance_trends.push(TrendData {
                     timestamp: metric.timestamp,
                     metric: "cpu_usage".to_string(),
@@ -686,7 +732,7 @@ impl AnalyticsManager {
                 });
             }
         }
-        
+
         for alert in alerts {
             error_trends.push(TrendData {
                 timestamp: alert.timestamp,
@@ -695,7 +741,7 @@ impl AnalyticsManager {
                 trend_direction: TrendDirection::Stable, // Simplified
             });
         }
-        
+
         let capacity_insights = CapacityInsights {
             current_capacity_usage: 65.0,
             projected_capacity_exhaustion: None,
@@ -708,7 +754,7 @@ impl AnalyticsManager {
                 "Optimize disk I/O operations".to_string(),
             ],
         };
-        
+
         TrendAnalysis {
             performance_trends,
             usage_trends: vec![], // Placeholder
@@ -717,7 +763,7 @@ impl AnalyticsManager {
             forecasts: vec![], // Placeholder
         }
     }
-    
+
     /// Generate recommendations
     async fn generate_recommendations(
         &self,
@@ -727,7 +773,7 @@ impl AnalyticsManager {
         _trends: &TrendAnalysis,
     ) -> Vec<Recommendation> {
         let mut recommendations = Vec::new();
-        
+
         // Performance recommendations
         if performance.performance_score < 70.0 {
             recommendations.push(Recommendation {
@@ -745,7 +791,7 @@ impl AnalyticsManager {
                 expected_improvement: Some(15.0),
             });
         }
-        
+
         // Reliability recommendations
         if reliability.reliability_score < 95.0 {
             recommendations.push(Recommendation {
@@ -763,10 +809,10 @@ impl AnalyticsManager {
                 expected_improvement: Some(10.0),
             });
         }
-        
+
         recommendations
     }
-    
+
     /// Generate executive summary
     async fn generate_executive_summary(
         &self,
@@ -775,24 +821,34 @@ impl AnalyticsManager {
         usage: &UsageAnalysis,
         recommendations: &[Recommendation],
     ) -> ExecutiveSummary {
-        let overall_health_score = (performance.performance_score + reliability.reliability_score + usage.resource_utilization.efficiency_score) / 3.0;
-        
+        let overall_health_score = (performance.performance_score
+            + reliability.reliability_score
+            + usage.resource_utilization.efficiency_score)
+            / 3.0;
+
         let key_achievements = vec![
             "Maintained stable system operation".to_string(),
             "Successfully processed user requests".to_string(),
         ];
-        
-        let critical_issues: Vec<String> = recommendations.iter()
+
+        let critical_issues: Vec<String> = recommendations
+            .iter()
             .filter(|r| matches!(r.priority, RecommendationPriority::Critical))
             .map(|r| r.title.clone())
             .collect();
-        
-        let improvement_opportunities: Vec<String> = recommendations.iter()
-            .filter(|r| matches!(r.priority, RecommendationPriority::High | RecommendationPriority::Medium))
+
+        let improvement_opportunities: Vec<String> = recommendations
+            .iter()
+            .filter(|r| {
+                matches!(
+                    r.priority,
+                    RecommendationPriority::High | RecommendationPriority::Medium
+                )
+            })
             .map(|r| r.title.clone())
             .take(3)
             .collect();
-        
+
         ExecutiveSummary {
             overall_health_score,
             key_achievements,
@@ -802,21 +858,24 @@ impl AnalyticsManager {
             user_satisfaction_score: 85.0, // Placeholder
         }
     }
-    
+
     /// Update performance baselines
     async fn update_baselines(&self) {
         let metrics = self.metrics_history.read().await;
-        
+
         if metrics.len() < 10 {
             return; // Need at least 10 samples
         }
-        
+
         let recent_metrics: Vec<_> = metrics.iter().rev().take(50).collect();
-        
-        let cpu_baseline = recent_metrics.iter().map(|m| m.cpu_usage).sum::<f64>() / recent_metrics.len() as f64;
-        let memory_baseline = recent_metrics.iter().map(|m| m.memory_usage).sum::<u64>() / recent_metrics.len() as u64;
-        let disk_baseline = recent_metrics.iter().map(|m| m.disk_usage).sum::<u64>() / recent_metrics.len() as u64;
-        
+
+        let cpu_baseline =
+            recent_metrics.iter().map(|m| m.cpu_usage).sum::<f64>() / recent_metrics.len() as f64;
+        let memory_baseline = recent_metrics.iter().map(|m| m.memory_usage).sum::<u64>()
+            / recent_metrics.len() as u64;
+        let disk_baseline =
+            recent_metrics.iter().map(|m| m.disk_usage).sum::<u64>() / recent_metrics.len() as u64;
+
         let mut baselines = self.baselines.write().await;
         baselines.cpu_baseline = cpu_baseline;
         baselines.memory_baseline = memory_baseline;
@@ -824,7 +883,7 @@ impl AnalyticsManager {
         baselines.calculated_at = current_timestamp();
         baselines.sample_count = recent_metrics.len();
     }
-    
+
     /// Get current baselines
     pub async fn get_baselines(&self) -> PerformanceBaselines {
         self.baselines.read().await.clone()
@@ -851,25 +910,25 @@ impl Default for AnalyticsManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_analytics_manager_creation() {
         let manager = AnalyticsManager::new();
         let baselines = manager.get_baselines().await;
         assert_eq!(baselines.sample_count, 0);
     }
-    
+
     #[tokio::test]
     async fn test_metrics_addition() {
         let manager = AnalyticsManager::new();
-        
+
         let metrics = SystemMetrics {
             timestamp: current_timestamp(),
             cpu_usage: 50.0,
-            memory_usage: 1024 * 1024 * 1024, // 1GB
+            memory_usage: 1024 * 1024 * 1024,         // 1GB
             memory_available: 3 * 1024 * 1024 * 1024, // 3GB
-            disk_usage: 10 * 1024 * 1024 * 1024, // 10GB
-            disk_available: 90 * 1024 * 1024 * 1024, // 90GB
+            disk_usage: 10 * 1024 * 1024 * 1024,      // 10GB
+            disk_available: 90 * 1024 * 1024 * 1024,  // 90GB
             network_io: crate::monitoring::NetworkIO {
                 bytes_received: 1000,
                 bytes_sent: 2000,
@@ -878,9 +937,9 @@ mod tests {
             },
             process_metrics: std::collections::HashMap::new(),
         };
-        
+
         manager.add_metrics(metrics).await;
-        
+
         let history = manager.metrics_history.read().await;
         assert_eq!(history.len(), 1);
     }

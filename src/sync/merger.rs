@@ -1,9 +1,9 @@
+use super::file_sync::ConflictResolution;
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::SystemTime;
 use uuid::Uuid;
-use anyhow::{Result, anyhow};
-use super::file_sync::ConflictResolution;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConflictType {
@@ -60,12 +60,12 @@ impl MergeManager {
             merge_patterns: Vec::new(),
             auto_merge_enabled: true,
         };
-        
+
         // デフォルトのマージパターンを設定
         manager.setup_default_patterns();
         manager
     }
-    
+
     pub fn merge_content(
         &self,
         file_path: &PathBuf,
@@ -75,7 +75,7 @@ impl MergeManager {
     ) -> Result<MergeResult> {
         // ファイル拡張子に基づいてマージ戦略を決定
         let merge_strategy = self.get_merge_strategy(file_path);
-        
+
         match merge_strategy {
             MergeStrategy::LineByLine => {
                 self.merge_line_by_line(file_path, base_content, version1, version2)
@@ -101,7 +101,7 @@ impl MergeManager {
             }
         }
     }
-    
+
     pub fn merge_multiple_versions(
         &self,
         file_path: &PathBuf,
@@ -111,15 +111,15 @@ impl MergeManager {
         if versions.is_empty() {
             return Ok(MergeResult::Success(base_content.to_string()));
         }
-        
+
         if versions.len() == 1 {
             return Ok(MergeResult::Success(versions[0].0.clone()));
         }
-        
+
         // 段階的マージ：各バージョンをベースと比較してマージ
         // 最初のバージョンから開始
         let mut current_content = versions[0].0.clone();
-        
+
         // 残りのバージョンを順次マージ
         for (version_content, _process_id) in versions.iter().skip(1) {
             match self.merge_content(file_path, base_content, &current_content, version_content)? {
@@ -131,10 +131,10 @@ impl MergeManager {
                 }
             }
         }
-        
+
         Ok(MergeResult::Success(current_content))
     }
-    
+
     pub fn resolve_conflict(
         &self,
         file_path: &PathBuf,
@@ -163,12 +163,13 @@ impl MergeManager {
                 // プロセス優先度が設定されていない場合は最新を選択
                 Ok(version2.to_string())
             }
-            ConflictResolution::Manual => {
-                Err(anyhow!("Manual conflict resolution required for file: {:?}", file_path))
-            }
+            ConflictResolution::Manual => Err(anyhow!(
+                "Manual conflict resolution required for file: {:?}",
+                file_path
+            )),
         }
     }
-    
+
     pub fn resolve_conflict_with_process(
         &self,
         _file_path: &PathBuf,
@@ -180,7 +181,7 @@ impl MergeManager {
             ConflictResolution::PreferHighPriority => {
                 let priority1 = self.process_priorities.get(&version1.1).unwrap_or(&5);
                 let priority2 = self.process_priorities.get(&version2.1).unwrap_or(&5);
-                
+
                 if priority1 > priority2 {
                     Ok(version1.0.to_string())
                 } else {
@@ -193,67 +194,67 @@ impl MergeManager {
             }
         }
     }
-    
+
     pub fn set_resolution_strategy(&mut self, strategy: ConflictResolution) {
         self.conflict_resolution_strategy = strategy;
     }
-    
+
     pub fn set_process_priority(&mut self, process_id: Uuid, priority: u8) {
         self.process_priorities.insert(process_id, priority);
     }
-    
+
     pub fn add_merge_pattern(&mut self, extension: String, strategy: MergeStrategy) {
         self.merge_patterns.push(MergePattern {
             file_extension: extension,
             merge_strategy: strategy,
         });
     }
-    
+
     fn setup_default_patterns(&mut self) {
         // ソースコードファイル
         self.merge_patterns.push(MergePattern {
             file_extension: "rs".to_string(),
             merge_strategy: MergeStrategy::LineByLine,
         });
-        
+
         self.merge_patterns.push(MergePattern {
             file_extension: "py".to_string(),
             merge_strategy: MergeStrategy::LineByLine,
         });
-        
+
         self.merge_patterns.push(MergePattern {
             file_extension: "js".to_string(),
             merge_strategy: MergeStrategy::LineByLine,
         });
-        
+
         // 設定ファイル
         self.merge_patterns.push(MergePattern {
             file_extension: "toml".to_string(),
             merge_strategy: MergeStrategy::BlockBased,
         });
-        
+
         self.merge_patterns.push(MergePattern {
             file_extension: "yaml".to_string(),
             merge_strategy: MergeStrategy::StructuralMerge,
         });
-        
+
         self.merge_patterns.push(MergePattern {
             file_extension: "yml".to_string(),
             merge_strategy: MergeStrategy::StructuralMerge,
         });
-        
+
         // バイナリファイル
         self.merge_patterns.push(MergePattern {
             file_extension: "png".to_string(),
             merge_strategy: MergeStrategy::NoMerge,
         });
-        
+
         self.merge_patterns.push(MergePattern {
             file_extension: "jpg".to_string(),
             merge_strategy: MergeStrategy::NoMerge,
         });
     }
-    
+
     fn get_merge_strategy(&self, file_path: &PathBuf) -> MergeStrategy {
         if let Some(extension) = file_path.extension().and_then(|e| e.to_str()) {
             for pattern in &self.merge_patterns {
@@ -262,11 +263,11 @@ impl MergeManager {
                 }
             }
         }
-        
+
         // デフォルトは行単位マージ
         MergeStrategy::LineByLine
     }
-    
+
     fn merge_line_by_line(
         &self,
         file_path: &PathBuf,
@@ -277,17 +278,17 @@ impl MergeManager {
         let base_lines: Vec<&str> = base_content.lines().collect();
         let v1_lines: Vec<&str> = version1.lines().collect();
         let v2_lines: Vec<&str> = version2.lines().collect();
-        
+
         // 3-way mergeの簡易実装
         let mut merged_lines = Vec::new();
         let mut i = 0;
         let max_len = base_lines.len().max(v1_lines.len()).max(v2_lines.len());
-        
+
         while i < max_len {
             let base_line = base_lines.get(i).unwrap_or(&"");
             let v1_line = v1_lines.get(i).unwrap_or(&"");
             let v2_line = v2_lines.get(i).unwrap_or(&"");
-            
+
             if v1_line == v2_line {
                 // 両方が同じ変更 or 変更なし
                 merged_lines.push(*v1_line);
@@ -310,13 +311,13 @@ impl MergeManager {
                     detected_at: SystemTime::now(),
                 }));
             }
-            
+
             i += 1;
         }
-        
+
         Ok(MergeResult::Success(merged_lines.join("\n")))
     }
-    
+
     fn merge_block_based(
         &self,
         file_path: &PathBuf,
@@ -328,7 +329,7 @@ impl MergeManager {
         // 実装簡略化のため、行単位マージを使用
         self.merge_line_by_line(file_path, base_content, version1, version2)
     }
-    
+
     fn merge_structural(
         &self,
         file_path: &PathBuf,
@@ -340,7 +341,7 @@ impl MergeManager {
         // 実装簡略化のため、行単位マージを使用
         self.merge_line_by_line(file_path, base_content, version1, version2)
     }
-    
+
     pub fn create_merge_conflict_markers(
         &self,
         _base_content: &str,
@@ -350,15 +351,14 @@ impl MergeManager {
         process2: Uuid,
     ) -> String {
         format!(
-            "<<<<<<< Process {} (Version 1)\n{}\n=======\n{}\n>>>>>>> Process {} (Version 2)\n",
-            process1, version1, version2, process2
+            "<<<<<<< Process {process1} (Version 1)\n{version1}\n=======\n{version2}\n>>>>>>> Process {process2} (Version 2)\n"
         )
     }
-    
+
     pub fn validate_merge_result(&self, file_path: &PathBuf, merged_content: &str) -> Result<bool> {
         // マージ結果の検証
         // 基本的な構文チェックなど
-        
+
         if let Some(extension) = file_path.extension().and_then(|e| e.to_str()) {
             match extension {
                 "rs" => self.validate_rust_syntax(merged_content),
@@ -370,12 +370,12 @@ impl MergeManager {
             Ok(true)
         }
     }
-    
+
     fn validate_rust_syntax(&self, content: &str) -> Result<bool> {
         // Rustの基本的な構文チェック
         // 実装簡略化：括弧の対応をチェック
         let mut stack = Vec::new();
-        
+
         for ch in content.chars() {
             match ch {
                 '(' | '[' | '{' => stack.push(ch),
@@ -397,10 +397,10 @@ impl MergeManager {
                 _ => {}
             }
         }
-        
+
         Ok(stack.is_empty())
     }
-    
+
     fn validate_json_syntax(&self, content: &str) -> Result<bool> {
         // JSON構文チェック
         match serde_json::from_str::<serde_json::Value>(content) {
@@ -408,7 +408,7 @@ impl MergeManager {
             Err(_) => Ok(false),
         }
     }
-    
+
     fn validate_yaml_syntax(&self, content: &str) -> Result<bool> {
         // YAML構文チェックの簡易実装
         // 実際の実装ではserde_yamlなどを使う
@@ -425,25 +425,27 @@ impl Default for MergeManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_merge_manager_creation() {
         let manager = MergeManager::new();
         assert!(manager.auto_merge_enabled);
         assert!(!manager.merge_patterns.is_empty());
     }
-    
+
     #[test]
     fn test_simple_line_merge() {
         let manager = MergeManager::new();
         let file_path = PathBuf::from("test.txt");
-        
+
         let base = "Line 1\nLine 2\nLine 3";
         let version1 = "Line 1 modified\nLine 2\nLine 3";
         let version2 = "Line 1\nLine 2\nLine 3 modified";
-        
-        let result = manager.merge_content(&file_path, base, version1, version2).unwrap();
-        
+
+        let result = manager
+            .merge_content(&file_path, base, version1, version2)
+            .unwrap();
+
         match result {
             MergeResult::Success(merged) => {
                 assert!(merged.contains("Line 1 modified"));
@@ -452,18 +454,20 @@ mod tests {
             MergeResult::Conflict(_) => panic!("Should merge successfully"),
         }
     }
-    
+
     #[test]
     fn test_conflict_detection() {
         let manager = MergeManager::new();
         let file_path = PathBuf::from("test.txt");
-        
+
         let base = "Original line";
         let version1 = "Modified by process 1";
         let version2 = "Modified by process 2";
-        
-        let result = manager.merge_content(&file_path, base, version1, version2).unwrap();
-        
+
+        let result = manager
+            .merge_content(&file_path, base, version1, version2)
+            .unwrap();
+
         match result {
             MergeResult::Conflict(conflict) => {
                 assert_eq!(conflict.conflict_type, ConflictType::ContentConflict);
@@ -471,14 +475,14 @@ mod tests {
             MergeResult::Success(_) => panic!("Should detect conflict"),
         }
     }
-    
+
     #[test]
     fn test_rust_syntax_validation() {
         let manager = MergeManager::new();
-        
+
         let valid_rust = "fn main() { println!(\"Hello\"); }";
         let invalid_rust = "fn main() { println!(\"Hello\"; }"; // 括弧不一致
-        
+
         assert!(manager.validate_rust_syntax(valid_rust).unwrap());
         assert!(!manager.validate_rust_syntax(invalid_rust).unwrap());
     }

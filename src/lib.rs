@@ -1,35 +1,65 @@
 // WezTerm Multi-Process Development Framework - Library
 
-pub mod room;
-pub mod process;
 pub mod config;
-pub mod metrics;
 pub mod dashboard;
-pub mod task;
-pub mod monitoring;
-pub mod sync;
 pub mod error;
-pub mod performance;
 pub mod logging;
+pub mod metrics;
+pub mod monitoring;
+pub mod performance;
+pub mod process;
+pub mod room;
+pub mod sync;
+pub mod task;
 
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Message {
-    WorkspaceCreate { name: String, template: String },
-    ProcessSpawn { workspace: String, command: String },
-    StatusUpdate { process_id: String, status: String },
-    TaskQueue { id: String, priority: u8, command: String },
+    WorkspaceCreate {
+        name: String,
+        template: String,
+    },
+    ProcessSpawn {
+        workspace: String,
+        command: String,
+    },
+    StatusUpdate {
+        process_id: String,
+        status: String,
+    },
+    TaskQueue {
+        id: String,
+        priority: u8,
+        command: String,
+    },
     // Template System IPC Messages
     TemplateList,
-    TemplateListResponse { templates: Vec<TemplateInfo> },
-    TemplateGet { name: String },
-    TemplateGetResponse { template: Option<String> },
-    TemplateCreate { name: String, content: String },
-    TemplateCreateResponse { success: bool, error: Option<String> },
-    TemplateDelete { name: String },
-    TemplateDeleteResponse { success: bool, error: Option<String> },
+    TemplateListResponse {
+        templates: Vec<TemplateInfo>,
+    },
+    TemplateGet {
+        name: String,
+    },
+    TemplateGetResponse {
+        template: Option<String>,
+    },
+    TemplateCreate {
+        name: String,
+        content: String,
+    },
+    TemplateCreateResponse {
+        success: bool,
+        error: Option<String>,
+    },
+    TemplateDelete {
+        name: String,
+    },
+    TemplateDeleteResponse {
+        success: bool,
+        error: Option<String>,
+    },
     Ping,
     Pong,
 }
@@ -129,7 +159,7 @@ mod tests {
         let message = Message::Ping;
         let serialized = serde_json::to_string(&message).unwrap();
         let deserialized: Message = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(message, deserialized);
     }
 
@@ -139,10 +169,10 @@ mod tests {
             name: "test-workspace".to_string(),
             template: "default".to_string(),
         };
-        
+
         let serialized = serde_json::to_string(&message).unwrap();
         let deserialized: Message = serde_json::from_str(&serialized).unwrap();
-        
+
         match deserialized {
             Message::WorkspaceCreate { name, template } => {
                 assert_eq!(name, "test-workspace");
@@ -158,10 +188,10 @@ mod tests {
             workspace: "frontend".to_string(),
             command: "claude-code --workspace=frontend".to_string(),
         };
-        
+
         let serialized = serde_json::to_string(&message).unwrap();
         let deserialized: Message = serde_json::from_str(&serialized).unwrap();
-        
+
         match deserialized {
             Message::ProcessSpawn { workspace, command } => {
                 assert_eq!(workspace, "frontend");
@@ -178,12 +208,16 @@ mod tests {
             priority: 5,
             command: "build project".to_string(),
         };
-        
+
         let serialized = serde_json::to_string(&message).unwrap();
         let deserialized: Message = serde_json::from_str(&serialized).unwrap();
-        
+
         match deserialized {
-            Message::TaskQueue { id, priority, command } => {
+            Message::TaskQueue {
+                id,
+                priority,
+                command,
+            } => {
                 assert_eq!(id, "task-001");
                 assert_eq!(priority, 5);
                 assert_eq!(command, "build project");
@@ -198,10 +232,10 @@ mod tests {
             process_id: "claude-001".to_string(),
             status: "running".to_string(),
         };
-        
+
         let serialized = serde_json::to_string(&message).unwrap();
         let deserialized: Message = serde_json::from_str(&serialized).unwrap();
-        
+
         match deserialized {
             Message::StatusUpdate { process_id, status } => {
                 assert_eq!(process_id, "claude-001");
@@ -215,13 +249,13 @@ mod tests {
     fn test_ping_pong_messages() {
         let ping = Message::Ping;
         let pong = Message::Pong;
-        
+
         let ping_serialized = serde_json::to_string(&ping).unwrap();
         let pong_serialized = serde_json::to_string(&pong).unwrap();
-        
+
         let ping_deserialized: Message = serde_json::from_str(&ping_serialized).unwrap();
         let pong_deserialized: Message = serde_json::from_str(&pong_serialized).unwrap();
-        
+
         assert_eq!(ping, ping_deserialized);
         assert_eq!(pong, pong_deserialized);
     }
@@ -230,7 +264,7 @@ mod tests {
     fn test_invalid_json_handling() {
         let invalid_json = r#"{"invalid": "json structure"}"#;
         let result: Result<Message, _> = serde_json::from_str(invalid_json);
-        
+
         assert!(result.is_err());
     }
 
@@ -239,15 +273,15 @@ mod tests {
         // Test with very long strings to ensure we handle large messages
         let long_name = "x".repeat(1000);
         let long_template = "y".repeat(1000);
-        
+
         let message = Message::WorkspaceCreate {
             name: long_name.clone(),
             template: long_template.clone(),
         };
-        
+
         let serialized = serde_json::to_string(&message).unwrap();
         let deserialized: Message = serde_json::from_str(&serialized).unwrap();
-        
+
         match deserialized {
             Message::WorkspaceCreate { name, template } => {
                 assert_eq!(name, long_name);

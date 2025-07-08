@@ -1,21 +1,24 @@
 // WezTerm Multi-Process Development Framework - Enhanced WebSocket Server
 // Provides real-time metrics streaming to WezTerm Lua clients
 
-use super::{DashboardState, DashboardConfig, DashboardMessage, ClientInfo, MetricSubscription, MetricsUpdate};
-use super::task_board::{TaskBoardManager};
+use super::task_board::TaskBoardManager;
+use super::{
+    ClientInfo, DashboardConfig, DashboardMessage, DashboardState, MetricSubscription,
+    MetricsUpdate,
+};
+use crate::logging::enhancer::ipc;
+use crate::logging::LogContext;
 use crate::metrics::FrameworkMetrics;
 use crate::task::TaskManager;
-use tokio::net::TcpListener;
-use tokio_tungstenite::{accept_async, tungstenite::Message};
+use crate::{log_info, log_warn};
 use futures_util::{SinkExt, StreamExt};
+use serde_json;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tracing::{info, warn, error, debug};
-use crate::logging::enhancer::ipc;
-use crate::{log_info, log_warn};
-use crate::logging::LogContext;
+use tokio::net::TcpListener;
+use tokio_tungstenite::{accept_async, tungstenite::Message};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
-use serde_json;
 
 pub struct WebSocketServer {
     state: Arc<DashboardState>,
@@ -26,22 +29,20 @@ pub struct WebSocketServer {
 impl WebSocketServer {
     pub fn new(config: DashboardConfig) -> (Self, tokio::sync::mpsc::Sender<MetricsUpdate>) {
         let (state, metrics_tx) = DashboardState::new(config.clone());
-        
+
         let server = Self {
             state: Arc::new(state),
             config,
             task_board_manager: None,
         };
-        
+
         (server, metrics_tx)
     }
 
     /// Set task manager and enable task board functionality
     pub fn with_task_manager(mut self, task_manager: Arc<TaskManager>) -> Self {
-        let task_board_manager = TaskBoardManager::new(
-            task_manager,
-            self.state.broadcast_tx.clone(),
-        );
+        let task_board_manager =
+            TaskBoardManager::new(task_manager, self.state.broadcast_tx.clone());
         self.task_board_manager = Some(Arc::new(task_board_manager));
         self
     }
@@ -60,19 +61,22 @@ impl WebSocketServer {
                 info!("Task board manager initialized");
             }
         }
-        
+
         let addr = format!("127.0.0.1:{}", self.config.port);
         let listener = TcpListener::bind(&addr).await?;
         info!("Dashboard WebSocket server listening on {}", addr);
-        
+
         // Start background tasks
         let metrics_task = self.start_metrics_broadcaster().await;
         let heartbeat_task = self.start_heartbeat_task().await;
-        
+
         // Accept connections
         while let Ok((stream, client_addr)) = listener.accept().await {
             if self.state.client_count().await >= self.config.max_clients {
-                warn!("Maximum client limit reached, rejecting connection from {}", client_addr);
+                warn!(
+                    "Maximum client limit reached, rejecting connection from {}",
+                    client_addr
+                );
                 // 統一ログ: 接続制限
                 let context = LogContext::new("ipc", "connection_rejected")
                     .with_metadata("client_addr", serde_json::json!(client_addr.to_string()))
@@ -80,44 +84,52 @@ impl WebSocketServer {
                 log_warn!(context, "WebSocket connection rejected due to client limit");
                 continue;
             }
-            
+
             info!("New WebSocket connection from {}", client_addr);
             // 統一ログ: 新規接続
-            ipc::log_message_receive("websocket", &client_addr.to_string(), "connection_request", 0);
-            
+            ipc::log_message_receive(
+                "websocket",
+                &client_addr.to_string(),
+                "connection_request",
+                0,
+            );
+
             let state = Arc::clone(&self.state);
             let config = self.config.clone();
             let task_board_manager = self.task_board_manager.clone();
-            
+
             tokio::spawn(async move {
-                if let Err(e) = handle_client_connection(stream, state, config, task_board_manager).await {
+                if let Err(e) =
+                    handle_client_connection(stream, state, config, task_board_manager).await
+                {
                     error!("Client connection error: {}", e);
                 }
             });
         }
-        
+
         // Clean up tasks
         metrics_task.abort();
         heartbeat_task.abort();
-        
+
         Ok(())
     }
-    
+
     pub fn get_state(&self) -> Arc<DashboardState> {
         Arc::clone(&self.state)
     }
-    
+
     /// Start metrics broadcaster task
     async fn start_metrics_broadcaster(&self) -> tokio::task::JoinHandle<()> {
         let state = Arc::clone(&self.state);
         let update_interval = self.config.update_interval;
-        
+
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_millis(update_interval));
-            
+            let mut interval =
+                tokio::time::interval(std::time::Duration::from_millis(update_interval));
+
             loop {
                 interval.tick().await;
-                
+
                 // Check for metrics updates
                 let mut metrics_rx = state.metrics_rx.write().await;
                 while let Ok(update) = metrics_rx.try_recv() {
@@ -127,37 +139,40 @@ impl WebSocketServer {
             }
         })
     }
-    
+
     /// Start heartbeat task
     async fn start_heartbeat_task(&self) -> tokio::task::JoinHandle<()> {
         let state = Arc::clone(&self.state);
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let heartbeat = DashboardMessage::Heartbeat {
-                    timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                    timestamp: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
                 };
-                
+
                 state.broadcast(heartbeat);
             }
         })
     }
-    
+
     /// Update framework metrics
     pub async fn update_metrics(&self, metrics: FrameworkMetrics) {
         self.state.update_metrics(metrics).await;
     }
-    
+
     /// Send alert to dashboard
     pub async fn send_alert(&self, alert: super::AlertNotification) {
         let message = DashboardMessage::Alert(alert);
         self.state.broadcast(message);
     }
-    
+
     /// Get dashboard statistics
     pub async fn get_stats(&self) -> super::DashboardStats {
         self.state.get_stats().await
@@ -172,33 +187,39 @@ async fn handle_client_connection(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let ws_stream = accept_async(stream).await?;
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
-    
+
     let client_id = Uuid::new_v4().to_string();
-    
+
     // Register client
     let client_info = ClientInfo {
         id: client_id.clone(),
-        connected_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+        connected_at: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
         client_type: "wezterm".to_string(),
         subscriptions: vec![MetricSubscription::All], // Default subscription
-        last_activity: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+        last_activity: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
     };
-    
+
     state.register_client(client_info).await;
     info!("Client {} registered", client_id);
-    
+
     // 統一ログ: クライアント登録
     let context = LogContext::new("ipc", "client_registered")
         .with_entity_id(&client_id)
         .with_metadata("client_type", serde_json::json!("wezterm"));
     log_info!(context, "WebSocket client registered successfully");
-    
+
     // Create channels for outgoing messages
     let (outgoing_tx, mut outgoing_rx) = tokio::sync::mpsc::channel::<Message>(100);
-    
+
     // Create broadcast receiver for this client
     let mut broadcast_rx = state.broadcast_tx.subscribe();
-    
+
     // Spawn task to handle outgoing messages
     let client_id_out = client_id.clone();
     let state_out = Arc::clone(&state);
@@ -209,16 +230,16 @@ async fn handle_client_connection(
             let should_send = match &message {
                 DashboardMessage::MetricsUpdate(update) => {
                     state_out.should_send_update(&client_id_out, update).await
-                },
+                }
                 _ => true, // Send non-metrics messages to all clients
             };
-            
+
             if should_send {
                 let ws_message = super::WebSocketMessage {
                     id: None,
                     payload: message,
                 };
-                
+
                 if let Ok(json) = serde_json::to_string(&ws_message) {
                     if let Err(_) = outgoing_sender.send(Message::Text(json)).await {
                         break; // Channel closed
@@ -229,7 +250,7 @@ async fn handle_client_connection(
             }
         }
     });
-    
+
     // Spawn task to send outgoing messages
     let sender_task = tokio::spawn(async move {
         while let Some(message) = outgoing_rx.recv().await {
@@ -239,16 +260,24 @@ async fn handle_client_connection(
             }
         }
     });
-    
+
     // Handle incoming messages
     while let Some(msg) = ws_receiver.next().await {
         match msg {
             Ok(Message::Text(text)) => {
                 debug!("Received message from client {}: {}", client_id, text);
-                
+
                 // Parse and handle client command
                 if let Ok(ws_msg) = serde_json::from_str::<super::WebSocketMessage>(&text) {
-                    if let Err(e) = handle_client_message(&client_id, ws_msg, &state, &outgoing_tx, &task_board_manager).await {
+                    if let Err(e) = handle_client_message(
+                        &client_id,
+                        ws_msg,
+                        &state,
+                        &outgoing_tx,
+                        &task_board_manager,
+                    )
+                    .await
+                    {
                         error!("Error handling client message: {}", e);
                     }
                 } else {
@@ -274,13 +303,13 @@ async fn handle_client_connection(
             }
         }
     }
-    
+
     // Clean up
     broadcast_task.abort();
     sender_task.abort();
     state.unregister_client(&client_id).await;
     info!("Client {} disconnected", client_id);
-    
+
     Ok(())
 }
 
@@ -299,9 +328,12 @@ async fn handle_client_message(
                     let mut clients = state.connected_clients.write().await;
                     if let Some(client) = clients.get_mut(client_id) {
                         client.subscriptions = subscriptions;
-                        client.last_activity = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                        client.last_activity = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs();
                     }
-                    
+
                     // Send success response
                     let _response = super::DashboardResponse {
                         request_id: ws_msg.id,
@@ -309,7 +341,7 @@ async fn handle_client_message(
                         data: None,
                         error: None,
                     };
-                    
+
                     // For now, just acknowledge the subscription
                     debug!("Client {} updated subscriptions", client_id);
                 }
@@ -317,19 +349,26 @@ async fn handle_client_message(
                     // Send full metrics update
                     let metrics = state.framework_metrics.read().await;
                     let update = MetricsUpdate::full(metrics.clone());
-                    
+
                     let ws_message = super::WebSocketMessage {
                         id: ws_msg.id,
                         payload: DashboardMessage::MetricsUpdate(update),
                     };
-                    
+
                     if let Ok(json) = serde_json::to_string(&ws_message) {
                         outgoing_tx.send(Message::Text(json)).await?;
                     }
                 }
                 super::ClientCommand::ExecuteAction { action } => {
                     if let Some(task_manager) = task_board_manager {
-                        handle_task_action(client_id, action, task_manager, outgoing_tx, &ws_msg.id).await?;
+                        handle_task_action(
+                            client_id,
+                            action,
+                            task_manager,
+                            outgoing_tx,
+                            &ws_msg.id,
+                        )
+                        .await?;
                     } else {
                         error!("Task board manager not available for client {}", client_id);
                     }
@@ -344,14 +383,17 @@ async fn handle_client_message(
             // Update client activity
             let mut clients = state.connected_clients.write().await;
             if let Some(client) = clients.get_mut(client_id) {
-                client.last_activity = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                client.last_activity = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
             }
         }
         _ => {
             debug!("Unhandled message type from client {}", client_id);
         }
     }
-    
+
     Ok(())
 }
 
@@ -365,7 +407,10 @@ async fn handle_task_action(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let result = match action {
         super::DashboardAction::CreateTask { task_data } => {
-            match task_board_manager.create_task_from_dashboard(task_data).await {
+            match task_board_manager
+                .create_task_from_dashboard(task_data)
+                .await
+            {
                 Ok(task_id) => {
                     info!("Created task {} for client {}", task_id, client_id);
                     Ok(serde_json::to_value(task_id)?)
@@ -377,55 +422,92 @@ async fn handle_task_action(
             }
         }
         super::DashboardAction::UpdateTask { task_id, task_data } => {
-            match task_board_manager.update_task_from_dashboard(&task_id, task_data).await {
+            match task_board_manager
+                .update_task_from_dashboard(&task_id, task_data)
+                .await
+            {
                 Ok(_) => {
                     info!("Updated task {} for client {}", task_id, client_id);
                     Ok(serde_json::Value::Bool(true))
                 }
                 Err(e) => {
-                    error!("Failed to update task {} for client {}: {}", task_id, client_id, e);
+                    error!(
+                        "Failed to update task {} for client {}: {}",
+                        task_id, client_id, e
+                    );
                     Err(e)
                 }
             }
         }
         super::DashboardAction::DeleteTask { task_id } => {
-            match task_board_manager.delete_task_from_dashboard(&task_id).await {
+            match task_board_manager
+                .delete_task_from_dashboard(&task_id)
+                .await
+            {
                 Ok(_) => {
                     info!("Deleted task {} for client {}", task_id, client_id);
                     Ok(serde_json::Value::Bool(true))
                 }
                 Err(e) => {
-                    error!("Failed to delete task {} for client {}: {}", task_id, client_id, e);
+                    error!(
+                        "Failed to delete task {} for client {}: {}",
+                        task_id, client_id, e
+                    );
                     Err(e)
                 }
             }
         }
-        super::DashboardAction::MoveTask { task_id, to_column, position } => {
-            match task_board_manager.move_task("default", &task_id, &to_column, position).await {
+        super::DashboardAction::MoveTask {
+            task_id,
+            to_column,
+            position,
+        } => {
+            match task_board_manager
+                .move_task("default", &task_id, &to_column, position)
+                .await
+            {
                 Ok(_) => {
-                    info!("Moved task {} to {} for client {}", task_id, to_column, client_id);
+                    info!(
+                        "Moved task {} to {} for client {}",
+                        task_id, to_column, client_id
+                    );
                     Ok(serde_json::Value::Bool(true))
                 }
                 Err(e) => {
-                    error!("Failed to move task {} for client {}: {}", task_id, client_id, e);
+                    error!(
+                        "Failed to move task {} for client {}: {}",
+                        task_id, client_id, e
+                    );
                     Err(e)
                 }
             }
         }
         super::DashboardAction::UpdateTaskProgress { task_id, progress } => {
-            match task_board_manager.update_task_progress(&task_id, progress).await {
+            match task_board_manager
+                .update_task_progress(&task_id, progress)
+                .await
+            {
                 Ok(_) => {
-                    info!("Updated task {} progress to {}% for client {}", task_id, progress, client_id);
+                    info!(
+                        "Updated task {} progress to {}% for client {}",
+                        task_id, progress, client_id
+                    );
                     Ok(serde_json::Value::Bool(true))
                 }
                 Err(e) => {
-                    error!("Failed to update task {} progress for client {}: {}", task_id, client_id, e);
+                    error!(
+                        "Failed to update task {} progress for client {}: {}",
+                        task_id, client_id, e
+                    );
                     Err(e)
                 }
             }
         }
         _ => {
-            debug!("Unhandled task action for client {}: {:?}", client_id, action);
+            debug!(
+                "Unhandled task action for client {}: {:?}",
+                client_id, action
+            );
             Ok(serde_json::Value::Null)
         }
     };
@@ -462,10 +544,10 @@ mod tests {
             enabled: true,
             ..Default::default()
         };
-        
+
         let (server, _metrics_tx) = WebSocketServer::new(config);
         let stats = server.get_stats().await;
-        
+
         assert_eq!(stats.connected_clients, 0);
         assert_eq!(stats.total_workspaces, 0);
     }
@@ -477,32 +559,35 @@ mod tests {
             enabled: true,
             ..Default::default()
         };
-        
+
         let (_server, metrics_tx) = WebSocketServer::new(config);
-        
+
         // Send a metrics update
         let update = MetricsUpdate {
-            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             system: Some(crate::metrics::SystemMetrics::new()),
             processes: Vec::new(),
             workspaces: Vec::new(),
             framework: Some(FrameworkMetrics::new()),
             update_type: super::super::UpdateType::Full,
         };
-        
+
         let result = metrics_tx.send(update).await;
         assert!(result.is_ok());
     }
-    
+
     #[tokio::test]
     async fn test_disabled_server() {
         let config = DashboardConfig {
             enabled: false,
             ..Default::default()
         };
-        
+
         let (server, _metrics_tx) = WebSocketServer::new(config);
-        
+
         // Should return immediately without error
         let result = timeout(Duration::from_millis(100), server.start()).await;
         assert!(result.is_ok());

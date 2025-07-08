@@ -1,14 +1,14 @@
+use chrono::{DateTime, Utc};
+use log::{debug, error, info, warn};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use tokio::sync::{RwLock, mpsc};
-use tokio::time::{interval, Duration};
+use tokio::sync::{mpsc, RwLock};
 use tokio::task::JoinHandle;
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-use log::{debug, info, warn, error};
+use tokio::time::{interval, Duration};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -151,12 +151,12 @@ impl ClaudeLogger {
     /// 新しいClaudeLoggerを作成
     pub fn new(config: Option<LogConfig>) -> Result<Self> {
         let config = config.unwrap_or_default();
-        
+
         // ログディレクトリを作成
         fs::create_dir_all(&config.base_dir)?;
-        
+
         let (log_sender, log_receiver) = mpsc::unbounded_channel();
-        
+
         Ok(Self {
             config,
             active_streams: RwLock::new(HashMap::new()),
@@ -186,7 +186,7 @@ impl ClaudeLogger {
             loop {
                 interval.tick().await;
                 if let Err(e) = logger.rotate_logs().await {
-                    error!("Log rotation failed: {}", e);
+                    error!("Log rotation failed: {e}");
                 }
             }
         });
@@ -201,14 +201,14 @@ impl ClaudeLogger {
         if let Some(handle) = self.processing_handle.take() {
             handle.abort();
         }
-        
+
         if let Some(handle) = self.rotation_handle.take() {
             handle.abort();
         }
 
         // 残りのログをフラッシュ
         self.flush_all_streams().await?;
-        
+
         info!("Claude Logger stopped");
         Ok(())
     }
@@ -216,7 +216,7 @@ impl ClaudeLogger {
     /// プロセスのログストリームを開始
     pub async fn start_logging_process(&self, process_id: String, workspace: String) -> Result<()> {
         let log_file_path = self.get_log_file_path(&process_id, &workspace);
-        
+
         // ディレクトリを作成
         if let Some(parent) = log_file_path.parent() {
             fs::create_dir_all(parent)?;
@@ -227,9 +227,9 @@ impl ClaudeLogger {
             .create(true)
             .append(true)
             .open(&log_file_path)?;
-        
+
         let writer = BufWriter::with_capacity(self.config.buffer_size, file);
-        
+
         let stream = LogStream {
             process_id: process_id.clone(),
             workspace: workspace.clone(),
@@ -246,7 +246,7 @@ impl ClaudeLogger {
             streams.insert(process_id.clone(), stream);
         }
 
-        info!("Started logging for process '{}' in workspace '{}'", process_id, workspace);
+        info!("Started logging for process '{process_id}' in workspace '{workspace}'");
         Ok(())
     }
 
@@ -255,30 +255,45 @@ impl ClaudeLogger {
         let mut streams = self.active_streams.write().await;
         if let Some(mut stream) = streams.remove(process_id) {
             stream.writer.flush()?;
-            info!("Stopped logging for process '{}'", process_id);
+            info!("Stopped logging for process '{process_id}'");
         }
         Ok(())
     }
 
     /// ログエントリを送信
     pub fn log(&self, entry: LogEntry) -> Result<()> {
-        self.log_sender.send(entry)
-            .map_err(|e| format!("Failed to send log entry: {}", e).into())
+        self.log_sender
+            .send(entry)
+            .map_err(|e| format!("Failed to send log entry: {e}").into())
     }
 
     /// Claude Code出力をログ
-    pub fn log_claude_output(&self, process_id: String, workspace: String, line: String, is_stderr: bool) -> Result<()> {
+    pub fn log_claude_output(
+        &self,
+        process_id: String,
+        workspace: String,
+        line: String,
+        is_stderr: bool,
+    ) -> Result<()> {
         let entry = LogEntry {
             timestamp: Utc::now(),
             process_id,
             workspace,
-            level: if is_stderr { LogLevel::Error } else { LogLevel::Info },
-            source: if is_stderr { LogSource::Stderr } else { LogSource::Stdout },
+            level: if is_stderr {
+                LogLevel::Error
+            } else {
+                LogLevel::Info
+            },
+            source: if is_stderr {
+                LogSource::Stderr
+            } else {
+                LogSource::Stdout
+            },
             message: line.clone(),
             metadata: HashMap::new(),
             raw_output: Some(line),
         };
-        
+
         self.log(entry)
     }
 
@@ -295,7 +310,9 @@ impl ClaudeLogger {
             level: LogLevel::Debug,
             source: LogSource::Debug,
             message: format!("Debug: {:?}", debug_info.debug_type),
-            metadata: debug_info.data.iter()
+            metadata: debug_info
+                .data
+                .iter()
                 .map(|(k, v)| (k.clone(), v.to_string()))
                 .collect(),
             raw_output: None,
@@ -305,7 +322,12 @@ impl ClaudeLogger {
     }
 
     /// ヘルス情報をログ
-    pub fn log_health_info(&self, process_id: String, workspace: String, health_data: HashMap<String, String>) -> Result<()> {
+    pub fn log_health_info(
+        &self,
+        process_id: String,
+        workspace: String,
+        health_data: HashMap<String, String>,
+    ) -> Result<()> {
         let entry = LogEntry {
             timestamp: Utc::now(),
             process_id,
@@ -324,7 +346,7 @@ impl ClaudeLogger {
     fn get_log_file_path(&self, process_id: &str, workspace: &str) -> PathBuf {
         let mut path = self.config.base_dir.clone();
         path.push(workspace);
-        path.push(format!("{}.log", process_id));
+        path.push(format!("{process_id}.log"));
         path
     }
 
@@ -333,7 +355,7 @@ impl ClaudeLogger {
         let config = self.config.clone();
         let active_streams = RwLock::new(HashMap::new());
         let (log_sender, _) = mpsc::unbounded_channel();
-        
+
         Ok(Self {
             config,
             active_streams,
@@ -348,7 +370,7 @@ impl ClaudeLogger {
     async fn process_log_entries(&self, mut receiver: mpsc::UnboundedReceiver<LogEntry>) {
         while let Some(entry) = receiver.recv().await {
             if let Err(e) = self.write_log_entry(&entry).await {
-                error!("Failed to write log entry: {}", e);
+                error!("Failed to write log entry: {e}");
             }
         }
     }
@@ -361,7 +383,7 @@ impl ClaudeLogger {
         }
 
         let formatted = self.format_log_entry(entry)?;
-        
+
         {
             let mut streams = self.active_streams.write().await;
             if let Some(stream) = streams.get_mut(&entry.process_id) {
@@ -384,20 +406,16 @@ impl ClaudeLogger {
     /// ログエントリをフォーマット
     fn format_log_entry(&self, entry: &LogEntry) -> Result<String> {
         match self.config.format {
-            LogFormat::Plain => {
-                Ok(format!(
-                    "[{}] [{}] [{}] [{}] {}",
-                    entry.timestamp.format("%Y-%m-%d %H:%M:%S%.3f"),
-                    self.level_to_string(&entry.level),
-                    entry.process_id,
-                    self.source_to_string(&entry.source),
-                    entry.message
-                ))
-            }
-            LogFormat::Json => {
-                serde_json::to_string(entry)
-                    .map_err(|e| format!("JSON serialization failed: {}", e).into())
-            }
+            LogFormat::Plain => Ok(format!(
+                "[{}] [{}] [{}] [{}] {}",
+                entry.timestamp.format("%Y-%m-%d %H:%M:%S%.3f"),
+                self.level_to_string(&entry.level),
+                entry.process_id,
+                self.source_to_string(&entry.source),
+                entry.message
+            )),
+            LogFormat::Json => serde_json::to_string(entry)
+                .map_err(|e| format!("JSON serialization failed: {e}").into()),
             LogFormat::Structured => {
                 let mut output = format!(
                     "[{}] [{}] [{}:{}] [{}] {}",
@@ -412,7 +430,7 @@ impl ClaudeLogger {
                 if !entry.metadata.is_empty() {
                     output.push_str(" | ");
                     for (key, value) in &entry.metadata {
-                        output.push_str(&format!("{}={} ", key, value));
+                        output.push_str(&format!("{key}={value} "));
                     }
                 }
 
@@ -452,7 +470,7 @@ impl ClaudeLogger {
 
             // ローテートファイル名を生成
             let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-            let rotated_path = stream.file_path.with_extension(format!("log.{}", timestamp));
+            let rotated_path = stream.file_path.with_extension(format!("log.{timestamp}"));
 
             // ファイルをリネーム
             fs::rename(&stream.file_path, &rotated_path)?;
@@ -462,12 +480,12 @@ impl ClaudeLogger {
                 .create(true)
                 .append(true)
                 .open(&stream.file_path)?;
-            
+
             stream.writer = BufWriter::with_capacity(self.config.buffer_size, new_file);
             stream.current_size_bytes = 0;
             stream.entry_count = 0;
 
-            info!("Rotated log file for process '{}': {:?}", process_id, rotated_path);
+            info!("Rotated log file for process '{process_id}': {rotated_path:?}");
 
             // 古いファイルを削除
             self.cleanup_old_files(&stream.file_path).await?;
@@ -484,7 +502,7 @@ impl ClaudeLogger {
 
         for process_id in process_ids {
             if let Err(e) = self.rotate_stream(&process_id).await {
-                error!("Failed to rotate log for process '{}': {}", process_id, e);
+                error!("Failed to rotate log for process '{process_id}': {e}");
             }
         }
 
@@ -495,7 +513,7 @@ impl ClaudeLogger {
     async fn cleanup_old_files(&self, log_file_path: &Path) -> Result<()> {
         let dir = log_file_path.parent().unwrap();
         let file_stem = log_file_path.file_stem().unwrap().to_string_lossy();
-        
+
         let mut log_files = Vec::new();
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
@@ -515,9 +533,9 @@ impl ClaudeLogger {
         if log_files.len() > self.config.max_files as usize {
             for (path, _) in log_files.iter().skip(self.config.max_files as usize) {
                 if let Err(e) = fs::remove_file(path) {
-                    warn!("Failed to remove old log file {:?}: {}", path, e);
+                    warn!("Failed to remove old log file {path:?}: {e}");
                 } else {
-                    debug!("Removed old log file: {:?}", path);
+                    debug!("Removed old log file: {path:?}");
                 }
             }
         }
@@ -537,16 +555,20 @@ impl ClaudeLogger {
     /// ログ統計を取得
     pub async fn get_log_statistics(&self) -> HashMap<String, LogStatistics> {
         let streams = self.active_streams.read().await;
-        streams.iter()
+        streams
+            .iter()
             .map(|(process_id, stream)| {
-                (process_id.clone(), LogStatistics {
-                    process_id: stream.process_id.clone(),
-                    workspace: stream.workspace.clone(),
-                    entry_count: stream.entry_count,
-                    file_size_bytes: stream.current_size_bytes,
-                    created_at: stream.created_at,
-                    last_written: stream.last_written,
-                })
+                (
+                    process_id.clone(),
+                    LogStatistics {
+                        process_id: stream.process_id.clone(),
+                        workspace: stream.workspace.clone(),
+                        entry_count: stream.entry_count,
+                        file_size_bytes: stream.current_size_bytes,
+                        created_at: stream.created_at,
+                        last_written: stream.last_written,
+                    },
+                )
             })
             .collect()
     }
@@ -576,7 +598,7 @@ mod tests {
             max_files: 3,
             ..Default::default()
         };
-        
+
         let logger = ClaudeLogger::new(Some(config)).unwrap();
         (logger, temp_dir)
     }
@@ -591,14 +613,13 @@ mod tests {
     #[tokio::test]
     async fn test_start_logging_process() {
         let (logger, _temp_dir) = create_test_logger().await;
-        
-        let result = logger.start_logging_process(
-            "test-process".to_string(),
-            "test-workspace".to_string()
-        ).await;
-        
+
+        let result = logger
+            .start_logging_process("test-process".to_string(), "test-workspace".to_string())
+            .await;
+
         assert!(result.is_ok());
-        
+
         let streams = logger.active_streams.read().await;
         assert!(streams.contains_key("test-process"));
     }
@@ -606,7 +627,7 @@ mod tests {
     #[tokio::test]
     async fn test_log_entry_formatting() {
         let (logger, _temp_dir) = create_test_logger().await;
-        
+
         let entry = LogEntry {
             timestamp: Utc::now(),
             process_id: "test-process".to_string(),
@@ -627,17 +648,17 @@ mod tests {
     #[tokio::test]
     async fn test_log_claude_output() {
         let (logger, _temp_dir) = create_test_logger().await;
-        
-        logger.start_logging_process(
-            "test-process".to_string(),
-            "test-workspace".to_string()
-        ).await.unwrap();
+
+        logger
+            .start_logging_process("test-process".to_string(), "test-workspace".to_string())
+            .await
+            .unwrap();
 
         let result = logger.log_claude_output(
             "test-process".to_string(),
             "test-workspace".to_string(),
             "Claude output line".to_string(),
-            false
+            false,
         );
 
         assert!(result.is_ok());
@@ -646,15 +667,15 @@ mod tests {
     #[tokio::test]
     async fn test_log_statistics() {
         let (logger, _temp_dir) = create_test_logger().await;
-        
-        logger.start_logging_process(
-            "test-process".to_string(),
-            "test-workspace".to_string()
-        ).await.unwrap();
+
+        logger
+            .start_logging_process("test-process".to_string(), "test-workspace".to_string())
+            .await
+            .unwrap();
 
         let stats = logger.get_log_statistics().await;
         assert!(stats.contains_key("test-process"));
-        
+
         let process_stats = &stats["test-process"];
         assert_eq!(process_stats.process_id, "test-process");
         assert_eq!(process_stats.workspace, "test-workspace");
@@ -663,10 +684,16 @@ mod tests {
     #[tokio::test]
     async fn test_debug_info_logging() {
         let (logger, _temp_dir) = create_test_logger().await;
-        
+
         let mut debug_data = HashMap::new();
-        debug_data.insert("memory_mb".to_string(), serde_json::Value::Number(512.into()));
-        debug_data.insert("cpu_percent".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(75.5).unwrap()));
+        debug_data.insert(
+            "memory_mb".to_string(),
+            serde_json::Value::Number(512.into()),
+        );
+        debug_data.insert(
+            "cpu_percent".to_string(),
+            serde_json::Value::Number(serde_json::Number::from_f64(75.5).unwrap()),
+        );
 
         let debug_info = DebugInfo {
             process_id: "test-process".to_string(),

@@ -1,4 +1,4 @@
-use super::{Config, ServerConfig, WorkspaceConfig, ProcessConfig, UiConfig, LoggingConfig};
+use super::{Config, LoggingConfig, ProcessConfig, ServerConfig, UiConfig, WorkspaceConfig};
 
 pub struct ConfigValidator;
 

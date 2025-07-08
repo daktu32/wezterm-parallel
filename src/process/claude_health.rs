@@ -1,9 +1,9 @@
-use std::time::{Duration, Instant, SystemTime};
-use std::collections::HashMap;
-use tokio::time::sleep;
-use tokio::sync::RwLock;
+use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
-use log::{debug, info, error};
+use std::collections::HashMap;
+use std::time::{Duration, Instant, SystemTime};
+use tokio::sync::RwLock;
+use tokio::time::sleep;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -31,8 +31,8 @@ pub struct HealthState {
     pub total_checks: u64,
     pub total_failures: u64,
     pub avg_response_time: Duration,
-    pub memory_usage: Option<u64>,  // MB
-    pub cpu_usage: Option<f64>,     // %
+    pub memory_usage: Option<u64>, // MB
+    pub cpu_usage: Option<f64>,    // %
     pub uptime: Duration,
     pub restart_count: u32,
 }
@@ -81,7 +81,7 @@ impl Default for HealthConfig {
             memory_critical_threshold: 4096, // 4GB
             cpu_warning_threshold: 80.0,
             cpu_critical_threshold: 95.0,
-            response_warning_threshold: Duration::from_millis(5000),  // 5秒
+            response_warning_threshold: Duration::from_millis(5000), // 5秒
             response_critical_threshold: Duration::from_millis(10000), // 10秒
         }
     }
@@ -98,7 +98,12 @@ impl ClaudeHealthMonitor {
     }
 
     /// プロセスの監視を開始
-    pub async fn start_monitoring(&self, process_id: String, workspace: String, pid: Option<u32>) -> Result<()> {
+    pub async fn start_monitoring(
+        &self,
+        process_id: String,
+        workspace: String,
+        pid: Option<u32>,
+    ) -> Result<()> {
         let health_state = HealthState {
             process_id: process_id.clone(),
             workspace: workspace.clone(),
@@ -124,13 +129,13 @@ impl ClaudeHealthMonitor {
 
         // 監視タスクを開始
         let monitor_task = self.spawn_monitoring_task(process_id.clone()).await;
-        
+
         {
             let mut handles = self.monitoring_handles.write().await;
             handles.insert(process_id.clone(), monitor_task);
         }
 
-        info!("Started health monitoring for process '{}' in workspace '{}'", process_id, workspace);
+        info!("Started health monitoring for process '{process_id}' in workspace '{workspace}'");
         Ok(())
     }
 
@@ -150,7 +155,7 @@ impl ClaudeHealthMonitor {
             processes.remove(process_id);
         }
 
-        info!("Stopped health monitoring for process '{}'", process_id);
+        info!("Stopped health monitoring for process '{process_id}'");
         Ok(())
     }
 
@@ -169,8 +174,14 @@ impl ClaudeHealthMonitor {
     /// ヘルス状態が警告レベル以上のプロセス一覧を取得
     pub async fn get_unhealthy_processes(&self) -> Vec<HealthState> {
         let processes = self.monitored_processes.read().await;
-        processes.values()
-            .filter(|state| matches!(state.status, HealthStatus::Warning | HealthStatus::Critical | HealthStatus::Unresponsive))
+        processes
+            .values()
+            .filter(|state| {
+                matches!(
+                    state.status,
+                    HealthStatus::Warning | HealthStatus::Critical | HealthStatus::Unresponsive
+                )
+            })
             .cloned()
             .collect()
     }
@@ -179,13 +190,13 @@ impl ClaudeHealthMonitor {
     async fn spawn_monitoring_task(&self, process_id: String) -> tokio::task::JoinHandle<()> {
         let monitor = self.clone_for_task();
         let check_interval = self.config.check_interval;
-        
+
         tokio::spawn(async move {
             loop {
                 if let Err(e) = monitor.perform_health_check(&process_id).await {
-                    error!("Health check failed for process '{}': {}", process_id, e);
+                    error!("Health check failed for process '{process_id}': {e}");
                 }
-                
+
                 sleep(check_interval).await;
             }
         })
@@ -203,7 +214,7 @@ impl ClaudeHealthMonitor {
     /// 実際のヘルスチェックを実行
     async fn perform_health_check(&self, process_id: &str) -> Result<()> {
         let start_time = Instant::now();
-        
+
         // プロセス状態を取得
         let mut current_state = {
             let processes = self.monitored_processes.read().await;
@@ -233,7 +244,7 @@ impl ClaudeHealthMonitor {
 
         // 2. Claude Code固有のヘルスチェック
         let claude_responsive = self.check_claude_responsiveness(&current_state).await?;
-        
+
         // 3. システムリソース使用量チェック
         if let Some(pid) = current_state.pid {
             current_state.memory_usage = self.get_memory_usage(pid).await.ok();
@@ -245,11 +256,12 @@ impl ClaudeHealthMonitor {
         current_state.avg_response_time = self.calculate_avg_response_time(
             current_state.avg_response_time,
             response_time,
-            current_state.total_checks
+            current_state.total_checks,
         );
 
         // 5. ヘルス状態を評価
-        current_state.status = self.evaluate_health_status(&current_state, claude_responsive, response_time);
+        current_state.status =
+            self.evaluate_health_status(&current_state, claude_responsive, response_time);
 
         // 6. 連続失敗カウンタを更新
         if matches!(current_state.status, HealthStatus::Healthy) {
@@ -264,7 +276,7 @@ impl ClaudeHealthMonitor {
         let final_status = current_state.status.clone();
         self.update_health_state(process_id, current_state).await?;
 
-        debug!("Health check completed for process '{}': {:?}", process_id, final_status);
+        debug!("Health check completed for process '{process_id}': {final_status:?}");
         Ok(())
     }
 
@@ -275,7 +287,7 @@ impl ClaudeHealthMonitor {
             .arg(pid.to_string())
             .output()
             .await?;
-        
+
         Ok(output.status.success())
     }
 
@@ -284,7 +296,7 @@ impl ClaudeHealthMonitor {
         // Claude Code固有のヘルスチェック
         // 実際の実装では、Claude CodeのAPIエンドポイントや
         // 特定のコマンドに対する応答をチェックする
-        
+
         if let Some(pid) = state.pid {
             // プロセスのスレッド数をチェック（応答性の指標）
             let output = tokio::process::Command::new("ps")
@@ -294,7 +306,7 @@ impl ClaudeHealthMonitor {
                 .arg("nlwp=")
                 .output()
                 .await?;
-            
+
             if output.status.success() {
                 let thread_count_str = String::from_utf8_lossy(&output.stdout);
                 if let Ok(thread_count) = thread_count_str.trim().parse::<u32>() {
@@ -303,7 +315,7 @@ impl ClaudeHealthMonitor {
                 }
             }
         }
-        
+
         Ok(false)
     }
 
@@ -316,7 +328,7 @@ impl ClaudeHealthMonitor {
             .arg("rss=")
             .output()
             .await?;
-        
+
         if output.status.success() {
             let memory_kb_str = String::from_utf8_lossy(&output.stdout);
             let memory_kb: u64 = memory_kb_str.trim().parse()?;
@@ -335,7 +347,7 @@ impl ClaudeHealthMonitor {
             .arg("pcpu=")
             .output()
             .await?;
-        
+
         if output.status.success() {
             let cpu_str = String::from_utf8_lossy(&output.stdout);
             let cpu_usage: f64 = cpu_str.trim().parse()?;
@@ -346,7 +358,12 @@ impl ClaudeHealthMonitor {
     }
 
     /// 平均レスポンス時間を計算
-    fn calculate_avg_response_time(&self, current_avg: Duration, new_time: Duration, total_checks: u64) -> Duration {
+    fn calculate_avg_response_time(
+        &self,
+        current_avg: Duration,
+        new_time: Duration,
+        total_checks: u64,
+    ) -> Duration {
         if total_checks <= 1 {
             new_time
         } else {
@@ -357,7 +374,12 @@ impl ClaudeHealthMonitor {
     }
 
     /// ヘルス状態を評価
-    fn evaluate_health_status(&self, state: &HealthState, claude_responsive: bool, response_time: Duration) -> HealthStatus {
+    fn evaluate_health_status(
+        &self,
+        state: &HealthState,
+        claude_responsive: bool,
+        response_time: Duration,
+    ) -> HealthStatus {
         // Claude Codeが応答しない場合
         if !claude_responsive {
             return HealthStatus::Unresponsive;
@@ -431,17 +453,19 @@ mod tests {
     #[test]
     async fn test_start_monitoring() {
         let monitor = ClaudeHealthMonitor::new(None);
-        let result = monitor.start_monitoring(
-            "test-process".to_string(),
-            "test-workspace".to_string(),
-            Some(12345)
-        ).await;
-        
+        let result = monitor
+            .start_monitoring(
+                "test-process".to_string(),
+                "test-workspace".to_string(),
+                Some(12345),
+            )
+            .await;
+
         assert!(result.is_ok());
-        
+
         let states = monitor.get_all_health_states().await;
         assert_eq!(states.len(), 1);
-        
+
         let state = states.get("test-process").unwrap();
         assert_eq!(state.process_id, "test-process");
         assert_eq!(state.workspace, "test-workspace");
@@ -451,16 +475,19 @@ mod tests {
     #[test]
     async fn test_stop_monitoring() {
         let monitor = ClaudeHealthMonitor::new(None);
-        
-        monitor.start_monitoring(
-            "test-process".to_string(),
-            "test-workspace".to_string(),
-            Some(12345)
-        ).await.unwrap();
-        
+
+        monitor
+            .start_monitoring(
+                "test-process".to_string(),
+                "test-workspace".to_string(),
+                Some(12345),
+            )
+            .await
+            .unwrap();
+
         let result = monitor.stop_monitoring("test-process").await;
         assert!(result.is_ok());
-        
+
         let states = monitor.get_all_health_states().await;
         assert!(states.is_empty());
     }
@@ -502,20 +529,20 @@ mod tests {
     #[test]
     async fn test_calculate_avg_response_time() {
         let monitor = ClaudeHealthMonitor::new(None);
-        
+
         // 初回測定
         let avg = monitor.calculate_avg_response_time(
             Duration::from_millis(0),
             Duration::from_millis(1000),
-            1
+            1,
         );
         assert_eq!(avg, Duration::from_millis(1000));
-        
+
         // 2回目測定
         let avg = monitor.calculate_avg_response_time(
             Duration::from_millis(1000),
             Duration::from_millis(2000),
-            2
+            2,
         );
         assert_eq!(avg, Duration::from_millis(1500));
     }

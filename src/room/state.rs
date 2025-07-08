@@ -192,7 +192,7 @@ impl Default for WorkspaceConfig {
 impl WorkspaceState {
     pub fn new(name: String, config: WorkspaceConfig) -> Self {
         let now = SystemTime::now();
-        
+
         Self {
             name: name.clone(),
             template: config.template.clone(),
@@ -224,7 +224,7 @@ impl WorkspaceState {
             self.session_count += 1;
         }
         self.total_duration += duration;
-        
+
         // 履歴が長くなりすぎないよう制限
         if self.access_history.len() > 100 {
             self.access_history.drain(0..50);
@@ -275,7 +275,10 @@ impl WorkspaceState {
 
     pub fn remove_completed_tasks(&mut self) {
         self.active_tasks.retain(|task| {
-            !matches!(task.status, TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Cancelled)
+            !matches!(
+                task.status,
+                TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Cancelled
+            )
         });
     }
 
@@ -317,7 +320,7 @@ mod tests {
     fn test_workspace_state_creation() {
         let config = WorkspaceConfig::default();
         let workspace = WorkspaceState::new("test".to_string(), config);
-        
+
         assert_eq!(workspace.name, "test");
         assert!(!workspace.is_active);
         assert!(workspace.processes.is_empty());
@@ -329,12 +332,12 @@ mod tests {
     fn test_workspace_activation() {
         let config = WorkspaceConfig::default();
         let mut workspace = WorkspaceState::new("test".to_string(), config);
-        
+
         assert!(!workspace.is_active);
-        
+
         workspace.activate();
         assert!(workspace.is_active);
-        
+
         workspace.deactivate();
         assert!(!workspace.is_active);
     }
@@ -343,7 +346,7 @@ mod tests {
     fn test_process_management() {
         let config = WorkspaceConfig::default();
         let mut workspace = WorkspaceState::new("test".to_string(), config);
-        
+
         let process = ProcessInfo {
             id: "proc-1".to_string(),
             command: "claude-code".to_string(),
@@ -355,14 +358,14 @@ mod tests {
             last_heartbeat: SystemTime::now(),
             restart_count: 0,
         };
-        
+
         workspace.add_process(process.clone());
         assert_eq!(workspace.processes.len(), 1);
-        
+
         let running = workspace.get_running_processes();
         assert_eq!(running.len(), 1);
         assert_eq!(running[0].id, "proc-1");
-        
+
         let removed = workspace.remove_process("proc-1");
         assert!(removed.is_some());
         assert_eq!(workspace.processes.len(), 0);
@@ -372,24 +375,29 @@ mod tests {
     fn test_pane_management() {
         let config = WorkspaceConfig::default();
         let mut workspace = WorkspaceState::new("test".to_string(), config);
-        
+
         let pane = PaneState {
             id: "pane-1".to_string(),
-            position: PanePosition { row: 0, col: 0, span_rows: 1, span_cols: 1 },
+            position: PanePosition {
+                row: 0,
+                col: 0,
+                span_rows: 1,
+                span_cols: 1,
+            },
             size: 50.0,
             command: Some("claude-code".to_string()),
             working_directory: "/tmp".to_string(),
             is_active: true,
             process_id: None,
         };
-        
+
         workspace.add_pane(pane);
         assert_eq!(workspace.panes.len(), 1);
-        
+
         let active = workspace.get_active_pane();
         assert!(active.is_some());
         assert_eq!(active.unwrap().id, "pane-1");
-        
+
         let removed = workspace.remove_pane("pane-1");
         assert!(removed.is_some());
         assert_eq!(workspace.panes.len(), 0);

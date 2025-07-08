@@ -1,16 +1,15 @@
 // WezTerm Multi-Process Development Framework - Log Enhancer
 // ログ強化機能とコンテキスト付きログ出力
 
-use super::{UnifiedLogLevel, LogContext, UnifiedLogEntry};
 use super::strategy::{LoggingStrategy, StrategyManager};
+use super::{LogContext, UnifiedLogEntry, UnifiedLogLevel};
+use lazy_static::lazy_static;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
-use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref STRATEGY_MANAGER: Arc<Mutex<StrategyManager>> = {
-        Arc::new(Mutex::new(StrategyManager::from_environment()))
-    };
+    static ref STRATEGY_MANAGER: Arc<Mutex<StrategyManager>> =
+        { Arc::new(Mutex::new(StrategyManager::from_environment())) };
 }
 
 /// コンテキスト付きログ出力のメイン関数
@@ -54,9 +53,9 @@ fn create_log_entry(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_else(|_| std::time::Duration::from_secs(0))
         .as_secs();
-    
+
     let timestamp_str = chrono::DateTime::from_timestamp(timestamp as i64, 0)
-        .unwrap_or_else(|| chrono::Utc::now())
+        .unwrap_or_else(chrono::Utc::now)
         .to_rfc3339();
 
     // デバッグ用にファイル・行番号を取得
@@ -83,35 +82,42 @@ fn output_log_entry(entry: &UnifiedLogEntry, strategy: &LoggingStrategy) {
         match output {
             super::strategy::LogOutput::Stdout => {
                 if strategy.structured_output {
-                    println!("{}", serde_json::to_string(entry).unwrap_or_else(|_| format!("{:?}", entry)));
+                    println!(
+                        "{}",
+                        serde_json::to_string(entry).unwrap_or_else(|_| format!("{entry:?}"))
+                    );
                 } else {
                     println!("{}", format_human_readable(entry));
                 }
-            },
+            }
             super::strategy::LogOutput::Stderr => {
                 if strategy.structured_output {
-                    eprintln!("{}", serde_json::to_string(entry).unwrap_or_else(|_| format!("{:?}", entry)));
+                    eprintln!(
+                        "{}",
+                        serde_json::to_string(entry).unwrap_or_else(|_| format!("{entry:?}"))
+                    );
                 } else {
                     eprintln!("{}", format_human_readable(entry));
                 }
-            },
+            }
             super::strategy::LogOutput::File { path, .. } => {
                 // ファイル出力は簡略化（実際には非同期で書き込み）
                 let formatted = format_human_readable(entry);
-                if let Err(e) = std::fs::write(path, format!("{}\n", formatted)) {
-                    eprintln!("Failed to write to log file {}: {}", path, e);
+                if let Err(e) = std::fs::write(path, format!("{formatted}\n")) {
+                    eprintln!("Failed to write to log file {path}: {e}");
                 }
-            },
+            }
             super::strategy::LogOutput::StructuredFile { path, .. } => {
-                let json_line = serde_json::to_string(entry).unwrap_or_else(|_| format!("{:?}", entry));
-                if let Err(e) = std::fs::write(path, format!("{}\n", json_line)) {
-                    eprintln!("Failed to write to structured log file {}: {}", path, e);
+                let json_line =
+                    serde_json::to_string(entry).unwrap_or_else(|_| format!("{entry:?}"));
+                if let Err(e) = std::fs::write(path, format!("{json_line}\n")) {
+                    eprintln!("Failed to write to structured log file {path}: {e}");
                 }
-            },
+            }
             super::strategy::LogOutput::System => {
                 // システムログは簡略化
                 println!("[SYSTEM] {}", format_human_readable(entry));
-            },
+            }
         }
     }
 }
@@ -127,34 +133,36 @@ fn format_human_readable(entry: &UnifiedLogEntry) -> String {
     );
 
     if let Some(entity_id) = &entry.context.entity_id {
-        output.push_str(&format!(" [{}]", entity_id));
+        output.push_str(&format!(" [{entity_id}]"));
     }
 
     if let Some(session_id) = &entry.context.session_id {
-        output.push_str(&format!(" (session:{})", session_id));
+        output.push_str(&format!(" (session:{session_id})"));
     }
 
     output.push_str(&format!(" {}", entry.message));
 
     if let Some(duration) = entry.duration_ms {
-        output.push_str(&format!(" ({}ms)", duration));
+        output.push_str(&format!(" ({duration}ms)"));
     }
 
     if let Some(error) = &entry.error {
-        output.push_str(&format!(" ERROR: {}", error));
+        output.push_str(&format!(" ERROR: {error}"));
     }
 
     if !entry.context.metadata.is_empty() {
-        let metadata_str = entry.context.metadata
+        let metadata_str = entry
+            .context
+            .metadata
             .iter()
-            .map(|(k, v)| format!("{}={}", k, v))
+            .map(|(k, v)| format!("{k}={v}"))
             .collect::<Vec<_>>()
             .join(" ");
-        output.push_str(&format!(" [{}]", metadata_str));
+        output.push_str(&format!(" [{metadata_str}]"));
     }
 
     if let Some(location) = &entry.location {
-        output.push_str(&format!(" @{}", location));
+        output.push_str(&format!(" @{location}"));
     }
 
     output
@@ -168,11 +176,11 @@ pub mod process {
         let context = LogContext::new("process", "start")
             .with_entity_id(process_id)
             .with_metadata("command", serde_json::json!(command));
-        
+
         log_with_context(
             UnifiedLogLevel::Info,
             context,
-            format!("Starting process: {}", command),
+            format!("Starting process: {command}"),
             None,
             None,
         );
@@ -182,26 +190,19 @@ pub mod process {
         let context = LogContext::new("process", "stop")
             .with_entity_id(process_id)
             .with_metadata("exit_code", serde_json::json!(exit_code));
-        
+
         let message = match exit_code {
             Some(0) => "Process stopped successfully".to_string(),
-            Some(code) => format!("Process stopped with exit code: {}", code),
+            Some(code) => format!("Process stopped with exit code: {code}"),
             None => "Process terminated".to_string(),
         };
-        
-        log_with_context(
-            UnifiedLogLevel::Info,
-            context,
-            message,
-            None,
-            None,
-        );
+
+        log_with_context(UnifiedLogLevel::Info, context, message, None, None);
     }
 
     pub fn log_process_error(process_id: &str, error: &str) {
-        let context = LogContext::new("process", "error")
-            .with_entity_id(process_id);
-        
+        let context = LogContext::new("process", "error").with_entity_id(process_id);
+
         log_with_context(
             UnifiedLogLevel::Error,
             context,
@@ -215,11 +216,11 @@ pub mod process {
         let context = LogContext::new("process", "heartbeat")
             .with_entity_id(process_id)
             .with_metadata("status", serde_json::json!(status));
-        
+
         log_with_context(
             UnifiedLogLevel::Debug,
             context,
-            format!("Process heartbeat: {}", status),
+            format!("Process heartbeat: {status}"),
             None,
             None,
         );
@@ -236,11 +237,11 @@ pub mod ipc {
             .with_metadata("to", serde_json::json!(to))
             .with_metadata("message_type", serde_json::json!(message_type))
             .with_metadata("size_bytes", serde_json::json!(size_bytes));
-        
+
         log_with_context(
             UnifiedLogLevel::Debug,
             context,
-            format!("Sending {} message to {} ({} bytes)", message_type, to, size_bytes),
+            format!("Sending {message_type} message to {to} ({size_bytes} bytes)"),
             None,
             None,
         );
@@ -251,24 +252,23 @@ pub mod ipc {
             .with_entity_id(to)
             .with_metadata("from", serde_json::json!(from))
             .with_metadata("message_type", serde_json::json!(message_type));
-        
+
         log_with_context(
             UnifiedLogLevel::Debug,
             context,
-            format!("Received {} message from {}", message_type, from),
+            format!("Received {message_type} message from {from}"),
             None,
             Some(processing_time_ms),
         );
     }
 
     pub fn log_connection_error(endpoint: &str, error: &str) {
-        let context = LogContext::new("ipc", "connection_error")
-            .with_entity_id(endpoint);
-        
+        let context = LogContext::new("ipc", "connection_error").with_entity_id(endpoint);
+
         log_with_context(
             UnifiedLogLevel::Error,
             context,
-            format!("IPC connection error to {}", endpoint),
+            format!("IPC connection error to {endpoint}"),
             Some(error.to_string()),
             None,
         );
@@ -280,13 +280,12 @@ pub mod config {
     use super::*;
 
     pub fn log_config_load(file_path: &str, load_time_ms: u64) {
-        let context = LogContext::new("config", "load")
-            .with_entity_id(file_path);
-        
+        let context = LogContext::new("config", "load").with_entity_id(file_path);
+
         log_with_context(
             UnifiedLogLevel::Info,
             context,
-            format!("Loaded configuration from {}", file_path),
+            format!("Loaded configuration from {file_path}"),
             None,
             Some(load_time_ms),
         );
@@ -296,24 +295,23 @@ pub mod config {
         let context = LogContext::new("config", "reload")
             .with_entity_id(file_path)
             .with_metadata("changes", serde_json::json!(changes));
-        
+
         log_with_context(
             UnifiedLogLevel::Info,
             context,
-            format!("Reloaded configuration from {} ({} changes)", file_path, changes),
+            format!("Reloaded configuration from {file_path} ({changes} changes)"),
             None,
             None,
         );
     }
 
     pub fn log_config_error(file_path: &str, error: &str) {
-        let context = LogContext::new("config", "error")
-            .with_entity_id(file_path);
-        
+        let context = LogContext::new("config", "error").with_entity_id(file_path);
+
         log_with_context(
             UnifiedLogLevel::Error,
             context,
-            format!("Configuration error in {}", file_path),
+            format!("Configuration error in {file_path}"),
             Some(error.to_string()),
             None,
         );
@@ -324,14 +322,18 @@ pub mod config {
             .with_entity_id(file_path)
             .with_metadata("is_valid", serde_json::json!(is_valid))
             .with_metadata("warnings", serde_json::json!(warnings));
-        
-        let level = if is_valid { UnifiedLogLevel::Info } else { UnifiedLogLevel::Error };
+
+        let level = if is_valid {
+            UnifiedLogLevel::Info
+        } else {
+            UnifiedLogLevel::Error
+        };
         let message = if is_valid {
-            format!("Configuration validation passed ({} warnings)", warnings)
+            format!("Configuration validation passed ({warnings} warnings)")
         } else {
             "Configuration validation failed".to_string()
         };
-        
+
         log_with_context(level, context, message, None, None);
     }
 }
@@ -340,7 +342,7 @@ pub mod config {
 pub fn update_logging_strategy(strategy: LoggingStrategy) {
     if let Ok(mut manager) = STRATEGY_MANAGER.lock() {
         manager.update_strategy(strategy);
-        
+
         let context = LogContext::new("logging", "strategy_update");
         log_with_context(
             UnifiedLogLevel::Info,
@@ -356,13 +358,15 @@ pub fn update_logging_strategy(strategy: LoggingStrategy) {
 pub fn set_component_log_level(component: &str, level: UnifiedLogLevel) {
     if let Ok(mut manager) = STRATEGY_MANAGER.lock() {
         let mut strategy = manager.get_strategy().clone();
-        strategy.component_levels.insert(component.to_string(), level);
+        strategy
+            .component_levels
+            .insert(component.to_string(), level);
         manager.update_strategy(strategy);
-        
+
         let context = LogContext::new("logging", "level_change")
             .with_metadata("component", serde_json::json!(component))
             .with_metadata("level", serde_json::json!(level.as_str()));
-        
+
         log_with_context(
             UnifiedLogLevel::Info,
             context,
@@ -387,7 +391,7 @@ mod tests {
             None,
             Some(100),
         );
-        
+
         assert_eq!(entry.level, UnifiedLogLevel::Info);
         assert_eq!(entry.context.component, "test");
         assert_eq!(entry.context.operation, "operation");
@@ -400,7 +404,7 @@ mod tests {
         let context = LogContext::new("process", "start")
             .with_entity_id("test-123")
             .with_metadata("cpu", serde_json::json!(50.5));
-        
+
         let entry = UnifiedLogEntry {
             timestamp: "2025-01-01T00:00:00Z".to_string(),
             level: UnifiedLogLevel::Info,
@@ -410,7 +414,7 @@ mod tests {
             duration_ms: Some(150),
             location: None,
         };
-        
+
         let formatted = format_human_readable(&entry);
         assert!(formatted.contains("INFO"));
         assert!(formatted.contains("process:start"));

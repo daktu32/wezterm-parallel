@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Task unique identifier
 pub type TaskId = String;
@@ -13,67 +13,67 @@ pub type TaskId = String;
 pub struct Task {
     /// Unique task identifier
     pub id: TaskId,
-    
+
     /// Task title/name
     pub title: String,
-    
+
     /// Detailed task description
     pub description: Option<String>,
-    
+
     /// Task status
     pub status: TaskStatus,
-    
+
     /// Task priority level
     pub priority: TaskPriority,
-    
+
     /// Task category/type
     pub category: TaskCategory,
-    
+
     /// Associated workspace
     pub workspace: Option<String>,
-    
+
     /// Task creation timestamp
     pub created_at: u64,
-    
+
     /// Task update timestamp
     pub updated_at: u64,
-    
+
     /// Task due date (optional)
     pub due_date: Option<u64>,
-    
+
     /// Task start time (when execution began)
     pub started_at: Option<u64>,
-    
+
     /// Task completion time
     pub completed_at: Option<u64>,
-    
+
     /// Estimated duration in seconds
     pub estimated_duration: Option<u64>,
-    
+
     /// Actual duration (calculated when completed)
     pub actual_duration: Option<u64>,
-    
+
     /// Task tags for organization
     pub tags: Vec<String>,
-    
+
     /// Task assignee (user/system)
     pub assignee: Option<String>,
-    
+
     /// Task dependencies (must complete before this task)
     pub dependencies: Vec<TaskId>,
-    
+
     /// Task metadata (flexible key-value storage)
     pub metadata: HashMap<String, String>,
-    
+
     /// Task execution configuration
     pub execution: TaskExecution,
-    
+
     /// Task progress (0-100%)
     pub progress: u8,
-    
+
     /// Task notes/comments
     pub notes: Vec<TaskNote>,
-    
+
     /// Task execution history
     pub execution_history: Vec<TaskExecutionRecord>,
 }
@@ -81,8 +81,11 @@ pub struct Task {
 impl Task {
     /// Create a new task
     pub fn new(title: String, category: TaskCategory) -> Self {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
         Self {
             id: crate::task::generate_task_id(),
             title,
@@ -108,11 +111,14 @@ impl Task {
             execution_history: Vec::new(),
         }
     }
-    
+
     /// Update task status and timestamp
     pub fn update_status(&mut self, status: TaskStatus) {
-        self.updated_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        
+        self.updated_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
         match &status {
             TaskStatus::InProgress => {
                 if self.started_at.is_none() {
@@ -134,65 +140,77 @@ impl Task {
             }
             _ => {}
         }
-        
+
         self.status = status;
     }
-    
+
     /// Add a note to the task
     pub fn add_note(&mut self, content: String, author: Option<String>) {
         let note = TaskNote {
             id: crate::task::generate_task_id(),
             content,
             author,
-            created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            created_at: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
         };
         self.notes.push(note);
-        self.updated_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        self.updated_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
     }
-    
+
     /// Update task progress
     pub fn update_progress(&mut self, progress: u8) {
         self.progress = progress.min(100);
-        self.updated_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        
+        self.updated_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
         if progress >= 100 {
             self.update_status(TaskStatus::Completed);
         }
     }
-    
+
     /// Check if task is overdue
     pub fn is_overdue(&self) -> bool {
         if let Some(due_date) = self.due_date {
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
             now > due_date && !self.is_completed()
         } else {
             false
         }
     }
-    
+
     /// Check if task is completed
     pub fn is_completed(&self) -> bool {
         matches!(self.status, TaskStatus::Completed)
     }
-    
+
     /// Check if task is in progress
     pub fn is_in_progress(&self) -> bool {
         matches!(self.status, TaskStatus::InProgress)
     }
-    
+
     /// Check if task can be started (dependencies met)
     pub fn can_start(&self, completed_tasks: &[TaskId]) -> bool {
-        self.dependencies.iter().all(|dep| completed_tasks.contains(dep))
+        self.dependencies
+            .iter()
+            .all(|dep| completed_tasks.contains(dep))
     }
-    
+
     /// Get task duration (estimated or actual)
     pub fn get_duration(&self) -> Option<Duration> {
         if let Some(actual) = self.actual_duration {
             Some(Duration::from_secs(actual))
-        } else if let Some(estimated) = self.estimated_duration {
-            Some(Duration::from_secs(estimated))
         } else {
-            None
+            self.estimated_duration.map(Duration::from_secs)
         }
     }
 }
@@ -202,25 +220,25 @@ impl Task {
 pub enum TaskStatus {
     /// Task created but not started
     Todo,
-    
+
     /// Task is actively being worked on
     InProgress,
-    
+
     /// Task is blocked by dependencies or issues
     Blocked,
-    
+
     /// Task is paused/on hold
     OnHold,
-    
+
     /// Task needs review
     Review,
-    
+
     /// Task is completed successfully
     Completed,
-    
+
     /// Task was cancelled
     Cancelled,
-    
+
     /// Task failed to complete
     Failed,
 }
@@ -245,16 +263,16 @@ impl std::fmt::Display for TaskStatus {
 pub enum TaskPriority {
     /// Lowest priority
     Low = 1,
-    
+
     /// Normal priority
     Medium = 2,
-    
+
     /// High priority
     High = 3,
-    
+
     /// Critical priority
     Critical = 4,
-    
+
     /// Emergency priority
     Urgent = 5,
 }
@@ -276,37 +294,37 @@ impl std::fmt::Display for TaskPriority {
 pub enum TaskCategory {
     /// Development/coding task
     Development,
-    
+
     /// Bug fix task
     BugFix,
-    
+
     /// Feature implementation
     Feature,
-    
+
     /// Testing task
     Testing,
-    
+
     /// Documentation task
     Documentation,
-    
+
     /// Code review task
     Review,
-    
+
     /// Deployment task
     Deployment,
-    
+
     /// Maintenance task
     Maintenance,
-    
+
     /// Research task
     Research,
-    
+
     /// Meeting/discussion
     Meeting,
-    
+
     /// Planning task
     Planning,
-    
+
     /// Custom category
     Custom(String),
 }
@@ -325,7 +343,7 @@ impl std::fmt::Display for TaskCategory {
             TaskCategory::Research => write!(f, "Research"),
             TaskCategory::Meeting => write!(f, "Meeting"),
             TaskCategory::Planning => write!(f, "Planning"),
-            TaskCategory::Custom(name) => write!(f, "{}", name),
+            TaskCategory::Custom(name) => write!(f, "{name}"),
         }
     }
 }
@@ -335,22 +353,22 @@ impl std::fmt::Display for TaskCategory {
 pub struct TaskExecution {
     /// Command to execute (if automated)
     pub command: Option<String>,
-    
+
     /// Working directory for execution
     pub working_directory: Option<String>,
-    
+
     /// Environment variables
     pub environment: HashMap<String, String>,
-    
+
     /// Execution timeout in seconds
     pub timeout: Option<u64>,
-    
+
     /// Retry configuration
     pub retry_config: RetryConfig,
-    
+
     /// Auto-execute when dependencies are met
     pub auto_execute: bool,
-    
+
     /// Execution mode
     pub mode: ExecutionMode,
 }
@@ -374,13 +392,13 @@ impl Default for TaskExecution {
 pub struct RetryConfig {
     /// Maximum retry attempts
     pub max_attempts: u32,
-    
+
     /// Delay between retries in seconds
     pub delay: u64,
-    
+
     /// Exponential backoff enabled
     pub exponential_backoff: bool,
-    
+
     /// Maximum delay for exponential backoff
     pub max_delay: u64,
 }
@@ -401,13 +419,13 @@ impl Default for RetryConfig {
 pub enum ExecutionMode {
     /// Manual execution (user-initiated)
     Manual,
-    
+
     /// Automatic execution when conditions are met
     Automatic,
-    
+
     /// Scheduled execution at specific time
     Scheduled,
-    
+
     /// Triggered execution by events
     Triggered,
 }
@@ -417,13 +435,13 @@ pub enum ExecutionMode {
 pub struct TaskNote {
     /// Note unique identifier
     pub id: String,
-    
+
     /// Note content
     pub content: String,
-    
+
     /// Note author
     pub author: Option<String>,
-    
+
     /// Note creation timestamp
     pub created_at: u64,
 }
@@ -433,22 +451,22 @@ pub struct TaskNote {
 pub struct TaskExecutionRecord {
     /// Execution attempt number
     pub attempt: u32,
-    
+
     /// Execution start time
     pub started_at: u64,
-    
+
     /// Execution end time
     pub ended_at: Option<u64>,
-    
+
     /// Execution result
     pub result: ExecutionResult,
-    
+
     /// Execution duration in seconds
     pub duration: Option<u64>,
-    
+
     /// Execution output/logs
     pub output: Option<String>,
-    
+
     /// Error message (if failed)
     pub error: Option<String>,
 }
@@ -458,69 +476,52 @@ pub struct TaskExecutionRecord {
 pub enum ExecutionResult {
     /// Execution completed successfully
     Success,
-    
+
     /// Execution failed
     Failed,
-    
+
     /// Execution timed out
     Timeout,
-    
+
     /// Execution was cancelled
     Cancelled,
-    
+
     /// Execution is still running
     Running,
 }
 
 /// Task filter criteria
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TaskFilter {
     /// Filter by status
     pub status: Option<TaskStatus>,
-    
+
     /// Filter by priority
     pub priority: Option<TaskPriority>,
-    
+
     /// Filter by category
     pub category: Option<TaskCategory>,
-    
+
     /// Filter by workspace
     pub workspace: Option<String>,
-    
+
     /// Filter by assignee
     pub assignee: Option<String>,
-    
+
     /// Filter by tags (all must match)
     pub tags: Vec<String>,
-    
+
     /// Filter by due date range
     pub due_date_range: Option<(u64, u64)>,
-    
+
     /// Filter by creation date range
     pub created_date_range: Option<(u64, u64)>,
-    
+
     /// Include overdue tasks only
     pub overdue_only: bool,
-    
+
     /// Text search in title/description
     pub search_text: Option<String>,
-}
-
-impl Default for TaskFilter {
-    fn default() -> Self {
-        Self {
-            status: None,
-            priority: None,
-            category: None,
-            workspace: None,
-            assignee: None,
-            tags: Vec::new(),
-            due_date_range: None,
-            created_date_range: None,
-            overdue_only: false,
-            search_text: None,
-        }
-    }
 }
 
 /// Task sorting criteria
@@ -528,19 +529,19 @@ impl Default for TaskFilter {
 pub enum TaskSort {
     /// Sort by creation date
     CreatedAt(SortOrder),
-    
+
     /// Sort by updated date
     UpdatedAt(SortOrder),
-    
+
     /// Sort by due date
     DueDate(SortOrder),
-    
+
     /// Sort by priority
     Priority(SortOrder),
-    
+
     /// Sort by title
     Title(SortOrder),
-    
+
     /// Sort by progress
     Progress(SortOrder),
 }
@@ -559,7 +560,7 @@ mod tests {
     #[test]
     fn test_task_creation() {
         let task = Task::new("Test Task".to_string(), TaskCategory::Development);
-        
+
         assert_eq!(task.title, "Test Task");
         assert_eq!(task.status, TaskStatus::Todo);
         assert_eq!(task.priority, TaskPriority::Medium);
@@ -571,11 +572,11 @@ mod tests {
     #[test]
     fn test_task_status_update() {
         let mut task = Task::new("Test Task".to_string(), TaskCategory::Development);
-        
+
         task.update_status(TaskStatus::InProgress);
         assert_eq!(task.status, TaskStatus::InProgress);
         assert!(task.started_at.is_some());
-        
+
         task.update_status(TaskStatus::Completed);
         assert_eq!(task.status, TaskStatus::Completed);
         assert!(task.completed_at.is_some());
@@ -586,11 +587,11 @@ mod tests {
     #[test]
     fn test_task_progress_update() {
         let mut task = Task::new("Test Task".to_string(), TaskCategory::Development);
-        
+
         task.update_progress(50);
         assert_eq!(task.progress, 50);
         assert_eq!(task.status, TaskStatus::Todo);
-        
+
         task.update_progress(100);
         assert_eq!(task.progress, 100);
         assert_eq!(task.status, TaskStatus::Completed);
@@ -599,8 +600,11 @@ mod tests {
     #[test]
     fn test_task_note_addition() {
         let mut task = Task::new("Test Task".to_string(), TaskCategory::Development);
-        
-        task.add_note("This is a test note".to_string(), Some("user123".to_string()));
+
+        task.add_note(
+            "This is a test note".to_string(),
+            Some("user123".to_string()),
+        );
         assert_eq!(task.notes.len(), 1);
         assert_eq!(task.notes[0].content, "This is a test note");
         assert_eq!(task.notes[0].author, Some("user123".to_string()));
@@ -609,10 +613,10 @@ mod tests {
     #[test]
     fn test_task_dependency_check() {
         let task = Task::new("Test Task".to_string(), TaskCategory::Development);
-        
+
         let completed_tasks = vec!["task1".to_string(), "task2".to_string()];
         assert!(task.can_start(&completed_tasks));
-        
+
         let mut task_with_deps = task;
         task_with_deps.dependencies = vec!["task1".to_string(), "task3".to_string()];
         assert!(!task_with_deps.can_start(&completed_tasks));

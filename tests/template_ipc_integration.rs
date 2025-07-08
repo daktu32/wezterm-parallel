@@ -1,7 +1,6 @@
 // WezTerm Multi-Process Development Framework - Template IPC Integration Test
 
 use wezterm_parallel::{Message, TemplateInfo};
-use serde_json;
 
 #[tokio::test]
 async fn test_template_ipc_messages() {
@@ -29,7 +28,7 @@ async fn test_template_ipc_messages() {
 
     let json = serde_json::to_string(&template_response).unwrap();
     let deserialized: Message = serde_json::from_str(&json).unwrap();
-    
+
     if let Message::TemplateListResponse { templates } = deserialized {
         assert_eq!(templates.len(), 1);
         assert_eq!(templates[0].name, "test_template");
@@ -45,7 +44,7 @@ async fn test_template_get_messages() {
     let template_get = Message::TemplateGet {
         name: "basic".to_string(),
     };
-    
+
     let json = serde_json::to_string(&template_get).unwrap();
     let deserialized: Message = serde_json::from_str(&json).unwrap();
     assert_eq!(template_get, deserialized);
@@ -54,10 +53,10 @@ async fn test_template_get_messages() {
     let template_response = Message::TemplateGetResponse {
         template: Some("{\"name\":\"basic\"}".to_string()),
     };
-    
+
     let json = serde_json::to_string(&template_response).unwrap();
     let deserialized: Message = serde_json::from_str(&json).unwrap();
-    
+
     if let Message::TemplateGetResponse { template } = deserialized {
         assert!(template.is_some());
         assert!(template.unwrap().contains("basic"));
@@ -73,7 +72,7 @@ async fn test_template_create_delete_messages() {
         name: "custom_template".to_string(),
         content: "{\"name\":\"custom\"}".to_string(),
     };
-    
+
     let json = serde_json::to_string(&template_create).unwrap();
     let _: Message = serde_json::from_str(&json).unwrap();
 
@@ -82,7 +81,7 @@ async fn test_template_create_delete_messages() {
         success: true,
         error: None,
     };
-    
+
     let json = serde_json::to_string(&create_response).unwrap();
     let _: Message = serde_json::from_str(&json).unwrap();
 
@@ -90,7 +89,7 @@ async fn test_template_create_delete_messages() {
     let template_delete = Message::TemplateDelete {
         name: "custom_template".to_string(),
     };
-    
+
     let json = serde_json::to_string(&template_delete).unwrap();
     let _: Message = serde_json::from_str(&json).unwrap();
 
@@ -99,7 +98,7 @@ async fn test_template_create_delete_messages() {
         success: false,
         error: Some("Template not found".to_string()),
     };
-    
+
     let json = serde_json::to_string(&delete_response).unwrap();
     let _: Message = serde_json::from_str(&json).unwrap();
 }
@@ -120,8 +119,11 @@ fn test_template_info_structure() {
     // Test serialization
     let json = serde_json::to_string(&template_info).unwrap();
     let deserialized: TemplateInfo = serde_json::from_str(&json).unwrap();
-    
+
     assert_eq!(template_info.name, deserialized.name);
     assert_eq!(template_info.pane_count, deserialized.pane_count);
-    assert_eq!(template_info.auto_start_processes, deserialized.auto_start_processes);
+    assert_eq!(
+        template_info.auto_start_processes,
+        deserialized.auto_start_processes
+    );
 }

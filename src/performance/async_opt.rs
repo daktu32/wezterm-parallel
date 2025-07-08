@@ -4,7 +4,7 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{RwLock, Semaphore, mpsc};
+use tokio::sync::{mpsc, RwLock, Semaphore};
 use tokio::task::JoinHandle;
 use tracing::{debug, info, warn};
 
@@ -19,7 +19,15 @@ pub struct AsyncTaskPool {
 
 /// 非同期タスクトレイト
 pub trait AsyncTask: Send + Sync {
-    fn execute(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + '_>>;
+    fn execute(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+                + Send
+                + '_,
+        >,
+    >;
     fn priority(&self) -> TaskPriority;
     fn estimated_duration(&self) -> Duration;
     fn task_type(&self) -> &'static str;
@@ -48,7 +56,7 @@ pub struct AsyncStats {
 impl AsyncTaskPool {
     pub fn new(pool_size: usize) -> Self {
         info!("非同期タスクプール初期化: サイズ={}", pool_size);
-        
+
         Self {
             pool_size,
             active_tasks: Arc::new(RwLock::new(Vec::new())),
@@ -63,12 +71,12 @@ impl AsyncTaskPool {
         {
             let mut queue = self.task_queue.write().await;
             queue.push_back(task);
-            
+
             // 優先度によるソート
             let mut sorted_queue: Vec<_> = queue.drain(..).collect();
             sorted_queue.sort_by(|a, b| b.priority().cmp(&a.priority()));
             queue.extend(sorted_queue);
-            
+
             let mut stats = self.stats.write().await;
             stats.total_tasks += 1;
             stats.current_queue_size = queue.len();
@@ -94,23 +102,25 @@ impl AsyncTaskPool {
 
         if let Some(task) = task {
             let stats_ref = Arc::clone(&self.stats);
-            
+
             // タスクを実行し、実行時間を測定
             let start_time = Instant::now();
             let task_type = task.task_type().to_string();
-            
+
             debug!("タスク実行開始: {}", task_type);
-            
+
             match task.execute().await {
                 Ok(_) => {
                     let duration = start_time.elapsed();
                     debug!("タスク完了: {} ({:?})", task_type, duration);
-                    
+
                     let mut stats = stats_ref.write().await;
                     stats.completed_tasks += 1;
                     stats.average_execution_time = Duration::from_nanos(
-                        ((stats.average_execution_time.as_nanos() as u64 * (stats.completed_tasks - 1) 
-                          + duration.as_nanos() as u64) / stats.completed_tasks) as u64
+                        ((stats.average_execution_time.as_nanos() as u64
+                            * (stats.completed_tasks - 1)
+                            + duration.as_nanos() as u64)
+                            / stats.completed_tasks) as u64,
                     );
                 }
                 Err(e) => {
@@ -119,9 +129,9 @@ impl AsyncTaskPool {
                     stats.failed_tasks += 1;
                 }
             }
-            
+
             drop(permit);
-            
+
             // 完了したタスクをクリーンアップ
             self.cleanup_completed_tasks().await;
         }
@@ -152,7 +162,7 @@ impl AsyncTaskPool {
 
             // 少し待機してから再チェック
             tokio::time::sleep(Duration::from_millis(100)).await;
-            
+
             // 完了したタスクをクリーンアップ
             self.cleanup_completed_tasks().await;
         }
@@ -162,11 +172,11 @@ impl AsyncTaskPool {
     pub async fn get_stats(&self) -> AsyncStats {
         let stats = self.stats.read().await;
         let mut stats_copy = stats.clone();
-        
+
         // 現在のキューサイズを更新
         let queue = self.task_queue.read().await;
         stats_copy.current_queue_size = queue.len();
-        
+
         stats_copy
     }
 
@@ -206,25 +216,31 @@ pub struct BatchProcessor<T> {
     batch_size: usize,
     flush_interval: Duration,
     buffer: Arc<RwLock<Vec<T>>>,
-    processor: Arc<dyn Fn(Vec<T>) -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + Sync>,
+    processor: Arc<
+        dyn Fn(Vec<T>) -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>>
+            + Send
+            + Sync,
+    >,
     flush_handle: Option<JoinHandle<()>>,
 }
 
 type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
 
 impl<T: Send + Sync + 'static> BatchProcessor<T> {
-    pub fn new<F, Fut>(
-        batch_size: usize,
-        flush_interval: Duration,
-        processor: F,
-    ) -> Self
+    pub fn new<F, Fut>(batch_size: usize, flush_interval: Duration, processor: F) -> Self
     where
         F: Fn(Vec<T>) -> Fut + Send + Sync + 'static,
-        Fut: std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'static,
+        Fut: std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+            + Send
+            + 'static,
     {
-        let processor = Arc::new(move |items: Vec<T>| -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>> {
-            Box::pin(processor(items))
-        });
+        let processor =
+            Arc::new(
+                move |items: Vec<T>| -> BoxFuture<
+                    'static,
+                    Result<(), Box<dyn std::error::Error + Send + Sync>>,
+                > { Box::pin(processor(items)) },
+            );
 
         Self {
             batch_size,
@@ -244,10 +260,10 @@ impl<T: Send + Sync + 'static> BatchProcessor<T> {
 
         self.flush_handle = Some(tokio::spawn(async move {
             let mut interval = tokio::time::interval(flush_interval);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let items_to_process = {
                     let mut buffer = buffer.write().await;
                     if buffer.is_empty() {
@@ -299,7 +315,7 @@ impl<T: Send + Sync + 'static> BatchProcessor<T> {
     pub async fn stop(&mut self) {
         // 残りのアイテムをフラッシュ
         self.flush().await;
-        
+
         if let Some(handle) = self.flush_handle.take() {
             handle.abort();
         }
@@ -325,25 +341,28 @@ pub struct ThreadPoolStats {
 impl ThreadPoolMonitor {
     pub fn new(monitor_interval: Duration) -> (Self, mpsc::UnboundedReceiver<ThreadPoolStats>) {
         let (stats_sender, stats_receiver) = mpsc::unbounded_channel();
-        
-        (Self {
-            monitor_interval,
-            monitor_handle: None,
-            stats_sender,
-        }, stats_receiver)
+
+        (
+            Self {
+                monitor_interval,
+                monitor_handle: None,
+                stats_sender,
+            },
+            stats_receiver,
+        )
     }
 
     /// 監視を開始
     pub fn start_monitoring(&mut self, task_pool: Arc<AsyncTaskPool>) {
         let stats_sender = self.stats_sender.clone();
         let monitor_interval = self.monitor_interval;
-        
+
         self.monitor_handle = Some(tokio::spawn(async move {
             let mut interval = tokio::time::interval(monitor_interval);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let async_stats = task_pool.get_stats().await;
                 let stats = ThreadPoolStats {
                     active_threads: async_stats.peak_concurrent_tasks,
@@ -352,7 +371,7 @@ impl ThreadPoolMonitor {
                     cpu_utilization: 0.0, // TODO: 実際のCPU使用率を取得
                     timestamp: Instant::now(),
                 };
-                
+
                 if stats_sender.send(stats).is_err() {
                     debug!("スレッドプール監視停止: レシーバーが閉じられました");
                     break;
@@ -379,18 +398,29 @@ pub struct FileProcessingTask {
 
 impl FileProcessingTask {
     pub fn new(file_path: String, operation: String) -> Self {
-        Self { file_path, operation }
+        Self {
+            file_path,
+            operation,
+        }
     }
 }
 
 impl AsyncTask for FileProcessingTask {
-    fn execute(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + '_>> {
+    fn execute(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+                + Send
+                + '_,
+        >,
+    > {
         Box::pin(async move {
             debug!("ファイル処理実行: {} ({})", self.file_path, self.operation);
-            
+
             // 実際のファイル処理をシミュレート
             tokio::time::sleep(Duration::from_millis(50)).await;
-            
+
             Ok(())
         })
     }
@@ -421,18 +451,29 @@ pub struct DatabaseTask {
 
 impl DatabaseTask {
     pub fn new(query: String, priority_level: TaskPriority) -> Self {
-        Self { query, priority_level }
+        Self {
+            query,
+            priority_level,
+        }
     }
 }
 
 impl AsyncTask for DatabaseTask {
-    fn execute(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + '_>> {
+    fn execute(
+        &self,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+                + Send
+                + '_,
+        >,
+    > {
         Box::pin(async move {
             debug!("データベース操作実行: {}", self.query);
-            
+
             // データベース操作をシミュレート
             tokio::time::sleep(Duration::from_millis(30)).await;
-            
+
             Ok(())
         })
     }
@@ -457,22 +498,22 @@ mod tests {
     #[tokio::test]
     async fn test_async_task_pool() {
         let pool = AsyncTaskPool::new(2);
-        
+
         let task1 = Box::new(FileProcessingTask::new(
             "test1.txt".to_string(),
             "normal".to_string(),
         ));
-        
+
         let task2 = Box::new(DatabaseTask::new(
             "SELECT * FROM test".to_string(),
             TaskPriority::High,
         ));
-        
+
         pool.submit_task(task1).await;
         pool.submit_task(task2).await;
-        
+
         pool.wait_for_completion().await;
-        
+
         let stats = pool.get_stats().await;
         assert_eq!(stats.total_tasks, 2);
         assert_eq!(stats.completed_tasks, 2);
@@ -481,9 +522,9 @@ mod tests {
     #[tokio::test]
     async fn test_batch_processor() {
         let (tx, mut rx) = tokio::sync::mpsc::channel(10);
-        
+
         let mut processor = BatchProcessor::new(
-            3, // バッチサイズ
+            3,                          // バッチサイズ
             Duration::from_millis(100), // フラッシュ間隔
             move |items: Vec<i32>| {
                 let tx = tx.clone();
@@ -493,18 +534,18 @@ mod tests {
                 }
             },
         );
-        
+
         processor.start();
-        
+
         // アイテムを追加
         processor.add_item(1).await;
         processor.add_item(2).await;
         processor.add_item(3).await; // バッチサイズに達するのでフラッシュ
-        
+
         // バッチが処理されることを確認
         let batch_size = rx.recv().await.unwrap();
         assert_eq!(batch_size, 3);
-        
+
         processor.stop().await;
     }
 
@@ -512,12 +553,15 @@ mod tests {
     async fn test_thread_pool_monitor() {
         let pool = Arc::new(AsyncTaskPool::new(2));
         let (mut monitor, mut stats_receiver) = ThreadPoolMonitor::new(Duration::from_millis(50));
-        
+
         monitor.start_monitoring(Arc::clone(&pool));
-        
+
         // 統計を受信
-        tokio::time::timeout(Duration::from_millis(100), stats_receiver.recv()).await.unwrap().unwrap();
-        
+        tokio::time::timeout(Duration::from_millis(100), stats_receiver.recv())
+            .await
+            .unwrap()
+            .unwrap();
+
         monitor.stop_monitoring();
     }
 }

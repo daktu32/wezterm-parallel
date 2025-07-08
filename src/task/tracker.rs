@@ -1,31 +1,37 @@
 // WezTerm Multi-Process Development Framework - Task Tracker
 // Provides time tracking, progress monitoring, and productivity analytics
 
-use super::types::{TaskId};
+use super::types::TaskId;
 use super::{current_timestamp, format_duration};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use tokio::sync::RwLock;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 /// Task tracking and time management system
 #[derive(Debug)]
 pub struct TaskTracker {
     /// Active time tracking sessions
     active_sessions: RwLock<HashMap<TaskId, TrackingSession>>,
-    
+
     /// Completed tracking sessions
     completed_sessions: RwLock<Vec<CompletedSession>>,
-    
+
     /// Task productivity metrics
     productivity_metrics: RwLock<HashMap<TaskId, ProductivityMetrics>>,
-    
+
     /// Daily summaries
     daily_summaries: RwLock<HashMap<String, DailySummary>>, // date -> summary
-    
+
     /// Tracker statistics
     stats: RwLock<TrackerStats>,
+}
+
+impl Default for TaskTracker {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TaskTracker {
@@ -112,7 +118,11 @@ impl TaskTracker {
                 stats.total_tracked_time += completed.active_duration;
             }
 
-            info!("Stopped tracking task: {} (duration: {})", task_id, format_duration(duration));
+            info!(
+                "Stopped tracking task: {} (duration: {})",
+                task_id,
+                format_duration(duration)
+            );
             Some(duration)
         } else {
             None
@@ -127,7 +137,7 @@ impl TaskTracker {
                 let now = current_timestamp();
                 session.total_active_time += now - session.last_activity;
                 session.is_paused = true;
-                
+
                 // Add segment
                 session.segments.push(TimeSegment {
                     started_at: session.last_activity,
@@ -165,7 +175,7 @@ impl TaskTracker {
         if let Some(session) = active.get_mut(task_id) {
             session.interruptions += 1;
             session.break_time += duration_seconds;
-            
+
             // Add interruption segment
             let now = current_timestamp();
             session.segments.push(TimeSegment {
@@ -174,7 +184,10 @@ impl TaskTracker {
                 segment_type: SegmentType::Interruption,
             });
 
-            debug!("Recorded interruption for task: {} ({}s)", task_id, duration_seconds);
+            debug!(
+                "Recorded interruption for task: {} ({}s)",
+                task_id, duration_seconds
+            );
         }
     }
 
@@ -203,7 +216,8 @@ impl TaskTracker {
     /// Get task history for a specific task
     pub async fn get_task_history(&self, task_id: &TaskId) -> Vec<CompletedSession> {
         let completed = self.completed_sessions.read().await;
-        completed.iter()
+        completed
+            .iter()
             .filter(|session| session.task_id == *task_id)
             .cloned()
             .collect()
@@ -228,55 +242,71 @@ impl TaskTracker {
     }
 
     /// Generate enhanced productivity report
-    pub async fn generate_enhanced_productivity_report(&self, since_timestamp: Option<u64>) -> ProductivityReport {
+    pub async fn generate_enhanced_productivity_report(
+        &self,
+        since_timestamp: Option<u64>,
+    ) -> ProductivityReport {
         let completed = self.completed_sessions.read().await;
         let active = self.active_sessions.read().await;
         let since = since_timestamp.unwrap_or(0);
-        
+
         // Filter sessions by timestamp
-        let relevant_completed: Vec<_> = completed
-            .iter()
-            .filter(|s| s.started_at >= since)
-            .collect();
-        
-        let relevant_active: Vec<_> = active
-            .values()
-            .filter(|s| s.started_at >= since)
-            .collect();
-        
+        let relevant_completed: Vec<_> =
+            completed.iter().filter(|s| s.started_at >= since).collect();
+
+        let relevant_active: Vec<_> = active.values().filter(|s| s.started_at >= since).collect();
+
         // Calculate metrics
         let total_sessions = relevant_completed.len() + relevant_active.len();
-        let total_time = relevant_completed.iter().map(|s| s.total_duration).sum::<u64>()
-            + relevant_active.iter().map(|s| s.get_current_duration()).sum::<u64>();
-        
-        let total_focused_time = relevant_completed.iter().map(|s| s.active_duration).sum::<u64>()
-            + relevant_active.iter().map(|s| s.get_focused_time()).sum::<u64>();
-        
-        let total_break_time = relevant_completed.iter().map(|s| s.break_duration).sum::<u64>()
+        let total_time = relevant_completed
+            .iter()
+            .map(|s| s.total_duration)
+            .sum::<u64>()
+            + relevant_active
+                .iter()
+                .map(|s| s.get_current_duration())
+                .sum::<u64>();
+
+        let total_focused_time = relevant_completed
+            .iter()
+            .map(|s| s.active_duration)
+            .sum::<u64>()
+            + relevant_active
+                .iter()
+                .map(|s| s.get_focused_time())
+                .sum::<u64>();
+
+        let total_break_time = relevant_completed
+            .iter()
+            .map(|s| s.break_duration)
+            .sum::<u64>()
             + relevant_active.iter().map(|s| s.break_time).sum::<u64>();
-        
-        let total_interruptions = relevant_completed.iter().map(|s| s.interruptions).sum::<u32>()
+
+        let total_interruptions = relevant_completed
+            .iter()
+            .map(|s| s.interruptions)
+            .sum::<u32>()
             + relevant_active.iter().map(|s| s.interruptions).sum::<u32>();
-        
+
         // Calculate averages
         let avg_session_duration = if total_sessions > 0 {
             total_time / total_sessions as u64
         } else {
             0
         };
-        
+
         let focus_efficiency = if total_time > 0 {
             (total_focused_time as f64 / total_time as f64) * 100.0
         } else {
             0.0
         };
-        
+
         let avg_interruptions_per_session = if total_sessions > 0 {
             total_interruptions as f64 / total_sessions as f64
         } else {
             0.0
         };
-        
+
         // Daily breakdown
         let mut daily_stats = std::collections::HashMap::new();
         for session in &relevant_completed {
@@ -293,9 +323,9 @@ impl TaskTracker {
             entry.sessions += 1;
             entry.interruptions += session.interruptions as u64;
         }
-        
+
         let daily_breakdown: Vec<_> = daily_stats.into_values().collect();
-        
+
         ProductivityReport {
             period_start: since,
             period_end: current_timestamp(),
@@ -315,45 +345,43 @@ impl TaskTracker {
     pub async fn get_task_insights(&self, task_id: &TaskId) -> Option<TaskInsights> {
         let completed = self.completed_sessions.read().await;
         let active = self.active_sessions.read().await;
-        
-        let task_sessions: Vec<_> = completed
-            .iter()
-            .filter(|s| &s.task_id == task_id)
-            .collect();
-        
+
+        let task_sessions: Vec<_> = completed.iter().filter(|s| &s.task_id == task_id).collect();
+
         if task_sessions.is_empty() && !active.contains_key(task_id) {
             return None;
         }
-        
+
         let total_time: u64 = task_sessions.iter().map(|s| s.total_duration).sum();
         let focused_time: u64 = task_sessions.iter().map(|s| s.active_duration).sum();
         let interruptions: u32 = task_sessions.iter().map(|s| s.interruptions).sum();
-        
+
         // Add active session if exists
-        let (total_time, focused_time, interruptions) = if let Some(active_session) = active.get(task_id) {
-            (
-                total_time + active_session.get_current_duration(),
-                focused_time + active_session.get_focused_time(),
-                interruptions + active_session.interruptions,
-            )
-        } else {
-            (total_time, focused_time, interruptions)
-        };
-        
+        let (total_time, focused_time, interruptions) =
+            if let Some(active_session) = active.get(task_id) {
+                (
+                    total_time + active_session.get_current_duration(),
+                    focused_time + active_session.get_focused_time(),
+                    interruptions + active_session.interruptions,
+                )
+            } else {
+                (total_time, focused_time, interruptions)
+            };
+
         let sessions_count = task_sessions.len() + if active.contains_key(task_id) { 1 } else { 0 };
-        
+
         let avg_session_duration = if sessions_count > 0 {
             total_time / sessions_count as u64
         } else {
             0
         };
-        
+
         let focus_ratio = if total_time > 0 {
             focused_time as f64 / total_time as f64
         } else {
             0.0
         };
-        
+
         Some(TaskInsights {
             task_id: task_id.clone(),
             total_time,
@@ -367,9 +395,13 @@ impl TaskTracker {
     }
 
     /// Get productivity report for date range
-    pub async fn get_productivity_report(&self, start_date: &str, end_date: &str) -> ProductivityReport {
+    pub async fn get_productivity_report(
+        &self,
+        start_date: &str,
+        end_date: &str,
+    ) -> ProductivityReport {
         let summaries = self.daily_summaries.read().await;
-        
+
         let mut total_time = 0;
         let mut total_sessions = 0;
         let mut total_interruptions = 0;
@@ -392,9 +424,17 @@ impl TaskTracker {
             total_interruptions: total_interruptions.into(),
             total_focused_time: total_time, // For now, assume all time is focused in this legacy method
             total_break_time: 0,
-            avg_session_duration: if total_sessions > 0 { total_time / total_sessions as u64 } else { 0 },
+            avg_session_duration: if total_sessions > 0 {
+                total_time / total_sessions as u64
+            } else {
+                0
+            },
             focus_efficiency: 100.0, // Default to 100% for legacy method
-            avg_interruptions_per_session: if total_sessions > 0 { total_interruptions as f64 / total_sessions as f64 } else { 0.0 },
+            avg_interruptions_per_session: if total_sessions > 0 {
+                total_interruptions as f64 / total_sessions as f64
+            } else {
+                0.0
+            },
             daily_breakdown: vec![], // Empty for legacy method
         }
     }
@@ -407,19 +447,20 @@ impl TaskTracker {
 
         let total_time = session.total_active_time + session.break_time;
         let active_ratio = session.total_active_time as f64 / total_time as f64;
-        
+
         // Base score from active time ratio
         let mut score = active_ratio * 100.0;
-        
+
         // Penalty for interruptions
         let interruption_penalty = (session.interruptions as f64) * 5.0;
         score = (score - interruption_penalty).max(0.0);
-        
+
         // Bonus for longer focused sessions
-        if session.total_active_time > 1800 { // 30+ minutes
+        if session.total_active_time > 1800 {
+            // 30+ minutes
             score += 10.0;
         }
-        
+
         score.min(100.0)
     }
 
@@ -437,18 +478,20 @@ impl TaskTracker {
     /// Update daily summary with completed session
     async fn update_daily_summary(&self, session: &CompletedSession) {
         let date = format_date_from_timestamp(session.started_at);
-        
+
         let mut summaries = self.daily_summaries.write().await;
-        let summary = summaries.entry(date.clone()).or_insert_with(|| DailySummary {
-            date: date.clone(),
-            total_active_time: 0,
-            total_break_time: 0,
-            total_sessions: 0,
-            total_interruptions: 0,
-            longest_session: 0,
-            productivity_score: 0.0,
-            task_breakdown: HashMap::new(),
-        });
+        let summary = summaries
+            .entry(date.clone())
+            .or_insert_with(|| DailySummary {
+                date: date.clone(),
+                total_active_time: 0,
+                total_break_time: 0,
+                total_sessions: 0,
+                total_interruptions: 0,
+                longest_session: 0,
+                productivity_score: 0.0,
+                task_breakdown: HashMap::new(),
+            });
 
         summary.total_active_time += session.active_duration;
         summary.total_break_time += session.break_duration;
@@ -457,7 +500,10 @@ impl TaskTracker {
         summary.longest_session = summary.longest_session.max(session.active_duration);
 
         // Update task breakdown
-        *summary.task_breakdown.entry(session.task_id.clone()).or_insert(0) += session.active_duration;
+        *summary
+            .task_breakdown
+            .entry(session.task_id.clone())
+            .or_insert(0) += session.active_duration;
 
         // Recalculate productivity score
         summary.productivity_score = session.productivity_score;
@@ -466,27 +512,32 @@ impl TaskTracker {
     /// Update productivity metrics for a task
     async fn update_productivity_metrics(&self, task_id: &TaskId, session: &CompletedSession) {
         let mut metrics = self.productivity_metrics.write().await;
-        let metric = metrics.entry(task_id.clone()).or_insert_with(|| ProductivityMetrics {
-            task_id: task_id.clone(),
-            total_tracked_time: 0,
-            total_sessions: 0,
-            average_session_length: 0,
-            total_interruptions: 0,
-            best_productivity_score: 0.0,
-            average_productivity_score: 0.0,
-            last_session_date: 0,
-        });
+        let metric = metrics
+            .entry(task_id.clone())
+            .or_insert_with(|| ProductivityMetrics {
+                task_id: task_id.clone(),
+                total_tracked_time: 0,
+                total_sessions: 0,
+                average_session_length: 0,
+                total_interruptions: 0,
+                best_productivity_score: 0.0,
+                average_productivity_score: 0.0,
+                last_session_date: 0,
+            });
 
         metric.total_tracked_time += session.active_duration;
         metric.total_sessions += 1;
         metric.average_session_length = metric.total_tracked_time / metric.total_sessions as u64;
         metric.total_interruptions += session.interruptions;
-        metric.best_productivity_score = metric.best_productivity_score.max(session.productivity_score);
+        metric.best_productivity_score = metric
+            .best_productivity_score
+            .max(session.productivity_score);
         metric.last_session_date = session.ended_at;
 
         // Update average productivity score
-        metric.average_productivity_score = 
-            (metric.average_productivity_score * (metric.total_sessions - 1) as f64 + session.productivity_score) 
+        metric.average_productivity_score = (metric.average_productivity_score
+            * (metric.total_sessions - 1) as f64
+            + session.productivity_score)
             / metric.total_sessions as f64;
     }
 }
@@ -519,11 +570,7 @@ impl TrackingSession {
     pub fn get_focused_time(&self) -> u64 {
         // Estimate focused time by subtracting interruption overhead
         let interruption_overhead = self.interruptions as u64 * 30; // 30 seconds per interruption
-        if self.total_active_time > interruption_overhead {
-            self.total_active_time - interruption_overhead
-        } else {
-            0
-        }
+        self.total_active_time.saturating_sub(interruption_overhead)
     }
 }
 
@@ -551,11 +598,7 @@ impl CompletedSession {
     pub fn get_focused_time(&self) -> u64 {
         // Estimate focused time by subtracting interruption overhead
         let interruption_overhead = self.interruptions as u64 * 30; // 30 seconds per interruption
-        if self.active_duration > interruption_overhead {
-            self.active_duration - interruption_overhead
-        } else {
-            0
-        }
+        self.active_duration.saturating_sub(interruption_overhead)
     }
 }
 
@@ -600,7 +643,6 @@ pub struct DailySummary {
     pub productivity_score: f64,
     pub task_breakdown: HashMap<TaskId, u64>,
 }
-
 
 /// Tracker statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -669,6 +711,12 @@ pub struct TimeTracker {
     start_time: Option<u64>,
 }
 
+impl Default for TimeTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TimeTracker {
     pub fn new() -> Self {
         Self { start_time: None }
@@ -724,7 +772,7 @@ mod tests {
     async fn test_task_tracker_creation() {
         let tracker = TaskTracker::new();
         let stats = tracker.get_stats().await;
-        
+
         assert_eq!(stats.sessions_started, 0);
         assert_eq!(stats.sessions_completed, 0);
         assert_eq!(stats.total_tracked_time, 0);
@@ -734,25 +782,25 @@ mod tests {
     async fn test_start_stop_tracking() {
         let tracker = TaskTracker::new();
         let task_id = "test-task-123".to_string();
-        
+
         // Start tracking
         tracker.start_task(&task_id).await;
-        
+
         let active_sessions = tracker.get_active_sessions().await;
         assert_eq!(active_sessions.len(), 1);
         assert_eq!(active_sessions[0].task_id, task_id);
-        
+
         // Wait 1 second to ensure measurable time difference
         sleep(TokioDuration::from_secs(1)).await;
-        
+
         // Stop tracking
         let duration = tracker.stop_task(&task_id).await;
         assert!(duration.is_some());
         assert!(duration.unwrap().as_secs() >= 1);
-        
+
         let active_sessions = tracker.get_active_sessions().await;
         assert_eq!(active_sessions.len(), 0);
-        
+
         let stats = tracker.get_stats().await;
         assert_eq!(stats.sessions_started, 1);
         assert_eq!(stats.sessions_completed, 1);
@@ -762,23 +810,23 @@ mod tests {
     async fn test_pause_resume_tracking() {
         let tracker = TaskTracker::new();
         let task_id = "test-task-123".to_string();
-        
+
         tracker.start_task(&task_id).await;
-        
+
         let session = tracker.get_active_session(&task_id).await.unwrap();
         assert!(!session.is_paused);
-        
+
         // Pause
         let paused = tracker.pause_task(&task_id).await;
         assert!(paused);
-        
+
         let session = tracker.get_active_session(&task_id).await.unwrap();
         assert!(session.is_paused);
-        
+
         // Resume
         let resumed = tracker.resume_task(&task_id).await;
         assert!(resumed);
-        
+
         let session = tracker.get_active_session(&task_id).await.unwrap();
         assert!(!session.is_paused);
     }
@@ -787,10 +835,10 @@ mod tests {
     async fn test_record_interruption() {
         let tracker = TaskTracker::new();
         let task_id = "test-task-123".to_string();
-        
+
         tracker.start_task(&task_id).await;
         tracker.record_interruption(&task_id, 60).await; // 1 minute interruption
-        
+
         let session = tracker.get_active_session(&task_id).await.unwrap();
         assert_eq!(session.interruptions, 1);
         assert_eq!(session.break_time, 60);
@@ -802,15 +850,15 @@ mod tests {
     async fn test_productivity_metrics() {
         let tracker = TaskTracker::new();
         let task_id = "test-task-123".to_string();
-        
+
         // Start and stop a session
         tracker.start_task(&task_id).await;
         sleep(TokioDuration::from_secs(1)).await; // Use 1 second for measurable difference
         tracker.stop_task(&task_id).await;
-        
+
         let metrics = tracker.get_productivity_metrics(&task_id).await;
         assert!(metrics.is_some());
-        
+
         let metrics = metrics.unwrap();
         assert_eq!(metrics.task_id, task_id);
         assert_eq!(metrics.total_sessions, 1);
@@ -821,16 +869,16 @@ mod tests {
     #[tokio::test]
     async fn test_time_tracker() {
         let mut timer = TimeTracker::new();
-        
+
         assert!(!timer.is_running());
         assert!(timer.elapsed().is_none());
-        
+
         timer.start();
         assert!(timer.is_running());
         assert!(timer.elapsed().is_some());
-        
+
         sleep(TokioDuration::from_secs(1)).await;
-        
+
         let duration = timer.stop();
         assert!(duration.is_some());
         assert!(duration.unwrap().as_secs() >= 1);

@@ -1,14 +1,14 @@
 // WezTerm Multi-Process Development Framework - Performance Optimization
 // パフォーマンス最適化モジュール
 
-pub mod startup;
-pub mod memory;
 pub mod async_opt;
+pub mod memory;
 pub mod metrics;
+pub mod startup;
 
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
 /// パフォーマンス設定
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,13 +85,13 @@ impl PerformanceManager {
     pub fn new(config: PerformanceConfig) -> Self {
         let start_time = Instant::now();
         info!("パフォーマンス最適化マネージャーを初期化中...");
-        
+
         // メモリプールを事前確保
         let mut memory_pool = Vec::with_capacity(16);
         for _ in 0..8 {
             memory_pool.push(Vec::with_capacity(config.initial_memory_pool_size / 8));
         }
-        
+
         Self {
             config,
             metrics: PerformanceMetrics::default(),
@@ -114,12 +114,15 @@ impl PerformanceManager {
         if usage > self.metrics.peak_memory {
             self.metrics.peak_memory = usage;
         }
-        
+
         // メモリ制限チェック
         let limit_bytes = self.config.memory_limit_mb * 1024 * 1024;
         if usage > limit_bytes {
-            warn!("メモリ使用量が制限を超過: {}MB > {}MB", 
-                  usage / 1024 / 1024, self.config.memory_limit_mb);
+            warn!(
+                "メモリ使用量が制限を超過: {}MB > {}MB",
+                usage / 1024 / 1024,
+                self.config.memory_limit_mb
+            );
             self.trigger_gc();
         }
     }
@@ -127,10 +130,12 @@ impl PerformanceManager {
     /// CPU使用率を更新
     pub fn update_cpu_usage(&mut self, usage: f64) {
         self.metrics.cpu_usage = usage;
-        
+
         if usage > self.config.cpu_limit_percent {
-            warn!("CPU使用率が制限を超過: {:.1}% > {:.1}%", 
-                  usage, self.config.cpu_limit_percent);
+            warn!(
+                "CPU使用率が制限を超過: {:.1}% > {:.1}%",
+                usage, self.config.cpu_limit_percent
+            );
         }
     }
 
@@ -146,24 +151,27 @@ impl PerformanceManager {
             // 1分以内のGC実行を制限
             return;
         }
-        
+
         debug!("ガベージコレクションを実行中...");
-        
+
         // キャッシュクリーンアップ
         let cache_size_before = self.cache.len();
         self.cache.retain(|_, v| v.capacity() <= 1024); // 1KB以下のみ保持
         let cache_size_after = self.cache.len();
-        
+
         // メモリプールリセット
         for buffer in &mut self.memory_pool {
             buffer.clear();
             buffer.shrink_to_fit();
         }
-        
+
         self.metrics.gc_runs += 1;
         self.last_gc = now;
-        
-        info!("GC完了: キャッシュ {}→{} エントリ", cache_size_before, cache_size_after);
+
+        info!(
+            "GC完了: キャッシュ {}→{} エントリ",
+            cache_size_before, cache_size_after
+        );
     }
 
     /// 定期的なガベージコレクション
@@ -194,7 +202,7 @@ impl PerformanceManager {
                 self.cache.remove(&oldest_key);
             }
         }
-        
+
         self.cache.insert(key, data);
     }
 
@@ -206,7 +214,7 @@ impl PerformanceManager {
                 return std::mem::take(buffer);
             }
         }
-        
+
         // プールが空の場合は新規作成
         Vec::with_capacity(size)
     }
@@ -214,7 +222,7 @@ impl PerformanceManager {
     /// バッファをメモリプールに返却
     pub fn return_buffer(&mut self, mut buffer: Vec<u8>) {
         buffer.clear();
-        
+
         if buffer.capacity() <= self.config.initial_memory_pool_size {
             for slot in &mut self.memory_pool {
                 if slot.is_empty() {
@@ -223,7 +231,7 @@ impl PerformanceManager {
                 }
             }
         }
-        
+
         // プールが満杯またはバッファが大きすぎる場合は破棄
         drop(buffer);
     }
@@ -251,7 +259,9 @@ impl PerformanceManager {
             self.metrics.active_tasks,
             self.metrics.gc_runs,
             if self.metrics.cache_hits + self.metrics.cache_misses > 0 {
-                (self.metrics.cache_hits as f64 / (self.metrics.cache_hits + self.metrics.cache_misses) as f64) * 100.0
+                (self.metrics.cache_hits as f64
+                    / (self.metrics.cache_hits + self.metrics.cache_misses) as f64)
+                    * 100.0
             } else {
                 0.0
             },
@@ -269,7 +279,7 @@ mod tests {
     fn test_performance_manager_creation() {
         let config = PerformanceConfig::default();
         let manager = PerformanceManager::new(config);
-        
+
         assert_eq!(manager.metrics.startup_time, Duration::from_secs(0));
         assert_eq!(manager.memory_pool.len(), 8);
     }
@@ -278,10 +288,10 @@ mod tests {
     fn test_memory_pool() {
         let config = PerformanceConfig::default();
         let mut manager = PerformanceManager::new(config);
-        
+
         let buffer = manager.get_buffer(1024);
         assert!(buffer.capacity() >= 1024);
-        
+
         manager.return_buffer(buffer);
     }
 
@@ -289,14 +299,14 @@ mod tests {
     fn test_cache_operations() {
         let config = PerformanceConfig::default();
         let mut manager = PerformanceManager::new(config);
-        
+
         // キャッシュミス
         assert!(manager.get_cached("test").is_none());
         assert_eq!(manager.metrics.cache_misses, 1);
-        
+
         // データをキャッシュ
         manager.cache_data("test".to_string(), vec![1, 2, 3]);
-        
+
         // キャッシュヒット
         let data = manager.get_cached("test");
         assert!(data.is_some());
@@ -308,11 +318,11 @@ mod tests {
     fn test_metrics_update() {
         let config = PerformanceConfig::default();
         let mut manager = PerformanceManager::new(config);
-        
+
         manager.update_memory_usage(1024 * 1024); // 1MB
         manager.update_cpu_usage(50.0);
         manager.update_active_tasks(5);
-        
+
         assert_eq!(manager.metrics.memory_usage, 1024 * 1024);
         assert_eq!(manager.metrics.cpu_usage, 50.0);
         assert_eq!(manager.metrics.active_tasks, 5);

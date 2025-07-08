@@ -1,7 +1,7 @@
+use log::{debug, info, warn};
+use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::env;
-use log::{debug, info, warn};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -57,7 +57,7 @@ impl ClaudeCodeDetector {
         if let Ok(explicit_path) = env::var("CLAUDE_CODE_BINARY") {
             let path = PathBuf::from(explicit_path);
             if self.verify_binary(&path)? {
-                info!("Found Claude Code at explicit path: {:?}", path);
+                info!("Found Claude Code at explicit path: {path:?}");
                 return Ok(path);
             }
         }
@@ -66,10 +66,10 @@ impl ClaudeCodeDetector {
         for dir in &self.search_paths {
             for name in &self.binary_names {
                 let candidate = dir.join(name);
-                debug!("Checking candidate: {:?}", candidate);
-                
+                debug!("Checking candidate: {candidate:?}");
+
                 if candidate.exists() && self.verify_binary(&candidate)? {
-                    info!("Found Claude Code binary: {:?}", candidate);
+                    info!("Found Claude Code binary: {candidate:?}");
                     return Ok(candidate);
                 }
             }
@@ -79,7 +79,7 @@ impl ClaudeCodeDetector {
         for name in &self.binary_names {
             if let Ok(path) = self.find_with_which(name) {
                 if self.verify_binary(&path)? {
-                    info!("Found Claude Code via which: {:?}", path);
+                    info!("Found Claude Code via which: {path:?}");
                     return Ok(path);
                 }
             }
@@ -90,9 +90,7 @@ impl ClaudeCodeDetector {
 
     /// whichコマンドを使ってバイナリを検索
     fn find_with_which(&self, name: &str) -> Result<PathBuf> {
-        let output = Command::new("which")
-            .arg(name)
-            .output()?;
+        let output = Command::new("which").arg(name).output()?;
 
         if output.status.success() {
             let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -101,7 +99,7 @@ impl ClaudeCodeDetector {
             }
         }
 
-        Err(format!("'which {}' failed", name).into())
+        Err(format!("'which {name}' failed").into())
     }
 
     /// バイナリが実行可能で、Claude Codeであることを検証
@@ -118,7 +116,7 @@ impl ClaudeCodeDetector {
         let metadata = fs::metadata(path)?;
         let permissions = metadata.permissions();
         if permissions.mode() & 0o111 == 0 {
-            debug!("Binary at {:?} is not executable", path);
+            debug!("Binary at {path:?} is not executable");
             return Ok(false);
         }
 
@@ -127,17 +125,17 @@ impl ClaudeCodeDetector {
             Ok(output) => {
                 let version_str = String::from_utf8_lossy(&output.stdout);
                 let is_claude_code = version_str.to_lowercase().contains("claude");
-                
+
                 if is_claude_code {
                     debug!("Verified Claude Code binary: {}", version_str.trim());
                     Ok(true)
                 } else {
-                    debug!("Binary at {:?} is not Claude Code", path);
+                    debug!("Binary at {path:?} is not Claude Code");
                     Ok(false)
                 }
             }
             Err(e) => {
-                warn!("Failed to run --version on {:?}: {}", path, e);
+                warn!("Failed to run --version on {path:?}: {e}");
                 Ok(false)
             }
         }
@@ -145,9 +143,7 @@ impl ClaudeCodeDetector {
 
     /// Claude Codeのバージョン情報を取得
     pub fn get_version(&self, binary_path: &Path) -> Result<String> {
-        let output = Command::new(binary_path)
-            .arg("--version")
-            .output()?;
+        let output = Command::new(binary_path).arg("--version").output()?;
 
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -199,16 +195,18 @@ mod tests {
     fn test_path_expansion() {
         let path = PathBuf::from("~/test");
         let expanded = path.expand_home();
-        
+
         if let Ok(home) = env::var("HOME") {
-            assert_eq!(expanded, PathBuf::from(format!("{}/test", home)));
+            assert_eq!(expanded, PathBuf::from(format!("{home}/test")));
         }
     }
 
     #[test]
     fn test_verify_binary_nonexistent() {
         let detector = ClaudeCodeDetector::new();
-        let result = detector.verify_binary(Path::new("/nonexistent/binary")).unwrap();
+        let result = detector
+            .verify_binary(Path::new("/nonexistent/binary"))
+            .unwrap();
         assert!(!result);
     }
 
@@ -217,16 +215,16 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let file_path = temp_dir.path().join("non_executable");
         File::create(&file_path)?;
-        
+
         // ファイルを読み取り専用に設定
         let mut perms = fs::metadata(&file_path)?.permissions();
         perms.set_mode(0o444);
         fs::set_permissions(&file_path, perms)?;
-        
+
         let detector = ClaudeCodeDetector::new();
         let result = detector.verify_binary(&file_path)?;
         assert!(!result);
-        
+
         Ok(())
     }
 

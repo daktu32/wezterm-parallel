@@ -64,7 +64,7 @@ impl HumanReadableFormatter {
         if !self.color_enabled {
             return "";
         }
-        
+
         match level {
             UnifiedLogLevel::Trace => "\x1b[36m", // Cyan
             UnifiedLogLevel::Debug => "\x1b[34m", // Blue
@@ -75,7 +75,11 @@ impl HumanReadableFormatter {
     }
 
     fn reset_color(&self) -> &'static str {
-        if self.color_enabled { "\x1b[0m" } else { "" }
+        if self.color_enabled {
+            "\x1b[0m"
+        } else {
+            ""
+        }
     }
 }
 
@@ -85,24 +89,33 @@ impl LogFormatter for HumanReadableFormatter {
 
         // タイムスタンプ
         if self.show_timestamp {
-            let timestamp = entry.timestamp
+            let timestamp = entry
+                .timestamp
                 .parse::<chrono::DateTime<chrono::Utc>>()
                 .map(|dt| dt.format("%H:%M:%S%.3f").to_string())
                 .unwrap_or_else(|_| entry.timestamp.clone());
-            parts.push(format!("{}", timestamp));
+            parts.push(timestamp.to_string());
         }
 
         // ログレベル
         if self.show_level {
             let level_color = self.get_level_color(entry.level);
             let reset = self.reset_color();
-            parts.push(format!("{}[{}]{}", level_color, entry.level.as_str(), reset));
+            parts.push(format!(
+                "{}[{}]{}",
+                level_color,
+                entry.level.as_str(),
+                reset
+            ));
         }
 
         // コンポーネント・操作
         if self.show_component {
             let component_info = if let Some(entity_id) = &entry.context.entity_id {
-                format!("[{}:{}:{}]", entry.context.component, entry.context.operation, entity_id)
+                format!(
+                    "[{}:{}:{}]",
+                    entry.context.component, entry.context.operation, entity_id
+                )
             } else {
                 format!("[{}:{}]", entry.context.component, entry.context.operation)
             };
@@ -111,7 +124,7 @@ impl LogFormatter for HumanReadableFormatter {
 
         // セッションID
         if let Some(session_id) = &entry.context.session_id {
-            parts.push(format!("({})", session_id));
+            parts.push(format!("({session_id})"));
         }
 
         // メッセージ
@@ -126,30 +139,37 @@ impl LogFormatter for HumanReadableFormatter {
             } else {
                 ""
             };
-            parts.push(format!("{}({}ms){}", duration_color, duration, self.reset_color()));
+            parts.push(format!(
+                "{}({}ms){}",
+                duration_color,
+                duration,
+                self.reset_color()
+            ));
         }
 
         // エラー情報
         if let Some(error) = &entry.error {
             let error_color = self.get_level_color(UnifiedLogLevel::Error);
             let reset = self.reset_color();
-            parts.push(format!("{}ERROR: {}{}", error_color, error, reset));
+            parts.push(format!("{error_color}ERROR: {error}{reset}"));
         }
 
         // メタデータ
         if self.show_metadata && !entry.context.metadata.is_empty() {
-            let metadata_str = entry.context.metadata
+            let metadata_str = entry
+                .context
+                .metadata
                 .iter()
                 .map(|(k, v)| format!("{}={}", k, format_metadata_value(v)))
                 .collect::<Vec<_>>()
                 .join(" ");
-            parts.push(format!("[{}]", metadata_str));
+            parts.push(format!("[{metadata_str}]"));
         }
 
         // ファイル・行番号
         if self.show_location {
             if let Some(location) = &entry.location {
-                parts.push(format!("@{}", location));
+                parts.push(format!("@{location}"));
             }
         }
 
@@ -158,19 +178,11 @@ impl LogFormatter for HumanReadableFormatter {
 }
 
 /// JSON構造化フォーマッター
+#[derive(Default)]
 pub struct JsonFormatter {
     pretty: bool,
     #[allow(dead_code)]
     include_empty_fields: bool,
-}
-
-impl Default for JsonFormatter {
-    fn default() -> Self {
-        Self {
-            pretty: false,
-            include_empty_fields: false,
-        }
-    }
 }
 
 impl JsonFormatter {
@@ -229,11 +241,9 @@ impl LogFormatter for JsonFormatter {
         }
 
         if self.pretty {
-            serde_json::to_string_pretty(&json_obj)
-                .unwrap_or_else(|_| format!("{:?}", entry))
+            serde_json::to_string_pretty(&json_obj).unwrap_or_else(|_| format!("{entry:?}"))
         } else {
-            serde_json::to_string(&json_obj)
-                .unwrap_or_else(|_| format!("{:?}", entry))
+            serde_json::to_string(&json_obj).unwrap_or_else(|_| format!("{entry:?}"))
         }
     }
 }
@@ -250,7 +260,7 @@ impl LogFormatter for LogFmtFormatter {
         parts.push(format!("level={}", entry.level.as_str()));
         parts.push(format!("component={}", entry.context.component));
         parts.push(format!("operation={}", entry.context.operation));
-        
+
         if let Some(entity_id) = &entry.context.entity_id {
             parts.push(format!("entity_id={}", quote_if_needed(entity_id)));
         }
@@ -262,7 +272,7 @@ impl LogFormatter for LogFmtFormatter {
         parts.push(format!("message={}", quote_if_needed(&entry.message)));
 
         if let Some(duration) = entry.duration_ms {
-            parts.push(format!("duration_ms={}", duration));
+            parts.push(format!("duration_ms={duration}"));
         }
 
         if let Some(error) = &entry.error {
@@ -271,7 +281,11 @@ impl LogFormatter for LogFmtFormatter {
 
         // メタデータ
         for (key, value) in &entry.context.metadata {
-            parts.push(format!("{}={}", key, quote_if_needed(&format_metadata_value(value))));
+            parts.push(format!(
+                "{}={}",
+                key,
+                quote_if_needed(&format_metadata_value(value))
+            ));
         }
 
         if let Some(location) = &entry.location {
@@ -290,19 +304,44 @@ pub struct CustomFormatter {
 
 impl CustomFormatter {
     pub fn new(template: &str) -> Self {
-        let mut extractors: HashMap<String, Box<dyn Fn(&UnifiedLogEntry) -> String + Send + Sync>> = HashMap::new();
-        
+        let mut extractors: HashMap<String, Box<dyn Fn(&UnifiedLogEntry) -> String + Send + Sync>> =
+            HashMap::new();
+
         // 基本フィールドのエクストラクター
         extractors.insert("timestamp".to_string(), Box::new(|e| e.timestamp.clone()));
-        extractors.insert("level".to_string(), Box::new(|e| e.level.as_str().to_string()));
-        extractors.insert("component".to_string(), Box::new(|e| e.context.component.clone()));
-        extractors.insert("operation".to_string(), Box::new(|e| e.context.operation.clone()));
+        extractors.insert(
+            "level".to_string(),
+            Box::new(|e| e.level.as_str().to_string()),
+        );
+        extractors.insert(
+            "component".to_string(),
+            Box::new(|e| e.context.component.clone()),
+        );
+        extractors.insert(
+            "operation".to_string(),
+            Box::new(|e| e.context.operation.clone()),
+        );
         extractors.insert("message".to_string(), Box::new(|e| e.message.clone()));
-        extractors.insert("entity_id".to_string(), Box::new(|e| e.context.entity_id.clone().unwrap_or_default()));
-        extractors.insert("session_id".to_string(), Box::new(|e| e.context.session_id.clone().unwrap_or_default()));
-        extractors.insert("error".to_string(), Box::new(|e| e.error.clone().unwrap_or_default()));
-        extractors.insert("duration".to_string(), Box::new(|e| e.duration_ms.map(|d| d.to_string()).unwrap_or_default()));
-        extractors.insert("location".to_string(), Box::new(|e| e.location.clone().unwrap_or_default()));
+        extractors.insert(
+            "entity_id".to_string(),
+            Box::new(|e| e.context.entity_id.clone().unwrap_or_default()),
+        );
+        extractors.insert(
+            "session_id".to_string(),
+            Box::new(|e| e.context.session_id.clone().unwrap_or_default()),
+        );
+        extractors.insert(
+            "error".to_string(),
+            Box::new(|e| e.error.clone().unwrap_or_default()),
+        );
+        extractors.insert(
+            "duration".to_string(),
+            Box::new(|e| e.duration_ms.map(|d| d.to_string()).unwrap_or_default()),
+        );
+        extractors.insert(
+            "location".to_string(),
+            Box::new(|e| e.location.clone().unwrap_or_default()),
+        );
 
         Self {
             template: template.to_string(),
@@ -316,22 +355,24 @@ impl CustomFormatter {
     }
 
     pub fn detailed() -> Self {
-        Self::new("{timestamp} [{level}] [{component}:{operation}] {entity_id} {message} {duration}ms")
+        Self::new(
+            "{timestamp} [{level}] [{component}:{operation}] {entity_id} {message} {duration}ms",
+        )
     }
 }
 
 impl LogFormatter for CustomFormatter {
     fn format(&self, entry: &UnifiedLogEntry) -> String {
         let mut result = self.template.clone();
-        
+
         for (field, extractor) in &self.field_extractors {
-            let placeholder = format!("{{{}}}", field);
+            let placeholder = format!("{{{field}}}");
             if result.contains(&placeholder) {
                 let value = extractor(entry);
                 result = result.replace(&placeholder, &value);
             }
         }
-        
+
         result
     }
 }
@@ -415,7 +456,7 @@ mod tests {
         let formatter = HumanReadableFormatter::new();
         let entry = create_test_entry();
         let formatted = formatter.format(&entry);
-        
+
         assert!(formatted.contains("INFO"));
         assert!(formatted.contains("test:operation"));
         assert!(formatted.contains("test-123"));
@@ -429,7 +470,7 @@ mod tests {
         let formatter = JsonFormatter::new();
         let entry = create_test_entry();
         let formatted = formatter.format(&entry);
-        
+
         let parsed: Value = serde_json::from_str(&formatted).unwrap();
         assert_eq!(parsed["level"], "INFO");
         assert_eq!(parsed["component"], "test");
@@ -443,7 +484,7 @@ mod tests {
         let formatter = LogFmtFormatter;
         let entry = create_test_entry();
         let formatted = formatter.format(&entry);
-        
+
         assert!(formatted.contains("level=INFO"));
         assert!(formatted.contains("component=test"));
         assert!(formatted.contains("operation=operation"));
@@ -457,7 +498,7 @@ mod tests {
         let formatter = CustomFormatter::new("{level} - {component}: {message}");
         let entry = create_test_entry();
         let formatted = formatter.format(&entry);
-        
+
         assert_eq!(formatted, "INFO - test: Test message with spaces");
     }
 }

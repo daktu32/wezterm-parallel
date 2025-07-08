@@ -1,14 +1,14 @@
 // WezTerm Multi-Process Development Framework - Process Monitor
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{SystemTime, Duration};
+use std::time::{Duration, SystemTime};
 use tokio::sync::RwLock;
 use tokio::time::sleep;
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, debug};
+use tracing::{debug, error, info, warn};
 
-use crate::room::state::{ProcessInfo, ProcessStatus};
 use super::manager::ProcessManager;
+use crate::room::state::{ProcessInfo, ProcessStatus};
 
 #[derive(Debug)]
 pub struct ProcessMonitor {
@@ -101,15 +101,18 @@ impl ProcessMonitor {
     }
 
     pub async fn start_monitoring(&self) {
-        info!("Starting process monitoring with interval {}s", self.config.monitor_interval_secs);
-        
+        info!(
+            "Starting process monitoring with interval {}s",
+            self.config.monitor_interval_secs
+        );
+
         let monitor_interval = Duration::from_secs(self.config.monitor_interval_secs);
-        
+
         loop {
             self.collect_metrics().await;
             self.check_alerts().await;
             self.cleanup_old_alerts().await;
-            
+
             sleep(monitor_interval).await;
         }
     }
@@ -117,30 +120,36 @@ impl ProcessMonitor {
     async fn collect_metrics(&self) {
         let processes = self.manager.list_processes().await;
         let mut metrics = self.metrics.write().await;
-        
+
         for process in &processes {
-            let process_metrics = self.measure_process(&process).await;
-            
+            let process_metrics = self.measure_process(process).await;
+
             if self.config.enable_performance_logging {
-                debug!("Process '{}' metrics: CPU: {:.1}%, Memory: {}MB, Responsive: {}", 
-                       process_metrics.process_id,
-                       process_metrics.cpu_usage_percent,
-                       process_metrics.memory_usage_mb,
-                       process_metrics.is_responsive);
+                debug!(
+                    "Process '{}' metrics: CPU: {:.1}%, Memory: {}MB, Responsive: {}",
+                    process_metrics.process_id,
+                    process_metrics.cpu_usage_percent,
+                    process_metrics.memory_usage_mb,
+                    process_metrics.is_responsive
+                );
             }
-            
+
             metrics.insert(process.id.clone(), process_metrics);
         }
-        
+
         // Remove metrics for processes that no longer exist
-        let current_process_ids: std::collections::HashSet<_> = processes.iter().map(|p| &p.id).collect();
+        let current_process_ids: std::collections::HashSet<_> =
+            processes.iter().map(|p| &p.id).collect();
         metrics.retain(|id, _| current_process_ids.contains(id));
     }
 
     async fn measure_process(&self, process: &ProcessInfo) -> ProcessMetrics {
         let now = SystemTime::now();
-        let uptime = now.duration_since(process.started_at).unwrap_or_default().as_secs();
-        
+        let uptime = now
+            .duration_since(process.started_at)
+            .unwrap_or_default()
+            .as_secs();
+
         // Get existing metrics for historical data
         let existing_metrics = {
             let metrics = self.metrics.read().await;
@@ -149,8 +158,9 @@ impl ProcessMonitor {
 
         // TODO: Implement actual system metrics collection
         // For now, we'll simulate metrics
-        let (cpu_usage, memory_usage, response_time, is_responsive) = 
-            self.simulate_process_metrics(process, &existing_metrics).await;
+        let (cpu_usage, memory_usage, response_time, is_responsive) = self
+            .simulate_process_metrics(process, &existing_metrics)
+            .await;
 
         ProcessMetrics {
             process_id: process.id.clone(),
@@ -162,16 +172,40 @@ impl ProcessMonitor {
             restart_count: process.restart_count,
             last_heartbeat: process.last_heartbeat,
             is_responsive,
-            consecutive_failures: existing_metrics.as_ref().map(|m| {
-                if is_responsive { 0 } else { m.consecutive_failures + 1 }
-            }).unwrap_or(0),
-            total_requests: existing_metrics.as_ref().map(|m| m.total_requests + 1).unwrap_or(1),
-            successful_requests: existing_metrics.as_ref().map(|m| {
-                if is_responsive { m.successful_requests + 1 } else { m.successful_requests }
-            }).unwrap_or(if is_responsive { 1 } else { 0 }),
-            failed_requests: existing_metrics.as_ref().map(|m| {
-                if !is_responsive { m.failed_requests + 1 } else { m.failed_requests }
-            }).unwrap_or(if !is_responsive { 1 } else { 0 }),
+            consecutive_failures: existing_metrics
+                .as_ref()
+                .map(|m| {
+                    if is_responsive {
+                        0
+                    } else {
+                        m.consecutive_failures + 1
+                    }
+                })
+                .unwrap_or(0),
+            total_requests: existing_metrics
+                .as_ref()
+                .map(|m| m.total_requests + 1)
+                .unwrap_or(1),
+            successful_requests: existing_metrics
+                .as_ref()
+                .map(|m| {
+                    if is_responsive {
+                        m.successful_requests + 1
+                    } else {
+                        m.successful_requests
+                    }
+                })
+                .unwrap_or(if is_responsive { 1 } else { 0 }),
+            failed_requests: existing_metrics
+                .as_ref()
+                .map(|m| {
+                    if !is_responsive {
+                        m.failed_requests + 1
+                    } else {
+                        m.failed_requests
+                    }
+                })
+                .unwrap_or(if !is_responsive { 1 } else { 0 }),
         }
     }
 
@@ -206,16 +240,17 @@ impl ProcessMonitor {
         };
 
         let response_time = base_response;
-        let is_responsive = matches!(process.status, 
-            ProcessStatus::Running | ProcessStatus::Busy | ProcessStatus::Idle) 
-            && response_time < (self.config.response_timeout_secs * 1000);
+        let is_responsive = matches!(
+            process.status,
+            ProcessStatus::Running | ProcessStatus::Busy | ProcessStatus::Idle
+        ) && response_time < (self.config.response_timeout_secs * 1000);
 
         (cpu_usage, memory_usage, response_time, is_responsive)
     }
 
     async fn check_alerts(&self) {
         let metrics = self.metrics.read().await;
-        
+
         for (_process_id, process_metrics) in metrics.iter() {
             self.check_cpu_alert(process_metrics).await;
             self.check_memory_alert(process_metrics).await;
@@ -225,89 +260,137 @@ impl ProcessMonitor {
     }
 
     async fn check_cpu_alert(&self, metrics: &ProcessMetrics) {
-        if metrics.cpu_usage_percent > self.config.cpu_threshold_percent && !self.has_recent_alert(&metrics.process_id, &AlertType::HighCpuUsage).await {
+        if metrics.cpu_usage_percent > self.config.cpu_threshold_percent
+            && !self
+                .has_recent_alert(&metrics.process_id, &AlertType::HighCpuUsage)
+                .await
+        {
             let alert = Alert {
-                id: format!("cpu-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
+                id: format!(
+                    "cpu-{}-{}",
+                    metrics.process_id,
+                    chrono::Utc::now().timestamp()
+                ),
                 process_id: metrics.process_id.clone(),
                 alert_type: AlertType::HighCpuUsage,
-                message: format!("Process '{}' CPU usage: {:.1}% (threshold: {:.1}%)", 
-                               metrics.process_id, metrics.cpu_usage_percent, self.config.cpu_threshold_percent),
-                severity: if metrics.cpu_usage_percent > 95.0 { 
-                    AlertSeverity::Critical 
-                } else { 
-                    AlertSeverity::Warning 
+                message: format!(
+                    "Process '{}' CPU usage: {:.1}% (threshold: {:.1}%)",
+                    metrics.process_id,
+                    metrics.cpu_usage_percent,
+                    self.config.cpu_threshold_percent
+                ),
+                severity: if metrics.cpu_usage_percent > 95.0 {
+                    AlertSeverity::Critical
+                } else {
+                    AlertSeverity::Warning
                 },
                 timestamp: SystemTime::now(),
                 acknowledged: false,
             };
-            
+
             self.add_alert(alert).await;
         }
     }
 
     async fn check_memory_alert(&self, metrics: &ProcessMetrics) {
-        if metrics.memory_usage_mb > self.config.memory_threshold_mb && !self.has_recent_alert(&metrics.process_id, &AlertType::HighMemoryUsage).await {
+        if metrics.memory_usage_mb > self.config.memory_threshold_mb
+            && !self
+                .has_recent_alert(&metrics.process_id, &AlertType::HighMemoryUsage)
+                .await
+        {
             let alert = Alert {
-                id: format!("mem-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
+                id: format!(
+                    "mem-{}-{}",
+                    metrics.process_id,
+                    chrono::Utc::now().timestamp()
+                ),
                 process_id: metrics.process_id.clone(),
                 alert_type: AlertType::HighMemoryUsage,
-                message: format!("Process '{}' memory usage: {}MB (threshold: {}MB)", 
-                               metrics.process_id, metrics.memory_usage_mb, self.config.memory_threshold_mb),
-                severity: if metrics.memory_usage_mb > self.config.memory_threshold_mb * 2 { 
-                    AlertSeverity::Critical 
-                } else { 
-                    AlertSeverity::Warning 
+                message: format!(
+                    "Process '{}' memory usage: {}MB (threshold: {}MB)",
+                    metrics.process_id, metrics.memory_usage_mb, self.config.memory_threshold_mb
+                ),
+                severity: if metrics.memory_usage_mb > self.config.memory_threshold_mb * 2 {
+                    AlertSeverity::Critical
+                } else {
+                    AlertSeverity::Warning
                 },
                 timestamp: SystemTime::now(),
                 acknowledged: false,
             };
-            
+
             self.add_alert(alert).await;
         }
     }
 
     async fn check_responsiveness_alert(&self, metrics: &ProcessMetrics) {
-        if !metrics.is_responsive && !self.has_recent_alert(&metrics.process_id, &AlertType::ProcessUnresponsive).await {
+        if !metrics.is_responsive
+            && !self
+                .has_recent_alert(&metrics.process_id, &AlertType::ProcessUnresponsive)
+                .await
+        {
             let alert = Alert {
-                id: format!("unresponsive-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
+                id: format!(
+                    "unresponsive-{}-{}",
+                    metrics.process_id,
+                    chrono::Utc::now().timestamp()
+                ),
                 process_id: metrics.process_id.clone(),
                 alert_type: AlertType::ProcessUnresponsive,
-                message: format!("Process '{}' is unresponsive (response time: {}ms)", 
-                               metrics.process_id, metrics.response_time_ms),
+                message: format!(
+                    "Process '{}' is unresponsive (response time: {}ms)",
+                    metrics.process_id, metrics.response_time_ms
+                ),
                 severity: AlertSeverity::Critical,
                 timestamp: SystemTime::now(),
                 acknowledged: false,
             };
-            
+
             self.add_alert(alert).await;
-            
+
             // Auto-restart if configured
-            if self.config.restart_on_failure && 
-               metrics.consecutive_failures >= self.config.max_consecutive_failures {
-                warn!("Process '{}' has {} consecutive failures, attempting restart", 
-                      metrics.process_id, metrics.consecutive_failures);
-                
+            if self.config.restart_on_failure
+                && metrics.consecutive_failures >= self.config.max_consecutive_failures
+            {
+                warn!(
+                    "Process '{}' has {} consecutive failures, attempting restart",
+                    metrics.process_id, metrics.consecutive_failures
+                );
+
                 if let Err(e) = self.manager.restart_process(&metrics.process_id).await {
-                    error!("Failed to restart unresponsive process '{}': {}", metrics.process_id, e);
+                    error!(
+                        "Failed to restart unresponsive process '{}': {}",
+                        metrics.process_id, e
+                    );
                 }
             }
         }
     }
 
     async fn check_restart_alert(&self, metrics: &ProcessMetrics) {
-        if metrics.restart_count > 5 { // Alert if more than 5 restarts
-            if !self.has_recent_alert(&metrics.process_id, &AlertType::TooManyRestarts).await {
+        if metrics.restart_count > 5 {
+            // Alert if more than 5 restarts
+            if !self
+                .has_recent_alert(&metrics.process_id, &AlertType::TooManyRestarts)
+                .await
+            {
                 let alert = Alert {
-                    id: format!("restarts-{}-{}", metrics.process_id, chrono::Utc::now().timestamp()),
+                    id: format!(
+                        "restarts-{}-{}",
+                        metrics.process_id,
+                        chrono::Utc::now().timestamp()
+                    ),
                     process_id: metrics.process_id.clone(),
                     alert_type: AlertType::TooManyRestarts,
-                    message: format!("Process '{}' has been restarted {} times", 
-                                   metrics.process_id, metrics.restart_count),
+                    message: format!(
+                        "Process '{}' has been restarted {} times",
+                        metrics.process_id, metrics.restart_count
+                    ),
                     severity: AlertSeverity::Warning,
                     timestamp: SystemTime::now(),
                     acknowledged: false,
                 };
-                
+
                 self.add_alert(alert).await;
             }
         }
@@ -317,11 +400,11 @@ impl ProcessMonitor {
         let alerts = self.alerts.read().await;
         let cooldown = Duration::from_secs(self.config.alert_cooldown_secs);
         let cutoff = SystemTime::now() - cooldown;
-        
+
         alerts.iter().any(|alert| {
-            alert.process_id == process_id &&
-            std::mem::discriminant(&alert.alert_type) == std::mem::discriminant(alert_type) &&
-            alert.timestamp > cutoff
+            alert.process_id == process_id
+                && std::mem::discriminant(&alert.alert_type) == std::mem::discriminant(alert_type)
+                && alert.timestamp > cutoff
         })
     }
 
@@ -331,7 +414,7 @@ impl ProcessMonitor {
             AlertSeverity::Warning => warn!("WARNING: {}", alert.message),
             AlertSeverity::Info => info!("INFO: {}", alert.message),
         }
-        
+
         let mut alerts = self.alerts.write().await;
         alerts.push(alert);
     }
@@ -339,10 +422,10 @@ impl ProcessMonitor {
     async fn cleanup_old_alerts(&self) {
         let mut alerts = self.alerts.write().await;
         let cutoff = SystemTime::now() - Duration::from_secs(3600 * 24); // 24 hours
-        
+
         let initial_count = alerts.len();
         alerts.retain(|alert| alert.timestamp > cutoff);
-        
+
         let removed_count = initial_count - alerts.len();
         if removed_count > 0 {
             debug!("Cleaned up {} old alerts", removed_count);
@@ -361,7 +444,8 @@ impl ProcessMonitor {
 
     pub async fn get_active_alerts(&self) -> Vec<Alert> {
         let alerts = self.alerts.read().await;
-        alerts.iter()
+        alerts
+            .iter()
             .filter(|alert| !alert.acknowledged)
             .cloned()
             .collect()
@@ -369,38 +453,38 @@ impl ProcessMonitor {
 
     pub async fn acknowledge_alert(&self, alert_id: &str) -> Result<(), String> {
         let mut alerts = self.alerts.write().await;
-        
+
         if let Some(alert) = alerts.iter_mut().find(|a| a.id == alert_id) {
             alert.acknowledged = true;
             info!("Alert '{}' acknowledged", alert_id);
             Ok(())
         } else {
-            Err(format!("Alert '{}' not found", alert_id))
+            Err(format!("Alert '{alert_id}' not found"))
         }
     }
 
     pub async fn get_system_health(&self) -> SystemHealth {
         let metrics = self.metrics.read().await;
         let alerts = self.alerts.read().await;
-        
+
         let total_processes = metrics.len();
-        let responsive_processes = metrics.values()
-            .filter(|m| m.is_responsive)
-            .count();
-        
+        let responsive_processes = metrics.values().filter(|m| m.is_responsive).count();
+
         let avg_cpu = if total_processes > 0 {
             metrics.values().map(|m| m.cpu_usage_percent).sum::<f32>() / total_processes as f32
         } else {
             0.0
         };
-        
+
         let total_memory = metrics.values().map(|m| m.memory_usage_mb).sum::<u64>();
-        
-        let critical_alerts = alerts.iter()
+
+        let critical_alerts = alerts
+            .iter()
             .filter(|a| !a.acknowledged && matches!(a.severity, AlertSeverity::Critical))
             .count();
-        
-        let warning_alerts = alerts.iter()
+
+        let warning_alerts = alerts
+            .iter()
             .filter(|a| !a.acknowledged && matches!(a.severity, AlertSeverity::Warning))
             .count();
 
@@ -443,12 +527,12 @@ pub enum HealthStatus {
 // Add chrono for timestamp generation
 mod chrono {
     pub struct Utc;
-    
+
     impl Utc {
         pub fn now() -> Self {
             Self
         }
-        
+
         pub fn timestamp(&self) -> i64 {
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -468,9 +552,9 @@ mod tests {
         let process_config = ProcessConfig::default();
         let (manager, _receiver) = ProcessManager::new(process_config);
         let monitor_config = MonitorConfig::default();
-        
+
         let monitor = ProcessMonitor::new(manager, monitor_config);
-        
+
         let health = monitor.get_system_health().await;
         assert_eq!(health.total_processes, 0);
         assert!(matches!(health.overall_status, HealthStatus::Healthy));
@@ -481,9 +565,9 @@ mod tests {
         let process_config = ProcessConfig::default();
         let (manager, _receiver) = ProcessManager::new(process_config);
         let monitor_config = MonitorConfig::default();
-        
+
         let monitor = ProcessMonitor::new(manager, monitor_config);
-        
+
         let alert = Alert {
             id: "test-alert".to_string(),
             process_id: "test-process".to_string(),
@@ -493,15 +577,15 @@ mod tests {
             timestamp: SystemTime::now(),
             acknowledged: false,
         };
-        
+
         monitor.add_alert(alert).await;
-        
+
         let active_alerts = monitor.get_active_alerts().await;
         assert_eq!(active_alerts.len(), 1);
-        
+
         let result = monitor.acknowledge_alert("test-alert").await;
         assert!(result.is_ok());
-        
+
         let active_alerts = monitor.get_active_alerts().await;
         assert_eq!(active_alerts.len(), 0);
     }

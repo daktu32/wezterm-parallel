@@ -1,10 +1,10 @@
-use crate::{CoordinationEvent, CoordinationResponse, ProcessStatus};
-use crate::task::TaskDistributor;
 use crate::sync::FileSyncManager;
+use crate::task::TaskDistributor;
+use crate::{CoordinationEvent, CoordinationResponse, ProcessStatus};
 use std::collections::HashMap;
+use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::error::Error;
 use uuid::Uuid;
 
 /// プロセス協調のためのコーディネーター
@@ -69,7 +69,7 @@ impl ProcessCoordinator {
                 uuid: process_uuid,
             },
         );
-        
+
         // ファイル同期マネージャーにプロセスを登録
         let mut file_sync = self.file_sync_manager.write().await;
         file_sync.register_process(process_uuid);
@@ -93,9 +93,9 @@ impl ProcessCoordinator {
 
         selected_process.task_count += 1;
         let process_id = selected_process.id.clone();
-        
+
         task_assignments.insert(task_id.clone(), process_id.clone());
-        
+
         Ok(process_id)
     }
 
@@ -188,10 +188,10 @@ mod tests {
     #[tokio::test]
     async fn test_process_registration() {
         let coordinator = ProcessCoordinator::new();
-        
+
         coordinator.register_process("process-1".to_string()).await;
         coordinator.register_process("process-2".to_string()).await;
-        
+
         let statuses = coordinator.get_all_process_statuses().await;
         assert_eq!(statuses.len(), 2);
         assert!(statuses.contains_key("process-1"));
@@ -201,20 +201,20 @@ mod tests {
     #[tokio::test]
     async fn test_task_assignment() {
         let coordinator = ProcessCoordinator::new();
-        
+
         coordinator.register_process("process-a".to_string()).await;
         coordinator.register_process("process-b".to_string()).await;
-        
+
         let assigned1 = coordinator
             .assign_task("task-1".to_string(), "First task".to_string())
             .await
             .unwrap();
-        
+
         let assigned2 = coordinator
             .assign_task("task-2".to_string(), "Second task".to_string())
             .await
             .unwrap();
-        
+
         assert!(assigned1 == "process-a" || assigned1 == "process-b");
         assert!(assigned2 == "process-a" || assigned2 == "process-b");
     }
@@ -222,21 +222,21 @@ mod tests {
     #[tokio::test]
     async fn test_load_balancing() {
         let coordinator = ProcessCoordinator::new();
-        
+
         coordinator.register_process("process-1".to_string()).await;
         coordinator.register_process("process-2".to_string()).await;
         coordinator.register_process("process-3".to_string()).await;
-        
+
         // 6つのタスクを割り当て
         for i in 0..6 {
             coordinator
-                .assign_task(format!("task-{}", i), format!("Task {}", i))
+                .assign_task(format!("task-{i}"), format!("Task {i}"))
                 .await
                 .unwrap();
         }
-        
+
         let loads = coordinator.get_process_loads().await;
-        
+
         // 各プロセスの負荷が2になるはず（6タスク / 3プロセス）
         for (_, load) in loads {
             assert_eq!(load, 2);
@@ -246,27 +246,29 @@ mod tests {
     #[tokio::test]
     async fn test_process_failure_handling() {
         let coordinator = ProcessCoordinator::new();
-        
+
         coordinator.register_process("process-x".to_string()).await;
         coordinator.register_process("process-y".to_string()).await;
-        
+
         // process-xにタスクを割り当て
         let assigned_process = coordinator
             .assign_task("critical-task".to_string(), "Important task".to_string())
             .await
             .unwrap();
-        
+
         // process-xの障害を処理
-        coordinator.handle_process_failure("process-x".to_string()).await;
-        
+        coordinator
+            .handle_process_failure("process-x".to_string())
+            .await;
+
         // タスクが再割り当てリストに入っているか確認
         let reassigned = coordinator.get_reassigned_tasks().await;
-        
+
         // process-xに割り当てられたタスクだけをチェック
         if assigned_process == "process-x" {
             assert!(reassigned.contains(&"critical-task".to_string()));
         }
-        
+
         // process-xが削除されているか確認
         let statuses = coordinator.get_all_process_statuses().await;
         assert!(!statuses.contains_key("process-x"));

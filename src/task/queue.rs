@@ -4,29 +4,29 @@
 use super::types::{Task, TaskId, TaskPriority, TaskStatus};
 use super::{TaskError, TaskResult};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque, BinaryHeap};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap, VecDeque};
 use tokio::sync::RwLock;
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
 /// Task queue configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueueConfig {
     /// Maximum queue size
     pub max_size: usize,
-    
+
     /// Queue strategy
     pub strategy: QueueStrategy,
-    
+
     /// Enable priority-based ordering
     pub priority_enabled: bool,
-    
+
     /// Enable deadline-based ordering
     pub deadline_enabled: bool,
-    
+
     /// Enable dependency resolution
     pub dependency_resolution: bool,
-    
+
     /// Queue processing interval in milliseconds
     pub processing_interval: u64,
 }
@@ -49,19 +49,19 @@ impl Default for QueueConfig {
 pub enum QueueStrategy {
     /// First In, First Out
     FIFO,
-    
+
     /// Last In, First Out
     LIFO,
-    
+
     /// Priority-based ordering
     PriorityFirst,
-    
+
     /// Deadline-based ordering
     DeadlineFirst,
-    
+
     /// Shortest Job First
     ShortestFirst,
-    
+
     /// Custom weighted scoring
     Weighted,
 }
@@ -71,16 +71,16 @@ pub enum QueueStrategy {
 pub struct TaskQueue {
     /// Queue configuration
     config: QueueConfig,
-    
+
     /// Priority queue for high-priority tasks
     priority_queue: RwLock<BinaryHeap<QueuedTask>>,
-    
+
     /// Standard FIFO queue for regular tasks
     standard_queue: RwLock<VecDeque<QueuedTask>>,
-    
+
     /// Task lookup by ID
     task_lookup: RwLock<HashMap<TaskId, Task>>,
-    
+
     /// Queue statistics
     stats: RwLock<QueueStats>,
 }
@@ -234,7 +234,9 @@ impl TaskQueue {
         // Remove from lookup first
         let task = {
             let mut lookup = self.task_lookup.write().await;
-            lookup.remove(task_id).ok_or_else(|| TaskError::TaskNotFound(task_id.clone()))?
+            lookup
+                .remove(task_id)
+                .ok_or_else(|| TaskError::TaskNotFound(task_id.clone()))?
         };
 
         // Remove from queues (this is inefficient for BinaryHeap, but necessary)
@@ -308,7 +310,7 @@ impl TaskQueue {
     /// Update task in queue
     pub async fn update_task(&self, task: Task) -> TaskResult<()> {
         let task_id = task.id.clone();
-        
+
         {
             let mut lookup = self.task_lookup.write().await;
             if lookup.contains_key(&task_id) {
@@ -328,12 +330,12 @@ impl TaskQueue {
             let mut priority_queue = self.priority_queue.write().await;
             priority_queue.clear();
         }
-        
+
         {
             let mut standard_queue = self.standard_queue.write().await;
             standard_queue.clear();
         }
-        
+
         {
             let mut lookup = self.task_lookup.write().await;
             lookup.clear();
@@ -356,7 +358,7 @@ impl TaskQueue {
 
         let lookup = self.task_lookup.read().await;
         let all_tasks: Vec<Task> = lookup.values().cloned().collect();
-        
+
         // Find completed task IDs
         let completed_task_ids: Vec<TaskId> = all_tasks
             .iter()
@@ -367,9 +369,7 @@ impl TaskQueue {
         // Find tasks that can be started
         all_tasks
             .into_iter()
-            .filter(|task| {
-                task.status == TaskStatus::Todo && task.can_start(&completed_task_ids)
-            })
+            .filter(|task| task.status == TaskStatus::Todo && task.can_start(&completed_task_ids))
             .collect()
     }
 
@@ -398,7 +398,7 @@ struct QueuedTask {
 impl QueuedTask {
     fn new(task: Task, config: &QueueConfig) -> Self {
         let score = Self::calculate_score(&task, config);
-        
+
         Self {
             task_id: task.id,
             priority: task.priority,
@@ -461,7 +461,9 @@ impl PartialOrd for QueuedTask {
 
 impl Ord for QueuedTask {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.score.partial_cmp(&other.score).unwrap_or(Ordering::Equal)
+        self.score
+            .partial_cmp(&other.score)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -470,25 +472,25 @@ impl Ord for QueuedTask {
 pub struct QueueStats {
     /// Total tasks enqueued
     pub enqueued: u64,
-    
+
     /// Total tasks dequeued
     pub dequeued: u64,
-    
+
     /// Total tasks removed
     pub removed: u64,
-    
+
     /// Times queue was cleared
     pub cleared: u64,
-    
+
     /// Current queue size
     pub current_size: usize,
-    
+
     /// Peak queue size
     pub peak_size: usize,
-    
+
     /// Average wait time in seconds
     pub avg_wait_time: f64,
-    
+
     /// Queue creation timestamp
     pub created_at: u64,
 }
@@ -511,13 +513,13 @@ impl QueueStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::task::types::{TaskCategory, Task};
+    use crate::task::types::{Task, TaskCategory};
 
     #[tokio::test]
     async fn test_queue_creation() {
         let config = QueueConfig::default();
         let queue = TaskQueue::new(config);
-        
+
         assert_eq!(queue.size().await, 0);
         assert!(queue.is_empty().await);
     }
@@ -526,16 +528,16 @@ mod tests {
     async fn test_enqueue_dequeue() {
         let config = QueueConfig::default();
         let queue = TaskQueue::new(config);
-        
+
         let task = Task::new("Test Task".to_string(), TaskCategory::Development);
         let task_id = task.id.clone();
-        
+
         // Enqueue
         let result = queue.enqueue(task).await;
         assert!(result.is_ok());
         assert_eq!(queue.size().await, 1);
         assert!(!queue.is_empty().await);
-        
+
         // Dequeue
         let dequeued_task = queue.dequeue().await;
         assert!(dequeued_task.is_some());
@@ -551,27 +553,27 @@ mod tests {
             ..Default::default()
         };
         let queue = TaskQueue::new(config);
-        
+
         // Add tasks with different priorities
         let mut low_task = Task::new("Low Priority".to_string(), TaskCategory::Development);
         low_task.priority = TaskPriority::Low;
-        
+
         let mut high_task = Task::new("High Priority".to_string(), TaskCategory::Development);
         high_task.priority = TaskPriority::High;
-        
+
         let mut medium_task = Task::new("Medium Priority".to_string(), TaskCategory::Development);
         medium_task.priority = TaskPriority::Medium;
-        
+
         // Enqueue in random order
         queue.enqueue(low_task).await.unwrap();
         queue.enqueue(high_task).await.unwrap();
         queue.enqueue(medium_task).await.unwrap();
-        
+
         // Dequeue should return in priority order (implementation dependent)
         let first = queue.dequeue().await.unwrap();
-        let second = queue.dequeue().await.unwrap(); 
+        let second = queue.dequeue().await.unwrap();
         let third = queue.dequeue().await.unwrap();
-        
+
         // Verify all tasks are returned
         let titles: Vec<String> = vec![first.title, second.title, third.title];
         assert!(titles.contains(&"High Priority".to_string()));
@@ -586,15 +588,15 @@ mod tests {
             ..Default::default()
         };
         let queue = TaskQueue::new(config);
-        
+
         // Fill queue to capacity
         let task1 = Task::new("Task 1".to_string(), TaskCategory::Development);
         let task2 = Task::new("Task 2".to_string(), TaskCategory::Development);
         let task3 = Task::new("Task 3".to_string(), TaskCategory::Development);
-        
+
         assert!(queue.enqueue(task1).await.is_ok());
         assert!(queue.enqueue(task2).await.is_ok());
-        
+
         // Third task should fail
         let result = queue.enqueue(task3).await;
         assert!(matches!(result, Err(TaskError::QueueFull)));
@@ -604,13 +606,13 @@ mod tests {
     async fn test_task_removal() {
         let config = QueueConfig::default();
         let queue = TaskQueue::new(config);
-        
+
         let task = Task::new("Test Task".to_string(), TaskCategory::Development);
         let task_id = task.id.clone();
-        
+
         queue.enqueue(task).await.unwrap();
         assert_eq!(queue.size().await, 1);
-        
+
         let removed_task = queue.remove(&task_id).await.unwrap();
         assert_eq!(removed_task.id, task_id);
         assert_eq!(queue.size().await, 0);
@@ -620,21 +622,21 @@ mod tests {
     async fn test_queue_stats() {
         let config = QueueConfig::default();
         let queue = TaskQueue::new(config);
-        
+
         let stats = queue.get_stats().await;
         assert_eq!(stats.enqueued, 0);
         assert_eq!(stats.dequeued, 0);
         assert_eq!(stats.current_size, 0);
-        
+
         let task = Task::new("Test Task".to_string(), TaskCategory::Development);
         queue.enqueue(task).await.unwrap();
-        
+
         let stats = queue.get_stats().await;
         assert_eq!(stats.enqueued, 1);
         assert_eq!(stats.current_size, 1);
-        
+
         queue.dequeue().await;
-        
+
         let stats = queue.get_stats().await;
         assert_eq!(stats.enqueued, 1);
         assert_eq!(stats.dequeued, 1);

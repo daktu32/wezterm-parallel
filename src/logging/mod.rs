@@ -1,9 +1,9 @@
 // WezTerm Multi-Process Development Framework - Unified Logging System
 // 統一されたログシステム - デバッグ効率化とトラブルシューティング強化
 
-pub mod strategy;
 pub mod enhancer;
 pub mod formatter;
+pub mod strategy;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -64,7 +64,7 @@ impl UnifiedLogLevel {
     pub fn as_str(&self) -> &'static str {
         match self {
             UnifiedLogLevel::Trace => "TRACE",
-            UnifiedLogLevel::Debug => "DEBUG", 
+            UnifiedLogLevel::Debug => "DEBUG",
             UnifiedLogLevel::Info => "INFO",
             UnifiedLogLevel::Warn => "WARN",
             UnifiedLogLevel::Error => "ERROR",
@@ -265,7 +265,10 @@ mod tests {
     #[test]
     fn test_log_level_conversion() {
         assert_eq!(UnifiedLogLevel::Info.as_str(), "INFO");
-        assert_eq!(UnifiedLogLevel::from_str("DEBUG"), Some(UnifiedLogLevel::Debug));
+        assert_eq!(
+            UnifiedLogLevel::from_str("DEBUG"),
+            Some(UnifiedLogLevel::Debug)
+        );
         assert_eq!(UnifiedLogLevel::from_str("invalid"), None);
     }
 
