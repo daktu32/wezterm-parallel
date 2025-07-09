@@ -353,21 +353,24 @@ impl MetricsCollector {
                 }
             }
 
-            return Ok(NetworkIO {
+            Ok(NetworkIO {
                 bytes_received: total_rx_bytes,
                 bytes_sent: total_tx_bytes,
                 packets_received: total_rx_packets,
                 packets_sent: total_tx_packets,
-            });
+            })
         }
 
-        // For non-Linux platforms, return empty metrics
-        Ok(NetworkIO {
-            bytes_received: 0,
-            bytes_sent: 0,
-            packets_received: 0,
-            packets_sent: 0,
-        })
+        #[cfg(not(target_os = "linux"))]
+        {
+            // For non-Linux platforms, return empty metrics
+            Ok(NetworkIO {
+                bytes_received: 0,
+                bytes_sent: 0,
+                packets_received: 0,
+                packets_sent: 0,
+            })
+        }
     }
 
     /// Collect process-specific metrics
@@ -481,7 +484,8 @@ impl MetricsCollector {
     }
 
     /// Get thread count for a process
-    async fn get_thread_count(&self, _pid: u32) -> Result<u32, Box<dyn std::error::Error>> {
+    #[allow(unused_variables)]
+    async fn get_thread_count(&self, pid: u32) -> Result<u32, Box<dyn std::error::Error>> {
         #[cfg(target_os = "linux")]
         {
             let stat_path = format!("/proc/{}/stat", pid);
@@ -497,7 +501,8 @@ impl MetricsCollector {
     }
 
     /// Get file descriptor count for a process
-    async fn get_fd_count(&self, _pid: u32) -> Result<u32, Box<dyn std::error::Error>> {
+    #[allow(unused_variables)]
+    async fn get_fd_count(&self, pid: u32) -> Result<u32, Box<dyn std::error::Error>> {
         #[cfg(target_os = "linux")]
         {
             let fd_dir = format!("/proc/{}/fd", pid);
