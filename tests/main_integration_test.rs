@@ -76,6 +76,12 @@ async fn test_main_process_ipc_server() {
         assert!(workspace_manager.get_workspace_count().await > 0);
         assert!(task_manager.list_tasks(None).await.is_empty());
         
+        // Clean up existing workspaces to avoid hitting the limit
+        let workspace_list = workspace_manager.list_workspaces().await;
+        for workspace in workspace_list {
+            let _ = workspace_manager.delete_workspace(&workspace).await;
+        }
+        
         // Test workspace creation (simulating main.rs behavior)
         // First, get available templates
         let engine = template_engine.lock().await;
@@ -90,7 +96,10 @@ async fn test_main_process_ipc_server() {
         let workspace_name = format!("test-workspace-{}", std::process::id());
         let result = workspace_manager.create_workspace(&workspace_name, &template_name).await;
         match result {
-            Ok(_) => {},
+            Ok(_) => {
+                // Clean up after successful test
+                let _ = workspace_manager.delete_workspace(&workspace_name).await;
+            },
             Err(e) => {
                 eprintln!("Failed to create workspace: {:?}", e);
                 assert!(false, "Workspace creation failed: {:?}", e);
@@ -133,6 +142,12 @@ async fn test_main_process_message_handling() {
         &template_engine,
     ).await;
     assert!(matches!(response, Message::Pong));
+    
+    // Clean up existing workspaces to avoid hitting the limit
+    let workspace_list = workspace_manager.list_workspaces().await;
+    for workspace in workspace_list {
+        let _ = workspace_manager.delete_workspace(&workspace).await;
+    }
     
     // Test WorkspaceCreate message
     let create_message = Message::WorkspaceCreate {

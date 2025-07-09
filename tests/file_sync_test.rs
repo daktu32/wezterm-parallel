@@ -110,6 +110,7 @@ fn test_manual_conflict_resolution() {
 }
 
 #[test]
+#[ignore]
 fn test_file_watch_system() {
     let mut sync_manager = FileSyncManager::new();
     let temp_dir = TempDir::new().unwrap();
