@@ -488,7 +488,7 @@ impl MetricsCollector {
     async fn get_thread_count(&self, pid: u32) -> Result<u32, Box<dyn std::error::Error>> {
         #[cfg(target_os = "linux")]
         {
-            let stat_path = format!("/proc/{}/stat", pid);
+            let stat_path = format!("/proc/{pid}/stat");
             if let Ok(stat_content) = tokio::fs::read_to_string(&stat_path).await {
                 let fields: Vec<&str> = stat_content.split_whitespace().collect();
                 if fields.len() > 19 {
@@ -505,7 +505,7 @@ impl MetricsCollector {
     async fn get_fd_count(&self, pid: u32) -> Result<u32, Box<dyn std::error::Error>> {
         #[cfg(target_os = "linux")]
         {
-            let fd_dir = format!("/proc/{}/fd", pid);
+            let fd_dir = format!("/proc/{pid}/fd");
             if let Ok(mut entries) = tokio::fs::read_dir(&fd_dir).await {
                 let mut count = 0;
                 while let Ok(Some(_)) = entries.next_entry().await {

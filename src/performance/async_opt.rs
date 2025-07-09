@@ -125,10 +125,10 @@ impl AsyncTaskPool {
                     let mut stats = stats_ref.write().await;
                     stats.completed_tasks += 1;
                     stats.average_execution_time = Duration::from_nanos(
-                        ((stats.average_execution_time.as_nanos() as u64
+                        (stats.average_execution_time.as_nanos() as u64
                             * (stats.completed_tasks - 1)
                             + duration.as_nanos() as u64)
-                            / stats.completed_tasks) as u64,
+                            / stats.completed_tasks,
                     );
                 }
                 Err(e) => {
