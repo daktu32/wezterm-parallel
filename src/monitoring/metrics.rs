@@ -519,6 +519,7 @@ impl MetricsCollector {
     }
 
     /// Helper function to extract pages from vm_stat line
+    #[allow(dead_code)]
     fn extract_pages_from_line(&self, line: &str) -> u64 {
         if let Some(colon_pos) = line.find(':') {
             let number_part = &line[colon_pos + 1..];

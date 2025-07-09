@@ -634,6 +634,7 @@ mod tests {
 
         // Consume the broadcast message to prevent SendError
         tokio::spawn(async move {
+            #[allow(clippy::redundant_pattern_matching)]
             while let Ok(_) = _rx.recv().await {
                 // Consume messages
             }

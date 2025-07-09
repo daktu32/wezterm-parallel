@@ -320,6 +320,7 @@ impl MemoryMonitor {
         Ok(self.estimate_memory_usage().await)
     }
 
+    #[allow(dead_code)]
     async fn estimate_memory_usage(&self) -> usize {
         // メモリプールとインターナーの使用量から推定
         let pool_stats = {
