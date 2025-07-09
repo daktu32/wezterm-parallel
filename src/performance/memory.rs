@@ -498,4 +498,338 @@ mod tests {
         assert!(report.contains("メモリプール"));
         assert!(report.contains("文字列インターナー"));
     }
+
+    // === MemoryPool 拡張テスト ===
+
+    #[test]
+    fn test_memory_pool_size_normalization() {
+        let mut pool = MemoryPool::new(4);
+
+        // 異なるサイズのアロケート
+        let buffer1 = pool.allocate(100);  // 128に正規化される
+        let buffer2 = pool.allocate(200);  // 256に正規化される
+        let buffer3 = pool.allocate(1000); // 1024に正規化される
+
+        assert_eq!(buffer1.capacity(), 128);
+        assert_eq!(buffer2.capacity(), 256);
+        assert_eq!(buffer3.capacity(), 1024);
+
+        pool.deallocate(buffer1);
+        pool.deallocate(buffer2);
+        pool.deallocate(buffer3);
+
+        let stats = pool.get_stats();
+        assert_eq!(stats.total_allocated, stats.total_deallocated);
+    }
+
+    #[test]
+    fn test_memory_pool_reuse() {
+        let mut pool = MemoryPool::new(4);
+
+        // 同じサイズのバッファを複数回アロケート
+        let buffer1 = pool.allocate(1024);
+        let capacity1 = buffer1.capacity();
+        pool.deallocate(buffer1);
+
+        let buffer2 = pool.allocate(1024);
+        let capacity2 = buffer2.capacity();
+        
+        // 同じ容量が再利用されるべき
+        assert_eq!(capacity1, capacity2);
+
+        let stats = pool.get_stats();
+        assert_eq!(stats.pooled_buffers, 0); // buffer2がまだ使用中
+    }
+
+    #[test]
+    fn test_memory_pool_limit() {
+        let mut pool = MemoryPool::new(2); // 最大2つのバッファ
+
+        // 同じサイズのバッファを3つ作成
+        let buffer1 = pool.allocate(1024);
+        let buffer2 = pool.allocate(1024);
+        let buffer3 = pool.allocate(1024);
+
+        pool.deallocate(buffer1);
+        pool.deallocate(buffer2);
+        pool.deallocate(buffer3);
+
+        let stats = pool.get_stats();
+        // プールサイズ制限により、2つのバッファのみプールされる
+        assert_eq!(stats.pooled_buffers, 2);
+    }
+
+    #[test]
+    fn test_memory_pool_cleanup() {
+        let mut pool = MemoryPool::new(10);
+
+        // 複数のバッファを作成してプールに返却
+        let mut buffers = Vec::new();
+        for _ in 0..8 {
+            let buffer = pool.allocate(1024);
+            buffers.push(buffer);
+        }
+
+        // 全てのバッファを一度に返却
+        for buffer in buffers {
+            pool.deallocate(buffer);
+        }
+
+        let stats_before = pool.get_stats();
+        assert_eq!(stats_before.pooled_buffers, 8);
+
+        // クリーンアップ実行
+        pool.cleanup();
+
+        let stats_after = pool.get_stats();
+        assert_eq!(stats_after.pooled_buffers, 4); // 半分に削減
+    }
+
+    #[test]
+    fn test_memory_pool_peak_usage() {
+        let mut pool = MemoryPool::new(4);
+
+        let buffer1 = pool.allocate(1024);
+        let peak1 = pool.get_stats().peak_usage;
+        
+        let buffer2 = pool.allocate(2048);
+        let peak2 = pool.get_stats().peak_usage;
+
+        assert!(peak2 > peak1);
+        assert_eq!(peak2, 1024 + 2048);
+
+        pool.deallocate(buffer1);
+        pool.deallocate(buffer2);
+
+        // ピーク使用量は削減されない
+        let peak3 = pool.get_stats().peak_usage;
+        assert_eq!(peak3, peak2);
+    }
+
+    #[test]
+    fn test_memory_pool_multiple_sizes() {
+        let mut pool = MemoryPool::new(4);
+
+        // 異なるサイズのバッファを混在
+        let buffer1 = pool.allocate(512);
+        let buffer2 = pool.allocate(1024);
+        let buffer3 = pool.allocate(2048);
+
+        pool.deallocate(buffer1);
+        pool.deallocate(buffer2);
+        pool.deallocate(buffer3);
+
+        let stats = pool.get_stats();
+        assert_eq!(stats.pool_count, 3); // 3つの異なるサイズプール
+        assert_eq!(stats.pooled_buffers, 3);
+    }
+
+    // === StringInterner 拡張テスト ===
+
+    #[test]
+    fn test_string_interner_hit_rate() {
+        let mut interner = StringInterner::new();
+
+        // 同じ文字列を複数回intern
+        for _ in 0..10 {
+            interner.intern("repeated");
+        }
+
+        // 異なる文字列を1回ずつ
+        for i in 0..5 {
+            interner.intern(&format!("unique_{}", i));
+        }
+
+        let (count, hits, misses, hit_rate) = interner.get_stats();
+        assert_eq!(count, 6); // "repeated" + 5つのunique
+        assert_eq!(hits, 9); // "repeated"の2回目以降
+        assert_eq!(misses, 6); // "repeated"の1回目 + 5つのunique
+        assert!((hit_rate - 60.0).abs() < 0.01); // 9/15 * 100 = 60%
+    }
+
+    #[test]
+    fn test_string_interner_cleanup() {
+        let mut interner = StringInterner::new();
+
+        // 文字列をintern
+        let s1 = interner.intern("persistent");
+        let s2 = interner.intern("temporary");
+        
+        // s2を削除（参照カウントを1にする）
+        drop(s2);
+
+        let (count_before, _, _, _) = interner.get_stats();
+        assert_eq!(count_before, 2);
+
+        // クリーンアップ実行
+        interner.cleanup();
+
+        let (count_after, _, _, _) = interner.get_stats();
+        assert_eq!(count_after, 1); // "temporary"が削除される
+
+        // "persistent"はまだ参照されている
+        assert!(Arc::ptr_eq(&s1, &interner.intern("persistent")));
+    }
+
+    #[test]
+    fn test_string_interner_empty() {
+        let interner = StringInterner::new();
+
+        let (count, hits, misses, hit_rate) = interner.get_stats();
+        assert_eq!(count, 0);
+        assert_eq!(hits, 0);
+        assert_eq!(misses, 0);
+        assert_eq!(hit_rate, 0.0);
+    }
+
+    #[test]
+    fn test_string_interner_identical_strings() {
+        let mut interner = StringInterner::new();
+
+        let s1 = interner.intern("test");
+        let s2 = interner.intern("test");
+        let s3 = interner.intern("test");
+
+        // すべて同じ参照を指す
+        assert!(Arc::ptr_eq(&s1, &s2));
+        assert!(Arc::ptr_eq(&s2, &s3));
+
+        let (count, hits, misses, hit_rate) = interner.get_stats();
+        assert_eq!(count, 1);
+        assert_eq!(hits, 2);
+        assert_eq!(misses, 1);
+        assert!((hit_rate - 66.66666666666666).abs() < 0.01);
+    }
+
+    // === MemoryMonitor 拡張テスト ===
+
+    #[tokio::test]
+    async fn test_memory_monitor_get_memory_pool() {
+        let monitor = MemoryMonitor::new(256);
+        
+        // メモリプールへの参照を取得
+        let pool = monitor.get_memory_pool();
+        
+        // プールを使用
+        {
+            let mut pool_guard = pool.write().await;
+            let buffer = pool_guard.allocate(1024);
+            pool_guard.deallocate(buffer);
+            
+            let stats = pool_guard.get_stats();
+            assert_eq!(stats.total_allocated, stats.total_deallocated);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_memory_monitor_get_string_interner() {
+        let monitor = MemoryMonitor::new(256);
+        
+        // 文字列インターナーへの参照を取得
+        let interner = monitor.get_string_interner();
+        
+        // インターナーを使用
+        {
+            let mut interner_guard = interner.write().await;
+            let s1 = interner_guard.intern("test");
+            let s2 = interner_guard.intern("test");
+            
+            assert!(Arc::ptr_eq(&s1, &s2));
+            
+            let (count, hits, misses, _) = interner_guard.get_stats();
+            assert_eq!(count, 1);
+            assert_eq!(hits, 1);
+            assert_eq!(misses, 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_memory_monitor_cleanup_pools() {
+        let monitor = MemoryMonitor::new(256);
+
+        // メモリプールとインターナーを使用
+        {
+            let pool = monitor.get_memory_pool();
+            let mut pool_guard = pool.write().await;
+            
+            for _ in 0..4 {
+                let buffer = pool_guard.allocate(1024);
+                pool_guard.deallocate(buffer);
+            }
+        }
+
+        {
+            let interner = monitor.get_string_interner();
+            let mut interner_guard = interner.write().await;
+            
+            for i in 0..4 {
+                interner_guard.intern(&format!("test_{}", i));
+            }
+        }
+
+        // クリーンアップ実行
+        monitor.perform_cleanup().await;
+
+        // クリーンアップ後の状態を確認
+        {
+            let pool = monitor.get_memory_pool();
+            let pool_guard = pool.read().await;
+            let stats = pool_guard.get_stats();
+            // プールバッファが削減されることを確認
+            assert!(stats.pooled_buffers <= 4);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_memory_monitor_force_check() {
+        let mut monitor = MemoryMonitor::new(256);
+
+        // 通常のチェック
+        let status1 = monitor.check_memory_usage().await.unwrap();
+        
+        // 緊急クリーンアップ実行後のチェック
+        monitor.emergency_cleanup().await;
+        let status2 = monitor.check_memory_usage().await.unwrap();
+        
+        // 両方とも有効なステータスを返す
+        assert!(matches!(status1, MemoryStatus::Normal | MemoryStatus::Warning));
+        assert!(matches!(status2, MemoryStatus::Normal | MemoryStatus::Warning));
+    }
+
+    #[test]
+    fn test_memory_pool_stats_clone() {
+        let mut pool = MemoryPool::new(4);
+        
+        let buffer = pool.allocate(1024);
+        pool.deallocate(buffer);
+        
+        let stats = pool.get_stats();
+        let stats_clone = stats.clone();
+        
+        assert_eq!(stats.total_allocated, stats_clone.total_allocated);
+        assert_eq!(stats.total_deallocated, stats_clone.total_deallocated);
+        assert_eq!(stats.active_allocation, stats_clone.active_allocation);
+        assert_eq!(stats.peak_usage, stats_clone.peak_usage);
+        assert_eq!(stats.pool_count, stats_clone.pool_count);
+        assert_eq!(stats.pooled_buffers, stats_clone.pooled_buffers);
+    }
+
+    #[test]
+    fn test_memory_pool_stats_debug() {
+        let mut pool = MemoryPool::new(4);
+        
+        let buffer = pool.allocate(1024);
+        pool.deallocate(buffer);
+        
+        let stats = pool.get_stats();
+        let debug_output = format!("{:?}", stats);
+        
+        // Debug出力に重要な情報が含まれている
+        assert!(debug_output.contains("total_allocated"));
+        assert!(debug_output.contains("total_deallocated"));
+        assert!(debug_output.contains("active_allocation"));
+        assert!(debug_output.contains("peak_usage"));
+        assert!(debug_output.contains("pool_count"));
+        assert!(debug_output.contains("pooled_buffers"));
+    }
 }

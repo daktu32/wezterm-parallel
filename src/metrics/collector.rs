@@ -441,4 +441,279 @@ mod tests {
         assert!(metrics.memory_percentage >= 0.0);
         assert!(metrics.memory_percentage <= 100.0);
     }
+
+    #[tokio::test]
+    async fn test_system_metrics_collection_disabled() {
+        let config = MetricsConfig {
+            enabled: true,
+            collection_interval: 1,
+            max_history_points: 100,
+            collect_system_metrics: false,
+            collect_process_metrics: true,
+            collect_network_metrics: true,
+            retention_hours: 24,
+            enable_profiling: false,
+        };
+        let mut collector = MetricsCollector::new(config);
+
+        let metrics = collector.collect_system_metrics().unwrap();
+
+        // When disabled, should return empty metrics but with timestamp
+        assert!(metrics.timestamp > 0);
+        assert_eq!(metrics.total_memory, 0);
+        assert_eq!(metrics.memory_percentage, 0.0);
+        assert_eq!(metrics.cpu_usage, 0.0);
+        assert_eq!(metrics.memory_usage, 0);
+        assert_eq!(metrics.process_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_process_metrics_collection() {
+        let config = MetricsConfig::default();
+        let mut collector = MetricsCollector::new(config);
+
+        // Register current process for testing
+        let process_info = ProcessInfo {
+            process_id: "test-process".to_string(),
+            workspace: "test-workspace".to_string(),
+            pid: std::process::id(),
+            command_args: vec!["test".to_string()],
+        };
+
+        collector.register_process(process_info);
+
+        let metrics = collector.collect_process_metrics().unwrap();
+
+        assert_eq!(metrics.len(), 1);
+        let process_metrics = &metrics[0];
+        
+        assert_eq!(process_metrics.process_id, "test-process");
+        assert!(process_metrics.timestamp > 0);
+        // memory_usage is u64, so always >= 0
+        assert!(process_metrics.memory_percentage >= 0.0);
+        assert!(process_metrics.memory_percentage <= 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_process_metrics_collection_disabled() {
+        let config = MetricsConfig {
+            enabled: true,
+            collection_interval: 1,
+            max_history_points: 100,
+            collect_system_metrics: true,
+            collect_process_metrics: false,
+            collect_network_metrics: true,
+            retention_hours: 24,
+            enable_profiling: false,
+        };
+        let mut collector = MetricsCollector::new(config);
+
+        let process_info = ProcessInfo {
+            process_id: "test-process".to_string(),
+            workspace: "test-workspace".to_string(),
+            pid: std::process::id(),
+            command_args: vec!["test".to_string()],
+        };
+
+        collector.register_process(process_info);
+
+        let metrics = collector.collect_process_metrics().unwrap();
+
+        // When disabled, should return empty vector
+        assert!(metrics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_process_metrics_with_nonexistent_process() {
+        let config = MetricsConfig::default();
+        let mut collector = MetricsCollector::new(config);
+
+        // Register a non-existent process
+        let process_info = ProcessInfo {
+            process_id: "nonexistent-process".to_string(),
+            workspace: "test-workspace".to_string(),
+            pid: 999999, // Very unlikely to exist
+            command_args: vec!["test".to_string()],
+        };
+
+        collector.register_process(process_info);
+
+        let metrics = collector.collect_process_metrics().unwrap();
+
+        // Should handle non-existent process gracefully
+        assert!(metrics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_multiple_process_registration() {
+        let config = MetricsConfig::default();
+        let mut collector = MetricsCollector::new(config);
+
+        // Register multiple processes
+        let process_info1 = ProcessInfo {
+            process_id: "process-1".to_string(),
+            workspace: "workspace-1".to_string(),
+            pid: std::process::id(),
+            command_args: vec!["test1".to_string()],
+        };
+
+        let process_info2 = ProcessInfo {
+            process_id: "process-2".to_string(),
+            workspace: "workspace-2".to_string(),
+            pid: std::process::id(),
+            command_args: vec!["test2".to_string()],
+        };
+
+        collector.register_process(process_info1);
+        collector.register_process(process_info2);
+
+        assert_eq!(collector.managed_processes.len(), 2);
+        assert!(collector.managed_processes.contains_key("process-1"));
+        assert!(collector.managed_processes.contains_key("process-2"));
+
+        // Collect metrics for both processes
+        let metrics = collector.collect_process_metrics().unwrap();
+        assert_eq!(metrics.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_process_registration_overwrite() {
+        let config = MetricsConfig::default();
+        let mut collector = MetricsCollector::new(config);
+
+        // Register process with same ID but different PID
+        let process_info1 = ProcessInfo {
+            process_id: "test-process".to_string(),
+            workspace: "workspace-1".to_string(),
+            pid: 1234,
+            command_args: vec!["test1".to_string()],
+        };
+
+        let process_info2 = ProcessInfo {
+            process_id: "test-process".to_string(),
+            workspace: "workspace-2".to_string(),
+            pid: 5678,
+            command_args: vec!["test2".to_string()],
+        };
+
+        collector.register_process(process_info1);
+        collector.register_process(process_info2);
+
+        assert_eq!(collector.managed_processes.len(), 1);
+        assert_eq!(collector.managed_processes.get("test-process"), Some(&5678));
+    }
+
+    #[tokio::test]
+    async fn test_unregister_nonexistent_process() {
+        let config = MetricsConfig::default();
+        let mut collector = MetricsCollector::new(config);
+
+        // Unregister a process that was never registered
+        collector.unregister_process("nonexistent-process");
+
+        // Should not panic or error
+        assert!(collector.managed_processes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_metrics_timestamp_increments() {
+        let config = MetricsConfig::default();
+        let mut collector = MetricsCollector::new(config);
+
+        let metrics1 = collector.collect_system_metrics().unwrap();
+        
+        // Sleep briefly to ensure timestamp difference
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        
+        let metrics2 = collector.collect_system_metrics().unwrap();
+
+        assert!(metrics2.timestamp >= metrics1.timestamp);
+    }
+
+    #[tokio::test]
+    async fn test_metrics_config_validation() {
+        let config = MetricsConfig {
+            enabled: true,
+            collection_interval: 1,
+            max_history_points: 100,
+            collect_system_metrics: true,
+            collect_process_metrics: true,
+            collect_network_metrics: true,
+            retention_hours: 24,
+            enable_profiling: false,
+        };
+
+        let collector = MetricsCollector::new(config.clone());
+
+        assert_eq!(collector.config.enabled, config.enabled);
+        assert_eq!(collector.config.collect_system_metrics, config.collect_system_metrics);
+        assert_eq!(collector.config.collect_process_metrics, config.collect_process_metrics);
+        assert_eq!(collector.config.collection_interval, config.collection_interval);
+        assert_eq!(collector.config.max_history_points, config.max_history_points);
+        assert_eq!(collector.config.collect_network_metrics, config.collect_network_metrics);
+        assert_eq!(collector.config.retention_hours, config.retention_hours);
+        assert_eq!(collector.config.enable_profiling, config.enable_profiling);
+    }
+
+    #[tokio::test]
+    async fn test_system_metrics_memory_calculations() {
+        let config = MetricsConfig::default();
+        let mut collector = MetricsCollector::new(config);
+
+        let metrics = collector.collect_system_metrics().unwrap();
+
+        // Memory percentage should be calculated correctly
+        if metrics.total_memory > 0 {
+            let expected_percentage = (metrics.memory_usage as f64 / metrics.total_memory as f64) * 100.0;
+            assert!((metrics.memory_percentage - expected_percentage).abs() < 0.01);
+        }
+    }
+
+    #[tokio::test] 
+    async fn test_system_metrics_consistency() {
+        let config = MetricsConfig::default();
+        let mut collector = MetricsCollector::new(config);
+
+        // Collect metrics multiple times
+        let metrics1 = collector.collect_system_metrics().unwrap();
+        let metrics2 = collector.collect_system_metrics().unwrap();
+
+        // Total memory should be consistent
+        assert_eq!(metrics1.total_memory, metrics2.total_memory);
+
+        // Process count should be reasonable
+        assert!(metrics1.process_count > 0);
+        assert!(metrics2.process_count > 0);
+    }
+
+    #[test]
+    fn test_process_info_creation() {
+        let process_info = ProcessInfo {
+            process_id: "test-process".to_string(),
+            workspace: "test-workspace".to_string(),
+            pid: 1234,
+            command_args: vec!["test".to_string(), "arg1".to_string()],
+        };
+
+        assert_eq!(process_info.process_id, "test-process");
+        assert_eq!(process_info.workspace, "test-workspace");
+        assert_eq!(process_info.pid, 1234);
+        assert_eq!(process_info.command_args.len(), 2);
+    }
+
+    #[test]
+    fn test_process_info_clone() {
+        let process_info = ProcessInfo {
+            process_id: "test-process".to_string(),
+            workspace: "test-workspace".to_string(),
+            pid: 1234,
+            command_args: vec!["test".to_string()],
+        };
+
+        let cloned = process_info.clone();
+        assert_eq!(process_info.process_id, cloned.process_id);
+        assert_eq!(process_info.workspace, cloned.workspace);
+        assert_eq!(process_info.pid, cloned.pid);
+        assert_eq!(process_info.command_args, cloned.command_args);
+    }
 }
