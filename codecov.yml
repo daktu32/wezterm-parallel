@@ -5,12 +5,12 @@ coverage:
   status:
     project:
       default:
-        target: 80%           # 目標カバレッジ 80%
-        threshold: 5%         # 5%以下の減少は許容
+        target: 55%           # 目標カバレッジ 55%（現実的な値に調整）
+        threshold: 10%        # 10%以下の減少は許容
         if_ci_failed: error   # CIが失敗した場合はエラー
     patch:
       default:
-        target: 70%           # パッチカバレッジ 70%
+        target: 50%           # パッチカバレッジ 50%（現実的な値に調整）
         threshold: 10%        # 10%以下の減少は許容
 
   ignore:

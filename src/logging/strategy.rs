@@ -1,7 +1,7 @@
 // WezTerm Multi-Process Development Framework - Logging Strategy
 // ログ戦略定義とコンポーネント別ログレベル管理
 
-use super::{UnifiedLogLevel, LogContext};
+use super::{LogContext, UnifiedLogLevel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -61,35 +61,41 @@ pub enum LogOutput {
 impl Default for LoggingStrategy {
     fn default() -> Self {
         let mut component_levels = HashMap::new();
-        
+
         // コンポーネント別ログレベル戦略
-        component_levels.insert("process".to_string(), UnifiedLogLevel::Info);    // プロセス管理
-        component_levels.insert("room".to_string(), UnifiedLogLevel::Info);       // Room管理
-        component_levels.insert("config".to_string(), UnifiedLogLevel::Info);     // 設定管理
-        component_levels.insert("ipc".to_string(), UnifiedLogLevel::Debug);       // IPC通信
-        component_levels.insert("sync".to_string(), UnifiedLogLevel::Debug);      // ファイル同期
+        component_levels.insert("process".to_string(), UnifiedLogLevel::Info); // プロセス管理
+        component_levels.insert("room".to_string(), UnifiedLogLevel::Info); // Room管理
+        component_levels.insert("config".to_string(), UnifiedLogLevel::Info); // 設定管理
+        component_levels.insert("ipc".to_string(), UnifiedLogLevel::Debug); // IPC通信
+        component_levels.insert("sync".to_string(), UnifiedLogLevel::Debug); // ファイル同期
         component_levels.insert("monitoring".to_string(), UnifiedLogLevel::Warn); // 監視システム
         component_levels.insert("performance".to_string(), UnifiedLogLevel::Info); // パフォーマンス
-        component_levels.insert("error".to_string(), UnifiedLogLevel::Error);     // エラー処理
-        component_levels.insert("task".to_string(), UnifiedLogLevel::Info);       // タスク管理
-        component_levels.insert("dashboard".to_string(), UnifiedLogLevel::Warn);  // ダッシュボード
+        component_levels.insert("error".to_string(), UnifiedLogLevel::Error); // エラー処理
+        component_levels.insert("task".to_string(), UnifiedLogLevel::Info); // タスク管理
+        component_levels.insert("dashboard".to_string(), UnifiedLogLevel::Warn); // ダッシュボード
 
         let mut rate_limits = HashMap::new();
-        
+
         // 高頻度操作のレート制限
-        rate_limits.insert("heartbeat".to_string(), RateLimit {
-            target: "process.heartbeat".to_string(),
-            window_seconds: 60,
-            max_logs: 5,
-            sampling_rate: 0.1,
-        });
-        
-        rate_limits.insert("file_watch".to_string(), RateLimit {
-            target: "sync.file_watch".to_string(),
-            window_seconds: 30,
-            max_logs: 10,
-            sampling_rate: 0.2,
-        });
+        rate_limits.insert(
+            "heartbeat".to_string(),
+            RateLimit {
+                target: "process.heartbeat".to_string(),
+                window_seconds: 60,
+                max_logs: 5,
+                sampling_rate: 0.1,
+            },
+        );
+
+        rate_limits.insert(
+            "file_watch".to_string(),
+            RateLimit {
+                target: "sync.file_watch".to_string(),
+                window_seconds: 30,
+                max_logs: 10,
+                sampling_rate: 0.2,
+            },
+        );
 
         Self {
             default_level: UnifiedLogLevel::Info,
@@ -129,11 +135,12 @@ impl LoggingStrategy {
     /// ログエントリがレート制限に引っかかるかチェック
     pub fn should_rate_limit(&self, context: &LogContext) -> bool {
         let target = format!("{}.{}", context.component, context.operation);
-        
-        for (_, limit) in &self.rate_limits {
-            if limit.target == target || 
-               limit.target == context.component || 
-               limit.target == context.operation {
+
+        for limit in self.rate_limits.values() {
+            if limit.target == target
+                || limit.target == context.component
+                || limit.target == context.operation
+            {
                 // 実際のレート制限チェックはここで実装
                 // 現在は簡略化のため常にfalseを返す
                 return false;
@@ -150,15 +157,25 @@ impl LoggingStrategy {
 
     /// 開発環境用設定
     pub fn development() -> Self {
-        let mut strategy = Self::default();
-        strategy.default_level = UnifiedLogLevel::Debug;
-        
+        let mut strategy = Self {
+            default_level: UnifiedLogLevel::Debug,
+            ..Default::default()
+        };
+
         // 開発時はより詳細なログを出力
-        strategy.component_levels.insert("process".to_string(), UnifiedLogLevel::Debug);
-        strategy.component_levels.insert("room".to_string(), UnifiedLogLevel::Debug);
-        strategy.component_levels.insert("config".to_string(), UnifiedLogLevel::Debug);
-        strategy.component_levels.insert("ipc".to_string(), UnifiedLogLevel::Trace);
-        
+        strategy
+            .component_levels
+            .insert("process".to_string(), UnifiedLogLevel::Debug);
+        strategy
+            .component_levels
+            .insert("room".to_string(), UnifiedLogLevel::Debug);
+        strategy
+            .component_levels
+            .insert("config".to_string(), UnifiedLogLevel::Debug);
+        strategy
+            .component_levels
+            .insert("ipc".to_string(), UnifiedLogLevel::Trace);
+
         strategy.outputs = vec![
             LogOutput::Stdout,
             LogOutput::File {
@@ -172,21 +189,31 @@ impl LoggingStrategy {
                 max_files: 5,
             },
         ];
-        
+
         strategy
     }
 
     /// プロダクション環境用設定
     pub fn production() -> Self {
-        let mut strategy = Self::default();
-        strategy.default_level = UnifiedLogLevel::Warn;
-        
+        let mut strategy = Self {
+            default_level: UnifiedLogLevel::Warn,
+            ..Default::default()
+        };
+
         // プロダクションでは重要なログのみ
-        strategy.component_levels.insert("process".to_string(), UnifiedLogLevel::Info);
-        strategy.component_levels.insert("room".to_string(), UnifiedLogLevel::Info);
-        strategy.component_levels.insert("config".to_string(), UnifiedLogLevel::Warn);
-        strategy.component_levels.insert("error".to_string(), UnifiedLogLevel::Error);
-        
+        strategy
+            .component_levels
+            .insert("process".to_string(), UnifiedLogLevel::Info);
+        strategy
+            .component_levels
+            .insert("room".to_string(), UnifiedLogLevel::Info);
+        strategy
+            .component_levels
+            .insert("config".to_string(), UnifiedLogLevel::Warn);
+        strategy
+            .component_levels
+            .insert("error".to_string(), UnifiedLogLevel::Error);
+
         strategy.outputs = vec![
             LogOutput::System,
             LogOutput::StructuredFile {
@@ -195,23 +222,35 @@ impl LoggingStrategy {
                 max_files: 20,
             },
         ];
-        
+
         strategy
     }
 
     /// デバッグ専用設定
     pub fn debug() -> Self {
-        let mut strategy = Self::default();
-        strategy.default_level = UnifiedLogLevel::Trace;
-        
+        let mut strategy = Self {
+            default_level: UnifiedLogLevel::Trace,
+            ..Default::default()
+        };
+
         // すべてのコンポーネントでTRACEレベル
-        for component in ["process", "room", "config", "ipc", "sync", "monitoring", "task"] {
-            strategy.component_levels.insert(component.to_string(), UnifiedLogLevel::Trace);
+        for component in [
+            "process",
+            "room",
+            "config",
+            "ipc",
+            "sync",
+            "monitoring",
+            "task",
+        ] {
+            strategy
+                .component_levels
+                .insert(component.to_string(), UnifiedLogLevel::Trace);
         }
-        
+
         // レート制限を緩和
         strategy.rate_limits.clear();
-        
+
         // パフォーマンス測定を全操作で有効化
         strategy.performance_targets = vec![
             "process.*".to_string(),
@@ -221,7 +260,7 @@ impl LoggingStrategy {
             "sync.*".to_string(),
             "task.*".to_string(),
         ];
-        
+
         strategy.outputs = vec![
             LogOutput::Stdout,
             LogOutput::StructuredFile {
@@ -230,7 +269,7 @@ impl LoggingStrategy {
                 max_files: 3,
             },
         ];
-        
+
         strategy
     }
 }
@@ -263,7 +302,7 @@ impl StrategyManager {
             Ok("debug") => LoggingStrategy::debug(),
             _ => LoggingStrategy::default(),
         };
-        
+
         Self::new(strategy)
     }
 }
@@ -299,7 +338,7 @@ mod tests {
         let strategy = LoggingStrategy::default();
         let context = LogContext::new("process", "start");
         assert!(strategy.should_measure_performance(&context));
-        
+
         let context2 = LogContext::new("process", "heartbeat");
         assert!(!strategy.should_measure_performance(&context2));
     }

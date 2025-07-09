@@ -4,6 +4,12 @@ pub struct BroadcastManager {
     sender: broadcast::Sender<String>,
 }
 
+impl Default for BroadcastManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BroadcastManager {
     pub fn new() -> Self {
         let (sender, _) = broadcast::channel(1000);
@@ -13,7 +19,7 @@ impl BroadcastManager {
     pub async fn broadcast(&self, message: String) -> Result<(), String> {
         self.sender
             .send(message)
-            .map_err(|e| format!("Failed to broadcast message: {}", e))?;
+            .map_err(|e| format!("Failed to broadcast message: {e}"))?;
         Ok(())
     }
 

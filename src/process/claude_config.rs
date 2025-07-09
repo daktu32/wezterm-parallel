@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::env;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::env;
+use std::path::{Path, PathBuf};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -10,25 +10,25 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub struct ClaudeCodeConfig {
     /// Claude Codeバイナリのパス
     pub binary_path: PathBuf,
-    
+
     /// ワークディレクトリ
     pub working_directory: PathBuf,
-    
+
     /// Claude Code用の環境変数
     pub environment: HashMap<String, String>,
-    
+
     /// コマンドライン引数
     pub arguments: Vec<String>,
-    
+
     /// プロセス起動時のタイムアウト（秒）
     pub startup_timeout: u64,
-    
+
     /// メモリ制限（MB）
     pub memory_limit: Option<u64>,
-    
+
     /// CPU使用率制限（％）
     pub cpu_limit: Option<f64>,
-    
+
     /// ワークスペース固有の設定
     pub workspace_specific: WorkspaceSpecificConfig,
 }
@@ -38,16 +38,16 @@ pub struct ClaudeCodeConfig {
 pub struct WorkspaceSpecificConfig {
     /// プロジェクトルートディレクトリ
     pub project_root: Option<PathBuf>,
-    
+
     /// プロジェクト名
     pub project_name: Option<String>,
-    
+
     /// 追加の環境変数
     pub additional_env: HashMap<String, String>,
-    
+
     /// Claude Code用の追加引数
     pub additional_args: Vec<String>,
-    
+
     /// プロセス優先度（-20〜19、低い値ほど高優先度）
     pub process_priority: Option<i8>,
 }
@@ -56,18 +56,20 @@ impl ClaudeCodeConfig {
     /// 新しいClaudeCodeConfigを作成
     pub fn new(binary_path: PathBuf, workspace_name: &str) -> Self {
         let mut environment = HashMap::new();
-        
+
         // Claude Code用の基本環境変数を設定
         environment.insert("CLAUDE_WORKSPACE".to_string(), workspace_name.to_string());
-        environment.insert("CLAUDE_PROCESS_ID".to_string(), uuid::Uuid::new_v4().to_string());
-        
+        environment.insert(
+            "CLAUDE_PROCESS_ID".to_string(),
+            uuid::Uuid::new_v4().to_string(),
+        );
+
         // 色やUIの設定
         environment.insert("FORCE_COLOR".to_string(), "1".to_string());
         environment.insert("NO_COLOR".to_string(), "0".to_string());
-        
+
         // デフォルトの作業ディレクトリを設定
-        let working_directory = env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("/tmp"));
+        let working_directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
 
         Self {
             binary_path,
@@ -82,20 +84,24 @@ impl ClaudeCodeConfig {
     }
 
     /// ワークスペース専用の設定を構築
-    pub fn for_workspace(binary_path: PathBuf, workspace_name: &str, project_root: Option<PathBuf>) -> Self {
+    pub fn for_workspace(
+        binary_path: PathBuf,
+        workspace_name: &str,
+        project_root: Option<PathBuf>,
+    ) -> Self {
         let mut config = Self::new(binary_path, workspace_name);
-        
+
         // プロジェクトルートが指定されている場合は設定
         if let Some(root) = project_root {
             config.working_directory = root.clone();
             config.workspace_specific.project_root = Some(root);
         }
-        
+
         config.workspace_specific.project_name = Some(workspace_name.to_string());
-        
+
         // ワークスペース名をClaude Codeのタイトルに設定
-        config.arguments.push(format!("--title={}", workspace_name));
-        
+        config.arguments.push(format!("--title={workspace_name}"));
+
         config
     }
 
@@ -137,27 +143,30 @@ impl ClaudeCodeConfig {
     /// 完全な環境変数マップを取得（基本環境変数 + ワークスペース固有）
     pub fn get_complete_environment(&self) -> HashMap<String, String> {
         let mut env = self.environment.clone();
-        
+
         // ワークスペース固有の環境変数をマージ
         for (key, value) in &self.workspace_specific.additional_env {
             env.insert(key.clone(), value.clone());
         }
-        
+
         // プロジェクトルートが設定されている場合はPWDとして設定
         if let Some(ref project_root) = self.workspace_specific.project_root {
-            env.insert("PWD".to_string(), project_root.to_string_lossy().to_string());
+            env.insert(
+                "PWD".to_string(),
+                project_root.to_string_lossy().to_string(),
+            );
         }
-        
+
         env
     }
 
     /// 完全なコマンドライン引数リストを取得（基本引数 + ワークスペース固有）
     pub fn get_complete_arguments(&self) -> Vec<String> {
         let mut args = self.arguments.clone();
-        
+
         // ワークスペース固有の引数を追加
         args.extend(self.workspace_specific.additional_args.clone());
-        
+
         args
     }
 
@@ -170,7 +179,9 @@ impl ClaudeCodeConfig {
 
         // 作業ディレクトリの存在確認
         if !self.working_directory.exists() {
-            return Err(format!("Working directory not found: {:?}", self.working_directory).into());
+            return Err(
+                format!("Working directory not found: {:?}", self.working_directory).into(),
+            );
         }
 
         // メモリ制限の妥当性チェック
@@ -195,13 +206,14 @@ impl ClaudeCodeConfig {
 
     /// 設定をコマンドライン用の形式で出力（デバッグ用）
     pub fn to_command_string(&self) -> String {
-        let env_vars: Vec<String> = self.get_complete_environment()
+        let env_vars: Vec<String> = self
+            .get_complete_environment()
             .iter()
-            .map(|(k, v)| format!("{}={}", k, v))
+            .map(|(k, v)| format!("{k}={v}"))
             .collect();
 
         let args = self.get_complete_arguments().join(" ");
-        
+
         format!(
             "cd {:?} && {} {} {}",
             self.working_directory,
@@ -211,7 +223,6 @@ impl ClaudeCodeConfig {
         )
     }
 }
-
 
 /// 設定ビルダー - 流暢なインターフェースで設定を構築
 pub struct ClaudeCodeConfigBuilder {
@@ -234,7 +245,8 @@ impl ClaudeCodeConfigBuilder {
 
     /// 環境変数を設定
     pub fn environment(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.config.add_environment_variable(key.into(), value.into());
+        self.config
+            .add_environment_variable(key.into(), value.into());
         self
     }
 
@@ -289,7 +301,10 @@ mod tests {
         let config = ClaudeCodeConfig::new(binary_path.clone(), "test-workspace");
 
         assert_eq!(config.binary_path, binary_path);
-        assert_eq!(config.environment.get("CLAUDE_WORKSPACE").unwrap(), "test-workspace");
+        assert_eq!(
+            config.environment.get("CLAUDE_WORKSPACE").unwrap(),
+            "test-workspace"
+        );
         assert!(config.environment.contains_key("CLAUDE_PROCESS_ID"));
         assert_eq!(config.arguments, vec!["--interactive"]);
         assert_eq!(config.startup_timeout, 30);
@@ -302,15 +317,20 @@ mod tests {
         let binary_path = PathBuf::from("/usr/local/bin/claude-code");
         let project_root = PathBuf::from("/tmp/test-project");
         let config = ClaudeCodeConfig::for_workspace(
-            binary_path.clone(), 
-            "my-workspace", 
-            Some(project_root.clone())
+            binary_path.clone(),
+            "my-workspace",
+            Some(project_root.clone()),
         );
 
         assert_eq!(config.working_directory, project_root);
         assert_eq!(config.workspace_specific.project_root, Some(project_root));
-        assert_eq!(config.workspace_specific.project_name, Some("my-workspace".to_string()));
-        assert!(config.arguments.contains(&"--title=my-workspace".to_string()));
+        assert_eq!(
+            config.workspace_specific.project_name,
+            Some("my-workspace".to_string())
+        );
+        assert!(config
+            .arguments
+            .contains(&"--title=my-workspace".to_string()));
     }
 
     #[test]
@@ -319,11 +339,15 @@ mod tests {
         let mut config = ClaudeCodeConfig::new(binary_path, "test");
 
         config.add_environment_variable("TEST_VAR".to_string(), "test_value".to_string());
-        config.add_workspace_environment("WORKSPACE_VAR".to_string(), "workspace_value".to_string());
+        config
+            .add_workspace_environment("WORKSPACE_VAR".to_string(), "workspace_value".to_string());
 
         let complete_env = config.get_complete_environment();
         assert_eq!(complete_env.get("TEST_VAR").unwrap(), "test_value");
-        assert_eq!(complete_env.get("WORKSPACE_VAR").unwrap(), "workspace_value");
+        assert_eq!(
+            complete_env.get("WORKSPACE_VAR").unwrap(),
+            "workspace_value"
+        );
     }
 
     #[test]
@@ -381,7 +405,7 @@ mod tests {
         fs::File::create(&binary_path)?;
 
         let config = ClaudeCodeConfig::new(binary_path, "test");
-        
+
         // 作業ディレクトリが存在しないケース
         let mut invalid_config = config.clone();
         invalid_config.working_directory = PathBuf::from("/nonexistent/directory");

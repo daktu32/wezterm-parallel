@@ -2,11 +2,11 @@
 // Provides advanced task scheduling, dependency resolution, and execution planning
 
 use super::types::{Task, TaskId, TaskStatus};
-use super::{TaskError, TaskResult, current_timestamp};
+use super::{current_timestamp, TaskError, TaskResult};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::RwLock;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 /// Task scheduler with dependency resolution and execution planning
 #[derive(Debug)]
@@ -14,16 +14,16 @@ pub struct TaskScheduler {
     /// Scheduler configuration
     #[allow(dead_code)]
     config: SchedulerConfig,
-    
+
     /// Scheduled tasks
     scheduled_tasks: RwLock<HashMap<TaskId, ScheduledTask>>,
-    
+
     /// Task dependencies graph
     dependency_graph: RwLock<DependencyGraph>,
-    
+
     /// Execution plan cache
     execution_plans: RwLock<HashMap<String, ExecutionPlan>>,
-    
+
     /// Scheduler statistics
     stats: RwLock<SchedulerStats>,
 }
@@ -43,10 +43,10 @@ impl TaskScheduler {
     /// Schedule a task for execution
     pub async fn schedule_task(&self, task: Task, schedule: Schedule) -> TaskResult<()> {
         let task_id = task.id.clone();
-        
+
         // Validate schedule
         self.validate_schedule(&schedule).await?;
-        
+
         // Create scheduled task
         let scheduled_task = ScheduledTask {
             task: task.clone(),
@@ -83,7 +83,9 @@ impl TaskScheduler {
     pub async fn unschedule_task(&self, task_id: &TaskId) -> TaskResult<ScheduledTask> {
         let scheduled_task = {
             let mut scheduled = self.scheduled_tasks.write().await;
-            scheduled.remove(task_id).ok_or_else(|| TaskError::TaskNotFound(task_id.clone()))?
+            scheduled
+                .remove(task_id)
+                .ok_or_else(|| TaskError::TaskNotFound(task_id.clone()))?
         };
 
         // Remove from dependency graph
@@ -119,12 +121,11 @@ impl TaskScheduler {
 
         // Sort by priority and execution time
         ready_tasks.sort_by(|a, b| {
-            b.priority.cmp(&a.priority)
-                .then_with(|| {
-                    let a_scheduled = scheduled.get(&a.id).map(|s| s.next_execution).unwrap_or(0);
-                    let b_scheduled = scheduled.get(&b.id).map(|s| s.next_execution).unwrap_or(0);
-                    a_scheduled.cmp(&b_scheduled)
-                })
+            b.priority.cmp(&a.priority).then_with(|| {
+                let a_scheduled = scheduled.get(&a.id).map(|s| s.next_execution).unwrap_or(0);
+                let b_scheduled = scheduled.get(&b.id).map(|s| s.next_execution).unwrap_or(0);
+                a_scheduled.cmp(&b_scheduled)
+            })
         });
 
         ready_tasks
@@ -137,10 +138,10 @@ impl TaskScheduler {
             let now = current_timestamp();
             scheduled_task.execution_count += 1;
             scheduled_task.last_execution = Some(now);
-            
+
             // Calculate next execution time
             scheduled_task.next_execution = self.calculate_next_execution(&scheduled_task.schedule);
-            
+
             // Check if should continue scheduling
             match scheduled_task.schedule.repeat {
                 RepeatPattern::Once => {
@@ -162,7 +163,10 @@ impl TaskScheduler {
                 stats.total_executed += 1;
             }
 
-            debug!("Marked task as executed: {} (count: {})", task_id, scheduled_task.execution_count);
+            debug!(
+                "Marked task as executed: {} (count: {})",
+                task_id, scheduled_task.execution_count
+            );
             Ok(())
         } else {
             Err(TaskError::TaskNotFound(task_id.clone()))
@@ -172,7 +176,7 @@ impl TaskScheduler {
     /// Create execution plan for a set of tasks
     pub async fn create_execution_plan(&self, task_ids: &[TaskId]) -> TaskResult<ExecutionPlan> {
         let plan_id = format!("plan_{}", uuid::Uuid::new_v4());
-        
+
         // Get all tasks
         let mut tasks = Vec::new();
         {
@@ -188,10 +192,10 @@ impl TaskScheduler {
 
         // Resolve dependencies and create execution order
         let execution_order = self.resolve_execution_order(&tasks).await?;
-        
+
         // Calculate estimated completion time
         let estimated_duration = self.calculate_plan_duration(&execution_order);
-        
+
         let plan = ExecutionPlan {
             id: plan_id.clone(),
             task_ids: task_ids.to_vec(),
@@ -218,7 +222,11 @@ impl TaskScheduler {
     }
 
     /// Update task dependencies
-    pub async fn update_dependencies(&self, task_id: &TaskId, dependencies: Vec<TaskId>) -> TaskResult<()> {
+    pub async fn update_dependencies(
+        &self,
+        task_id: &TaskId,
+        dependencies: Vec<TaskId>,
+    ) -> TaskResult<()> {
         {
             let mut graph = self.dependency_graph.write().await;
             graph.update_dependencies(task_id, dependencies.clone());
@@ -240,7 +248,7 @@ impl TaskScheduler {
     async fn are_dependencies_satisfied(&self, task_id: &TaskId) -> bool {
         let graph = self.dependency_graph.read().await;
         let scheduled = self.scheduled_tasks.read().await;
-        
+
         if let Some(dependencies) = graph.get_dependencies(task_id) {
             for dep_id in dependencies {
                 if let Some(dep_task) = scheduled.get(dep_id) {
@@ -252,21 +260,23 @@ impl TaskScheduler {
                 }
             }
         }
-        
+
         true
     }
 
     /// Resolve execution order based on dependencies
     async fn resolve_execution_order(&self, tasks: &[Task]) -> TaskResult<Vec<TaskId>> {
         let _graph = self.dependency_graph.read().await;
-        
+
         // Create a map of task IDs to their dependencies
         let mut task_deps: HashMap<TaskId, HashSet<TaskId>> = HashMap::new();
         let mut all_tasks: HashSet<TaskId> = HashSet::new();
-        
+
         for task in tasks {
             all_tasks.insert(task.id.clone());
-            let deps: HashSet<TaskId> = task.dependencies.iter()
+            let deps: HashSet<TaskId> = task
+                .dependencies
+                .iter()
                 .filter(|dep| all_tasks.contains(*dep))
                 .cloned()
                 .collect();
@@ -282,8 +292,8 @@ impl TaskScheduler {
         for task_id in &all_tasks {
             in_degree.insert(task_id.clone(), 0);
         }
-        
-        for (_task_id, deps) in &task_deps {
+
+        for deps in task_deps.values() {
             for dep in deps {
                 if let Some(degree) = in_degree.get_mut(dep) {
                     *degree += 1;
@@ -301,7 +311,7 @@ impl TaskScheduler {
         // Process queue
         while let Some(task_id) = queue.pop_front() {
             result.push(task_id.clone());
-            
+
             // Reduce in-degree for dependent tasks
             if let Some(deps) = task_deps.get(&task_id) {
                 for dep in deps {
@@ -317,7 +327,9 @@ impl TaskScheduler {
 
         // Check for circular dependencies
         if result.len() != all_tasks.len() {
-            return Err(TaskError::DependencyNotMet("Circular dependency detected".to_string()));
+            return Err(TaskError::DependencyNotMet(
+                "Circular dependency detected".to_string(),
+            ));
         }
 
         Ok(result)
@@ -335,7 +347,9 @@ impl TaskScheduler {
         match &schedule.repeat {
             RepeatPattern::Interval(duration) => {
                 if *duration == 0 {
-                    return Err(TaskError::InvalidConfig("Interval cannot be zero".to_string()));
+                    return Err(TaskError::InvalidConfig(
+                        "Interval cannot be zero".to_string(),
+                    ));
                 }
             }
             RepeatPattern::Cron(pattern) => {
@@ -346,14 +360,14 @@ impl TaskScheduler {
             }
             _ => {} // Other patterns are valid
         }
-        
+
         Ok(())
     }
 
     /// Calculate next execution time based on schedule
     fn calculate_next_execution(&self, schedule: &Schedule) -> u64 {
         let now = current_timestamp();
-        
+
         match &schedule.repeat {
             RepeatPattern::Once => schedule.start_time.unwrap_or(now),
             RepeatPattern::Interval(seconds) => now + seconds,
@@ -376,11 +390,11 @@ impl TaskScheduler {
     /// Get scheduler statistics
     pub async fn get_stats(&self) -> SchedulerStats {
         let mut stats = self.stats.read().await.clone();
-        
+
         // Update real-time stats
         let scheduled = self.scheduled_tasks.read().await;
         stats.active_schedules = scheduled.values().filter(|s| s.is_active).count() as u32;
-        
+
         stats
     }
 
@@ -402,16 +416,16 @@ impl TaskScheduler {
 pub struct SchedulerConfig {
     /// Maximum number of concurrent scheduled tasks
     pub max_scheduled_tasks: usize,
-    
+
     /// Default execution timeout
     pub default_timeout: u64,
-    
+
     /// Enable dependency resolution
     pub dependency_resolution: bool,
-    
+
     /// Enable execution planning
     pub execution_planning: bool,
-    
+
     /// Schedule check interval in seconds
     pub check_interval: u64,
 }
@@ -433,16 +447,16 @@ impl Default for SchedulerConfig {
 pub enum SchedulingStrategy {
     /// Execute as soon as possible
     Immediate,
-    
+
     /// Execute at specific time
     Scheduled,
-    
+
     /// Execute when dependencies are met
     Dependent,
-    
+
     /// Execute based on priority
     Priority,
-    
+
     /// Execute in optimal order
     Optimized,
 }
@@ -463,13 +477,13 @@ pub struct ScheduledTask {
 pub struct Schedule {
     /// Start time (optional, defaults to now)
     pub start_time: Option<u64>,
-    
+
     /// End time (optional, infinite if not set)
     pub end_time: Option<u64>,
-    
+
     /// Repeat pattern
     pub repeat: RepeatPattern,
-    
+
     /// Time zone (optional)
     pub timezone: Option<String>,
 }
@@ -479,19 +493,19 @@ pub struct Schedule {
 pub enum RepeatPattern {
     /// Execute once only
     Once,
-    
+
     /// Repeat at fixed interval (seconds)
     Interval(u64),
-    
+
     /// Repeat daily at same time
     Daily,
-    
+
     /// Repeat weekly at same time
     Weekly,
-    
+
     /// Repeat based on cron expression
     Cron(String),
-    
+
     /// Repeat specific number of times
     Count(u32),
 }
@@ -522,7 +536,7 @@ pub enum PlanStatus {
 struct DependencyGraph {
     /// Task ID -> Set of dependencies
     dependencies: HashMap<TaskId, HashSet<TaskId>>,
-    
+
     /// Task ID -> Set of dependents
     dependents: HashMap<TaskId, HashSet<TaskId>>,
 }
@@ -542,7 +556,10 @@ impl DependencyGraph {
 
         // Update dependents
         for dep in dep_set {
-            self.dependents.entry(dep).or_insert_with(HashSet::new).insert(task_id.clone());
+            self.dependents
+                .entry(dep)
+                .or_default()
+                .insert(task_id.clone());
         }
     }
 
@@ -605,7 +622,7 @@ impl SchedulerStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::task::types::{TaskCategory, Task};
+    use crate::task::types::{Task, TaskCategory};
 
     fn create_test_config() -> SchedulerConfig {
         SchedulerConfig {
@@ -621,7 +638,7 @@ mod tests {
     async fn test_scheduler_creation() {
         let config = create_test_config();
         let scheduler = TaskScheduler::new(config);
-        
+
         let stats = scheduler.get_stats().await;
         assert_eq!(stats.total_scheduled, 0);
         assert_eq!(stats.active_schedules, 0);
@@ -631,7 +648,7 @@ mod tests {
     async fn test_schedule_task() {
         let config = create_test_config();
         let scheduler = TaskScheduler::new(config);
-        
+
         let task = Task::new("Test Task".to_string(), TaskCategory::Development);
         let schedule = Schedule {
             start_time: None,
@@ -639,13 +656,13 @@ mod tests {
             repeat: RepeatPattern::Once,
             timezone: None,
         };
-        
+
         let result = scheduler.schedule_task(task.clone(), schedule).await;
         assert!(result.is_ok());
-        
+
         let scheduled_task = scheduler.get_scheduled_task(&task.id).await;
         assert!(scheduled_task.is_some());
-        
+
         let stats = scheduler.get_stats().await;
         assert_eq!(stats.total_scheduled, 1);
         assert_eq!(stats.active_schedules, 1);
@@ -655,22 +672,28 @@ mod tests {
     async fn test_dependency_resolution() {
         let config = create_test_config();
         let scheduler = TaskScheduler::new(config);
-        
+
         // Create tasks with dependencies
         let task1 = Task::new("Task 1".to_string(), TaskCategory::Development);
         let mut task2 = Task::new("Task 2".to_string(), TaskCategory::Development);
         task2.dependencies = vec![task1.id.clone()];
-        
+
         let schedule = Schedule {
             start_time: None,
             end_time: None,
             repeat: RepeatPattern::Once,
             timezone: None,
         };
-        
-        scheduler.schedule_task(task1, schedule.clone()).await.unwrap();
-        scheduler.schedule_task(task2.clone(), schedule).await.unwrap();
-        
+
+        scheduler
+            .schedule_task(task1, schedule.clone())
+            .await
+            .unwrap();
+        scheduler
+            .schedule_task(task2.clone(), schedule)
+            .await
+            .unwrap();
+
         // Task 2 should not be ready until task 1 is completed
         let ready_tasks = scheduler.get_ready_tasks().await;
         assert_eq!(ready_tasks.len(), 1);
@@ -681,23 +704,29 @@ mod tests {
     async fn test_execution_plan() {
         let config = create_test_config();
         let scheduler = TaskScheduler::new(config);
-        
+
         let task1 = Task::new("Task 1".to_string(), TaskCategory::Development);
         let task2 = Task::new("Task 2".to_string(), TaskCategory::Development);
-        
+
         let schedule = Schedule {
             start_time: None,
             end_time: None,
             repeat: RepeatPattern::Once,
             timezone: None,
         };
-        
-        scheduler.schedule_task(task1.clone(), schedule.clone()).await.unwrap();
-        scheduler.schedule_task(task2.clone(), schedule).await.unwrap();
-        
+
+        scheduler
+            .schedule_task(task1.clone(), schedule.clone())
+            .await
+            .unwrap();
+        scheduler
+            .schedule_task(task2.clone(), schedule)
+            .await
+            .unwrap();
+
         let task_ids = vec![task1.id, task2.id];
         let plan = scheduler.create_execution_plan(&task_ids).await.unwrap();
-        
+
         assert_eq!(plan.task_ids.len(), 2);
         assert_eq!(plan.execution_order.len(), 2);
         assert_eq!(plan.status, PlanStatus::Created);
@@ -707,7 +736,7 @@ mod tests {
     async fn test_repeat_patterns() {
         let config = create_test_config();
         let scheduler = TaskScheduler::new(config);
-        
+
         let task = Task::new("Recurring Task".to_string(), TaskCategory::Development);
         let schedule = Schedule {
             start_time: None,
@@ -715,14 +744,17 @@ mod tests {
             repeat: RepeatPattern::Count(3),
             timezone: None,
         };
-        
-        scheduler.schedule_task(task.clone(), schedule).await.unwrap();
-        
+
+        scheduler
+            .schedule_task(task.clone(), schedule)
+            .await
+            .unwrap();
+
         // Mark as executed 3 times
         for _ in 0..3 {
             scheduler.mark_executed(&task.id).await.unwrap();
         }
-        
+
         let scheduled_task = scheduler.get_scheduled_task(&task.id).await.unwrap();
         assert!(!scheduled_task.is_active); // Should be inactive after 3 executions
         assert_eq!(scheduled_task.execution_count, 3);

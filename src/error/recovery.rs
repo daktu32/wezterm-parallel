@@ -1,14 +1,14 @@
 // WezTerm Multi-Process Development Framework - Error Recovery System
 // 自動回復機能とエラー処理
 
-use super::{UserError, ErrorType, ErrorHandlingConfig};
-use crate::room::manager::WorkspaceManager;
+use super::{ErrorHandlingConfig, ErrorType, UserError};
+use crate::logging::LogContext;
 #[allow(unused_imports)] // RestartPolicy is used in tests
 use crate::process::manager::{ProcessManager, RestartPolicy};
+use crate::room::manager::WorkspaceManager;
+use crate::{log_debug, log_error, log_info, log_warn};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use crate::logging::LogContext;
-use crate::{log_info, log_warn, log_error, log_debug};
 
 pub struct ErrorRecoveryManager {
     workspace_manager: Arc<WorkspaceManager>,
@@ -22,7 +22,7 @@ impl ErrorRecoveryManager {
     pub fn new(workspace_manager: Arc<WorkspaceManager>) -> Self {
         let config = ErrorHandlingConfig::default();
         let max_recovery_attempts = config.max_recovery_attempts;
-        
+
         Self {
             workspace_manager,
             process_manager: None,
@@ -32,9 +32,12 @@ impl ErrorRecoveryManager {
         }
     }
 
-    pub fn with_config(workspace_manager: Arc<WorkspaceManager>, config: ErrorHandlingConfig) -> Self {
+    pub fn with_config(
+        workspace_manager: Arc<WorkspaceManager>,
+        config: ErrorHandlingConfig,
+    ) -> Self {
         let max_recovery_attempts = config.max_recovery_attempts;
-        
+
         Self {
             workspace_manager,
             process_manager: None,
@@ -47,12 +50,12 @@ impl ErrorRecoveryManager {
     pub fn set_process_manager(&mut self, process_manager: Arc<ProcessManager>) {
         self.process_manager = Some(process_manager);
     }
-    
+
     // テスト用getter
     pub fn get_recovery_attempts(&self, error_key: &str) -> u32 {
         *self.recovery_attempts.get(error_key).unwrap_or(&0)
     }
-    
+
     pub fn get_max_recovery_attempts(&self) -> u32 {
         self.max_recovery_attempts
     }
@@ -63,40 +66,72 @@ impl ErrorRecoveryManager {
         if !self.config.auto_recovery {
             let skip_context = LogContext::new("error_recovery", "auto_recovery_disabled")
                 .with_metadata("error_code", serde_json::json!(error.error_code));
-            log_debug!(skip_context, "自動回復が無効のため、エラー {} をスキップします", error.error_code);
+            log_debug!(
+                skip_context,
+                "自動回復が無効のため、エラー {} をスキップします",
+                error.error_code
+            );
             return false;
         }
 
         let error_key = format!("{}:{}", error.error_code, error.error_type as u8);
-        
+
         // 回復試行回数をチェック
         let attempts = *self.recovery_attempts.get(&error_key).unwrap_or(&0);
         if attempts >= self.max_recovery_attempts {
             let max_attempts_context = LogContext::new("error_recovery", "max_attempts_reached")
                 .with_metadata("error_code", serde_json::json!(error.error_code))
-                .with_metadata("max_attempts", serde_json::json!(self.max_recovery_attempts));
-            log_warn!(max_attempts_context, "エラー {} の回復試行回数が上限 ({}) に達しました", error.error_code, self.max_recovery_attempts);
+                .with_metadata(
+                    "max_attempts",
+                    serde_json::json!(self.max_recovery_attempts),
+                );
+            log_warn!(
+                max_attempts_context,
+                "エラー {} の回復試行回数が上限 ({}) に達しました",
+                error.error_code,
+                self.max_recovery_attempts
+            );
             return false;
         }
 
         // 試行回数を増加
-        self.recovery_attempts.insert(error_key.clone(), attempts + 1);
+        self.recovery_attempts
+            .insert(error_key.clone(), attempts + 1);
 
         // デバッグ設定に応じてログレベルを調整
         let attempt_context = LogContext::new("error_recovery", "recovery_attempt")
             .with_metadata("error_code", serde_json::json!(error.error_code))
             .with_metadata("attempt_num", serde_json::json!(attempts + 1))
-            .with_metadata("max_attempts", serde_json::json!(self.max_recovery_attempts));
-        
+            .with_metadata(
+                "max_attempts",
+                serde_json::json!(self.max_recovery_attempts),
+            );
+
         if self.config.debug.enabled {
-            log_info!(attempt_context, "エラー {} の自動回復を試行中... (試行 {}/{})", error.error_code, attempts + 1, self.max_recovery_attempts);
+            log_info!(
+                attempt_context,
+                "エラー {} の自動回復を試行中... (試行 {}/{})",
+                error.error_code,
+                attempts + 1,
+                self.max_recovery_attempts
+            );
             if self.config.debug.verbose_errors {
                 let verbose_context = LogContext::new("error_recovery", "verbose_error_details")
                     .with_metadata("error_code", serde_json::json!(error.error_code));
-                log_debug!(verbose_context, "エラー詳細: {}", error.with_debug_info(&self.config.debug));
+                log_debug!(
+                    verbose_context,
+                    "エラー詳細: {}",
+                    error.with_debug_info(&self.config.debug)
+                );
             }
         } else {
-            log_info!(attempt_context, "エラー {} の自動回復を試行中... (試行 {}/{})", error.error_code, attempts + 1, self.max_recovery_attempts);
+            log_info!(
+                attempt_context,
+                "エラー {} の自動回復を試行中... (試行 {}/{})",
+                error.error_code,
+                attempts + 1,
+                self.max_recovery_attempts
+            );
         }
 
         let success = match error.error_type {
@@ -111,13 +146,21 @@ impl ErrorRecoveryManager {
         if success {
             let success_context = LogContext::new("error_recovery", "recovery_success")
                 .with_metadata("error_code", serde_json::json!(error.error_code));
-            log_info!(success_context, "エラー {} の自動回復に成功しました", error.error_code);
+            log_info!(
+                success_context,
+                "エラー {} の自動回復に成功しました",
+                error.error_code
+            );
             // テスト目的で、成功時のリセットを無効化
             // self.recovery_attempts.remove(&error_key);
         } else {
             let failure_context = LogContext::new("error_recovery", "recovery_failure")
                 .with_metadata("error_code", serde_json::json!(error.error_code));
-            log_warn!(failure_context, "エラー {} の自動回復に失敗しました", error.error_code);
+            log_warn!(
+                failure_context,
+                "エラー {} の自動回復に失敗しました",
+                error.error_code
+            );
         }
 
         success
@@ -131,9 +174,13 @@ impl ErrorRecoveryManager {
             }
             "ROOM_003" => {
                 // Room重複エラー - デフォルトRoomに切り替え
-                let room_duplicate_context = LogContext::new("error_recovery", "room_duplicate_recovery")
-                    .with_metadata("error_code", serde_json::json!("ROOM_003"));
-                log_info!(room_duplicate_context, "重複Roomエラーのため、デフォルトRoomに切り替えます");
+                let room_duplicate_context =
+                    LogContext::new("error_recovery", "room_duplicate_recovery")
+                        .with_metadata("error_code", serde_json::json!("ROOM_003"));
+                log_info!(
+                    room_duplicate_context,
+                    "重複Roomエラーのため、デフォルトRoomに切り替えます"
+                );
                 self.ensure_default_room().await
             }
             _ => false,
@@ -145,18 +192,23 @@ impl ErrorRecoveryManager {
             match error.error_code.as_str() {
                 "PROC_001" => {
                     // Claude Code起動失敗 - 代替方法を試行
-                    let startup_recovery_context = LogContext::new("error_recovery", "claude_startup_recovery")
-                        .with_metadata("error_code", serde_json::json!("PROC_001"));
-                    log_info!(startup_recovery_context, "Claude Code起動エラーの回復を試行中...");
+                    let startup_recovery_context =
+                        LogContext::new("error_recovery", "claude_startup_recovery")
+                            .with_metadata("error_code", serde_json::json!("PROC_001"));
+                    log_info!(
+                        startup_recovery_context,
+                        "Claude Code起動エラーの回復を試行中..."
+                    );
                     sleep(Duration::from_secs(2)).await;
-                    
+
                     // 簡易的な回復試行
                     true
                 }
                 "PROC_002" => {
                     // プロセス通信失敗 - プロセス再起動
-                    let comm_recovery_context = LogContext::new("error_recovery", "process_communication_recovery")
-                        .with_metadata("error_code", serde_json::json!("PROC_002"));
+                    let comm_recovery_context =
+                        LogContext::new("error_recovery", "process_communication_recovery")
+                            .with_metadata("error_code", serde_json::json!("PROC_002"));
                     log_info!(comm_recovery_context, "プロセス通信エラーの回復を試行中...");
                     self.restart_failed_processes(process_manager).await
                 }
@@ -170,16 +222,23 @@ impl ErrorRecoveryManager {
     async fn recover_config_error(&self, _error: &UserError) -> bool {
         // 設定エラー - デフォルト設定で継続
         let config_recovery_context = LogContext::new("error_recovery", "config_error_recovery");
-        log_info!(config_recovery_context, "設定エラーの回復: デフォルト設定で継続します");
+        log_info!(
+            config_recovery_context,
+            "設定エラーの回復: デフォルト設定で継続します"
+        );
         true
     }
 
     async fn recover_file_error(&self, error: &UserError) -> bool {
         // ファイルエラー - ディレクトリ作成を試行
-        if error.message_jp.contains("ディレクトリ") || error.message_jp.contains("フォルダ") {
+        if error.message_jp.contains("ディレクトリ") || error.message_jp.contains("フォルダ")
+        {
             let file_recovery_context = LogContext::new("error_recovery", "file_error_recovery")
                 .with_metadata("error_code", serde_json::json!(error.error_code));
-            log_info!(file_recovery_context, "ファイルエラーの回復: ディレクトリ作成を試行");
+            log_info!(
+                file_recovery_context,
+                "ファイルエラーの回復: ディレクトリ作成を試行"
+            );
             // 実際のディレクトリ作成は具体的なエラー情報が必要
             true
         } else {
@@ -191,9 +250,13 @@ impl ErrorRecoveryManager {
         match error.error_code.as_str() {
             "SYS_001" => {
                 // システムリソース不足 - 古いプロセスを停止
-                let system_recovery_context = LogContext::new("error_recovery", "system_resource_recovery")
-                    .with_metadata("error_code", serde_json::json!("SYS_001"));
-                log_info!(system_recovery_context, "システムリソース不足の回復: 古いプロセスを停止します");
+                let system_recovery_context =
+                    LogContext::new("error_recovery", "system_resource_recovery")
+                        .with_metadata("error_code", serde_json::json!("SYS_001"));
+                log_info!(
+                    system_recovery_context,
+                    "システムリソース不足の回復: 古いプロセスを停止します"
+                );
                 self.cleanup_old_processes().await
             }
             _ => false,
@@ -203,7 +266,10 @@ impl ErrorRecoveryManager {
     async fn recover_network_error(&self, _error: &UserError) -> bool {
         // ネットワークエラー - 再接続を試行
         let network_recovery_context = LogContext::new("error_recovery", "network_error_recovery");
-        log_info!(network_recovery_context, "ネットワークエラーの回復: 再接続を試行中...");
+        log_info!(
+            network_recovery_context,
+            "ネットワークエラーの回復: 再接続を試行中..."
+        );
         sleep(Duration::from_secs(1)).await;
         true
     }
@@ -219,14 +285,20 @@ impl ErrorRecoveryManager {
             None => {
                 let creating_context = LogContext::new("error_recovery", "default_room_creating");
                 log_info!(creating_context, "デフォルトRoomを作成中...");
-                match self.workspace_manager.create_workspace("default", "basic").await {
+                match self
+                    .workspace_manager
+                    .create_workspace("default", "basic")
+                    .await
+                {
                     Ok(_) => {
-                        let created_context = LogContext::new("error_recovery", "default_room_created");
+                        let created_context =
+                            LogContext::new("error_recovery", "default_room_created");
                         log_info!(created_context, "デフォルトRoomを作成しました");
                         true
                     }
                     Err(e) => {
-                        let creation_failed_context = LogContext::new("error_recovery", "default_room_creation_failed");
+                        let creation_failed_context =
+                            LogContext::new("error_recovery", "default_room_creation_failed");
                         log_error!(creation_failed_context, "デフォルトRoomの作成に失敗: {}", e);
                         false
                     }
@@ -238,19 +310,34 @@ impl ErrorRecoveryManager {
     /// エラー統計情報を記録
     pub fn log_error_statistics(&self) {
         let stats = self.get_recovery_stats();
-        
+
         if stats.total_attempts > 0 {
             let stats_context = LogContext::new("error_recovery", "statistics_report")
                 .with_metadata("total_attempts", serde_json::json!(stats.total_attempts))
                 .with_metadata("unique_errors", serde_json::json!(stats.unique_errors))
-                .with_metadata("max_attempts_reached", serde_json::json!(stats.max_attempts_reached));
-            log_info!(stats_context, "エラー回復統計: 合計試行数={}, ユニークエラー数={}, 上限到達数={}", 
-                      stats.total_attempts, stats.unique_errors, stats.max_attempts_reached);
-            
+                .with_metadata(
+                    "max_attempts_reached",
+                    serde_json::json!(stats.max_attempts_reached),
+                );
+            log_info!(
+                stats_context,
+                "エラー回復統計: 合計試行数={}, ユニークエラー数={}, 上限到達数={}",
+                stats.total_attempts,
+                stats.unique_errors,
+                stats.max_attempts_reached
+            );
+
             if stats.max_attempts_reached > 0 {
                 let max_reached_context = LogContext::new("error_recovery", "max_attempts_warning")
-                    .with_metadata("max_attempts_reached", serde_json::json!(stats.max_attempts_reached));
-                log_warn!(max_reached_context, "{}種類のエラーが回復試行上限に達しました", stats.max_attempts_reached);
+                    .with_metadata(
+                        "max_attempts_reached",
+                        serde_json::json!(stats.max_attempts_reached),
+                    );
+                log_warn!(
+                    max_reached_context,
+                    "{}種類のエラーが回復試行上限に達しました",
+                    stats.max_attempts_reached
+                );
             }
         }
     }
@@ -259,20 +346,39 @@ impl ErrorRecoveryManager {
     pub fn debug_recovery_state(&self) {
         let debug_context = LogContext::new("error_recovery", "debug_state");
         log_info!(debug_context, "エラー回復マネージャー状態:");
-        
+
         let max_attempts_context = LogContext::new("error_recovery", "debug_max_attempts")
-            .with_metadata("max_recovery_attempts", serde_json::json!(self.max_recovery_attempts));
-        log_info!(max_attempts_context, "  最大回復試行回数: {}", self.max_recovery_attempts);
-        
+            .with_metadata(
+                "max_recovery_attempts",
+                serde_json::json!(self.max_recovery_attempts),
+            );
+        log_info!(
+            max_attempts_context,
+            "  最大回復試行回数: {}",
+            self.max_recovery_attempts
+        );
+
         let recorded_errors_context = LogContext::new("error_recovery", "debug_recorded_errors")
-            .with_metadata("recorded_errors_count", serde_json::json!(self.recovery_attempts.len()));
-        log_info!(recorded_errors_context, "  記録されたエラー: {}", self.recovery_attempts.len());
-        
+            .with_metadata(
+                "recorded_errors_count",
+                serde_json::json!(self.recovery_attempts.len()),
+            );
+        log_info!(
+            recorded_errors_context,
+            "  記録されたエラー: {}",
+            self.recovery_attempts.len()
+        );
+
         for (error_key, attempts) in &self.recovery_attempts {
             let error_detail_context = LogContext::new("error_recovery", "debug_error_detail")
                 .with_metadata("error_key", serde_json::json!(error_key))
                 .with_metadata("attempts", serde_json::json!(attempts));
-            log_info!(error_detail_context, "    {}: {}回試行", error_key, attempts);
+            log_info!(
+                error_detail_context,
+                "    {}: {}回試行",
+                error_key,
+                attempts
+            );
         }
     }
 
@@ -281,10 +387,10 @@ impl ErrorRecoveryManager {
         let restart_context = LogContext::new("error_recovery", "process_restart");
         log_info!(restart_context, "失敗したプロセスの再起動を実行");
         sleep(Duration::from_millis(500)).await;
-        
+
         // 実際のプロセス状態を確認して成功判定
         let process_count = process_manager.get_process_count().await;
-        
+
         // プロセスが存在する場合は成功、そうでなければ失敗
         // テストではプロセスが空なので、失敗として扱う
         process_count > 0
@@ -302,13 +408,13 @@ impl ErrorRecoveryManager {
     pub fn generate_recovery_guidance(&self, error: &UserError) -> String {
         let mut guidance = format!("【エラー】{}\n", error.message_jp);
         guidance.push_str(&format!("【対処法】{}\n\n", error.guidance));
-        
+
         if !error.recovery_actions.is_empty() {
             guidance.push_str("【推奨アクション】\n");
             for (i, action) in error.recovery_actions.iter().enumerate() {
                 guidance.push_str(&format!("{}. {}\n", i + 1, action.description));
                 if let Some(command) = &action.command {
-                    guidance.push_str(&format!("   コマンド: {}\n", command));
+                    guidance.push_str(&format!("   コマンド: {command}\n"));
                 }
             }
         }
@@ -322,7 +428,9 @@ impl ErrorRecoveryManager {
         RecoveryStats {
             total_attempts: self.recovery_attempts.values().sum(),
             unique_errors: self.recovery_attempts.len() as u32,
-            max_attempts_reached: self.recovery_attempts.values()
+            max_attempts_reached: self
+                .recovery_attempts
+                .values()
                 .filter(|&&count| count >= self.max_recovery_attempts)
                 .count() as u32,
         }
@@ -343,10 +451,8 @@ mod tests {
 
     async fn create_test_manager() -> ErrorRecoveryManager {
         let temp_dir = tempdir().unwrap();
-        let workspace_manager = Arc::new(
-            WorkspaceManager::new(Some(temp_dir.path().join("test.json")))
-                .unwrap()
-        );
+        let workspace_manager =
+            Arc::new(WorkspaceManager::new(Some(temp_dir.path().join("test.json"))).unwrap());
         ErrorRecoveryManager::new(workspace_manager)
     }
 
@@ -354,7 +460,7 @@ mod tests {
     async fn test_room_error_recovery() {
         let mut manager = create_test_manager().await;
         let error = UserError::room_not_found("test-room");
-        
+
         // 最初の回復試行
         let result = manager.attempt_recovery(&error).await;
         assert!(!result); // Room not found は自動回復不可
@@ -377,9 +483,9 @@ mod tests {
         };
         let (process_manager, _receiver) = crate::process::manager::ProcessManager::new(config);
         manager.set_process_manager(Arc::new(process_manager));
-        
+
         let error = UserError::claude_code_startup_failed("startup failed");
-        
+
         // 複数回試行
         for i in 0..5 {
             let result = manager.attempt_recovery(&error).await;
@@ -395,7 +501,7 @@ mod tests {
     async fn test_guidance_generation() {
         let manager = create_test_manager().await;
         let error = UserError::room_not_found("test-room");
-        
+
         let guidance = manager.generate_recovery_guidance(&error);
         assert!(guidance.contains("Room 'test-room' が見つかりません"));
         assert!(guidance.contains("ROOM_001"));

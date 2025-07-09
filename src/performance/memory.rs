@@ -1,12 +1,12 @@
 // WezTerm Multi-Process Development Framework - Memory Optimization
 // メモリ使用量最適化
 
-use std::sync::Arc;
+use crate::logging::LogContext;
+use crate::{log_debug, log_info, log_warn};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use crate::logging::LogContext;
-use crate::{log_info, log_debug, log_warn};
 
 /// メモリプール管理
 pub struct MemoryPool {
@@ -32,7 +32,7 @@ impl MemoryPool {
     pub fn allocate(&mut self, size: usize) -> Vec<u8> {
         // サイズを2の累乗に正規化
         let normalized_size = size.next_power_of_two();
-        
+
         if let Some(pool) = self.pools.get_mut(&normalized_size) {
             if let Some(mut buffer) = pool.pop() {
                 buffer.clear();
@@ -41,15 +41,15 @@ impl MemoryPool {
                 return buffer;
             }
         }
-        
+
         // プールが空または存在しない場合は新規作成
         let buffer = Vec::with_capacity(normalized_size);
         self.total_allocated += normalized_size;
-        
+
         if self.total_allocated > self.peak_usage {
             self.peak_usage = self.total_allocated;
         }
-        
+
         buffer
     }
 
@@ -57,9 +57,9 @@ impl MemoryPool {
     pub fn deallocate(&mut self, buffer: Vec<u8>) {
         let capacity = buffer.capacity();
         self.total_deallocated += capacity;
-        
+
         // プールサイズ制限チェック
-        let pool = self.pools.entry(capacity).or_insert_with(Vec::new);
+        let pool = self.pools.entry(capacity).or_default();
         if pool.len() < self.max_pool_size {
             pool.push(buffer);
         }
@@ -81,17 +81,22 @@ impl MemoryPool {
     /// プールをクリーンアップ
     pub fn cleanup(&mut self) {
         let before_count: usize = self.pools.values().map(|v| v.len()).sum();
-        
+
         // 半分のサイズに縮小
         for pool in self.pools.values_mut() {
             pool.truncate(pool.len() / 2);
         }
-        
+
         let after_count: usize = self.pools.values().map(|v| v.len()).sum();
         let cleanup_context = LogContext::new("performance", "memory_pool_cleanup")
             .with_metadata("before_count", serde_json::json!(before_count))
             .with_metadata("after_count", serde_json::json!(after_count));
-        log_debug!(cleanup_context, "メモリプールクリーンアップ: {} → {} バッファ", before_count, after_count);
+        log_debug!(
+            cleanup_context,
+            "メモリプールクリーンアップ: {} → {} バッファ",
+            before_count,
+            after_count
+        );
     }
 }
 
@@ -111,6 +116,12 @@ pub struct StringInterner {
     strings: HashMap<String, Arc<str>>,
     hit_count: u64,
     miss_count: u64,
+}
+
+impl Default for StringInterner {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl StringInterner {
@@ -143,21 +154,32 @@ impl StringInterner {
         } else {
             0.0
         };
-        (self.strings.len(), self.hit_count, self.miss_count, hit_rate)
+        (
+            self.strings.len(),
+            self.hit_count,
+            self.miss_count,
+            hit_rate,
+        )
     }
 
     /// クリーンアップ
     pub fn cleanup(&mut self) {
         let before_count = self.strings.len();
-        
+
         // 参照カウントが1（このマップのみ）の文字列を削除
-        self.strings.retain(|_, arc_str| Arc::strong_count(arc_str) > 1);
-        
+        self.strings
+            .retain(|_, arc_str| Arc::strong_count(arc_str) > 1);
+
         let after_count = self.strings.len();
         let interner_cleanup_context = LogContext::new("performance", "string_interner_cleanup")
             .with_metadata("before_count", serde_json::json!(before_count))
             .with_metadata("after_count", serde_json::json!(after_count));
-        log_debug!(interner_cleanup_context, "文字列インターナークリーンアップ: {} → {} 文字列", before_count, after_count);
+        log_debug!(
+            interner_cleanup_context,
+            "文字列インターナークリーンアップ: {} → {} 文字列",
+            before_count,
+            after_count
+        );
     }
 }
 
@@ -196,25 +218,53 @@ impl MemoryMonitor {
         let usage_ratio = current_usage as f64 / self.memory_limit as f64;
 
         let usage_check_context = LogContext::new("performance", "memory_usage_check")
-            .with_metadata("current_usage_mb", serde_json::json!(current_usage / 1024 / 1024))
-            .with_metadata("memory_limit_mb", serde_json::json!(self.memory_limit / 1024 / 1024))
-            .with_metadata("usage_ratio_percent", serde_json::json!(usage_ratio * 100.0));
-        log_debug!(usage_check_context, "メモリ使用量チェック: {}MB / {}MB ({:.1}%)", 
-                   current_usage / 1024 / 1024, 
-                   self.memory_limit / 1024 / 1024, 
-                   usage_ratio * 100.0);
+            .with_metadata(
+                "current_usage_mb",
+                serde_json::json!(current_usage / 1024 / 1024),
+            )
+            .with_metadata(
+                "memory_limit_mb",
+                serde_json::json!(self.memory_limit / 1024 / 1024),
+            )
+            .with_metadata(
+                "usage_ratio_percent",
+                serde_json::json!(usage_ratio * 100.0),
+            );
+        log_debug!(
+            usage_check_context,
+            "メモリ使用量チェック: {}MB / {}MB ({:.1}%)",
+            current_usage / 1024 / 1024,
+            self.memory_limit / 1024 / 1024,
+            usage_ratio * 100.0
+        );
 
         if usage_ratio > 1.0 {
-            let critical_context = LogContext::new("performance", "memory_critical")
-                .with_metadata("usage_ratio_percent", serde_json::json!(usage_ratio * 100.0));
-            log_warn!(critical_context, "メモリ使用量が制限を超過: {:.1}%", usage_ratio * 100.0);
+            let critical_context = LogContext::new("performance", "memory_critical").with_metadata(
+                "usage_ratio_percent",
+                serde_json::json!(usage_ratio * 100.0),
+            );
+            log_warn!(
+                critical_context,
+                "メモリ使用量が制限を超過: {:.1}%",
+                usage_ratio * 100.0
+            );
             self.emergency_cleanup().await;
             Ok(MemoryStatus::Critical)
         } else if usage_ratio > self.warning_threshold {
             let warning_context = LogContext::new("performance", "memory_warning")
-                .with_metadata("usage_ratio_percent", serde_json::json!(usage_ratio * 100.0))
-                .with_metadata("warning_threshold", serde_json::json!(self.warning_threshold * 100.0));
-            log_warn!(warning_context, "メモリ使用量が警告レベル: {:.1}%", usage_ratio * 100.0);
+                .with_metadata(
+                    "usage_ratio_percent",
+                    serde_json::json!(usage_ratio * 100.0),
+                )
+                .with_metadata(
+                    "warning_threshold",
+                    serde_json::json!(self.warning_threshold * 100.0),
+                );
+            log_warn!(
+                warning_context,
+                "メモリ使用量が警告レベル: {:.1}%",
+                usage_ratio * 100.0
+            );
             self.perform_cleanup().await;
             Ok(MemoryStatus::Warning)
         } else {
@@ -270,18 +320,19 @@ impl MemoryMonitor {
         Ok(self.estimate_memory_usage().await)
     }
 
+    #[allow(dead_code)]
     async fn estimate_memory_usage(&self) -> usize {
         // メモリプールとインターナーの使用量から推定
         let pool_stats = {
             let pool = self.memory_pool.read().await;
             pool.get_stats()
         };
-        
+
         let (string_count, _, _, _) = {
             let interner = self.string_interner.read().await;
             interner.get_stats()
         };
-        
+
         // 推定メモリ使用量（実際の値より低めになる）
         pool_stats.active_allocation + (string_count * 64) // 文字列平均64バイトと仮定
     }
@@ -290,12 +341,12 @@ impl MemoryMonitor {
     async fn perform_cleanup(&self) {
         let cleanup_context = LogContext::new("performance", "memory_cleanup");
         log_info!(cleanup_context, "メモリクリーンアップを実行中...");
-        
+
         {
             let mut pool = self.memory_pool.write().await;
             pool.cleanup();
         }
-        
+
         {
             let mut interner = self.string_interner.write().await;
             interner.cleanup();
@@ -306,7 +357,7 @@ impl MemoryMonitor {
     async fn emergency_cleanup(&self) {
         let emergency_context = LogContext::new("performance", "memory_emergency_cleanup");
         log_warn!(emergency_context, "緊急メモリクリーンアップを実行中...");
-        
+
         {
             let mut pool = self.memory_pool.write().await;
             // より積極的なクリーンアップ
@@ -314,7 +365,7 @@ impl MemoryMonitor {
                 pool_vec.clear();
             }
         }
-        
+
         {
             let mut interner = self.string_interner.write().await;
             // 文字列インターナーを完全にクリア
@@ -338,7 +389,7 @@ impl MemoryMonitor {
             let pool = self.memory_pool.read().await;
             pool.get_stats()
         };
-        
+
         let (string_count, hit_count, miss_count, hit_rate) = {
             let interner = self.string_interner.read().await;
             interner.get_stats()
@@ -388,18 +439,18 @@ mod tests {
     #[test]
     fn test_memory_pool() {
         let mut pool = MemoryPool::new(4);
-        
+
         // アロケート
         let buffer1 = pool.allocate(1024);
         assert!(buffer1.capacity() >= 1024);
-        
+
         let buffer2 = pool.allocate(2048);
         assert!(buffer2.capacity() >= 2048);
-        
+
         // ディアロケート
         pool.deallocate(buffer1);
         pool.deallocate(buffer2);
-        
+
         let stats = pool.get_stats();
         assert_eq!(stats.total_allocated, stats.total_deallocated);
     }
@@ -407,21 +458,21 @@ mod tests {
     #[test]
     fn test_string_interner() {
         let mut interner = StringInterner::new();
-        
+
         let s1 = interner.intern("hello");
         let s2 = interner.intern("hello");
         let s3 = interner.intern("world");
-        
+
         assert_eq!(&*s1, "hello");
         assert_eq!(&*s2, "hello");
         assert_eq!(&*s3, "world");
-        
+
         // 同じ文字列は同じ参照
         assert!(Arc::ptr_eq(&s1, &s2));
-        
+
         let (count, hits, misses, hit_rate) = interner.get_stats();
         assert_eq!(count, 2); // "hello", "world"
-        assert_eq!(hits, 1);  // "hello"の2回目
+        assert_eq!(hits, 1); // "hello"の2回目
         assert_eq!(misses, 2); // "hello"の1回目, "world"
         assert!((hit_rate - 33.333333333333336).abs() < 1e-10); // 1/3 * 100 (浮動小数点精度対応)
     }
@@ -429,17 +480,20 @@ mod tests {
     #[tokio::test]
     async fn test_memory_monitor() {
         let mut monitor = MemoryMonitor::new(512); // 512MB制限
-        
+
         // 最初のチェック（時間間隔により制限される可能性）
         let status = monitor.check_memory_usage().await.unwrap();
-        assert!(matches!(status, MemoryStatus::Normal | MemoryStatus::Warning));
+        assert!(matches!(
+            status,
+            MemoryStatus::Normal | MemoryStatus::Warning
+        ));
     }
 
     #[tokio::test]
     async fn test_memory_report() {
         let monitor = MemoryMonitor::new(256);
         let report = monitor.generate_memory_report().await;
-        
+
         assert!(report.contains("メモリ使用量レポート"));
         assert!(report.contains("メモリプール"));
         assert!(report.contains("文字列インターナー"));

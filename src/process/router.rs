@@ -1,9 +1,9 @@
-use crate::{CoordinationMessage, CoordinationResponse};
 use crate::process::ProcessManager;
+use crate::{CoordinationMessage, CoordinationResponse};
 use std::collections::HashMap;
+use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
-use std::error::Error;
 
 /// プロセス間メッセージのルーティングを管理
 pub struct MessageRouter {
@@ -26,11 +26,7 @@ impl MessageRouter {
     }
 
     /// プロセスを登録
-    pub async fn register_process(
-        &self,
-        process_id: String,
-        manager: Arc<Mutex<ProcessManager>>,
-    ) {
+    pub async fn register_process(&self, process_id: String, manager: Arc<Mutex<ProcessManager>>) {
         let mut processes = self.processes.write().await;
         processes.insert(process_id, manager);
     }
@@ -47,12 +43,12 @@ impl MessageRouter {
         message: CoordinationMessage,
     ) -> Result<CoordinationResponse, Box<dyn Error + Send + Sync>> {
         let processes = self.processes.read().await;
-        
+
         // 宛先プロセスを取得
         let _receiver = processes
             .get(&message.receiver_id)
             .ok_or_else(|| format!("Process {} not found", message.receiver_id))?;
-        
+
         // TODO: 実際のメッセージ送信とレスポンス処理を実装
         // 現在はモックレスポンスを返す
         Ok(CoordinationResponse::Acknowledged {
@@ -108,8 +104,8 @@ impl MessageRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::CoordinationEvent;
     use crate::process::ProcessConfig;
+    use crate::CoordinationEvent;
 
     #[tokio::test]
     async fn test_process_registration() {
@@ -117,17 +113,15 @@ mod tests {
         let config = ProcessConfig::default();
         let (manager1, _) = ProcessManager::new(config.clone());
         let (manager2, _) = ProcessManager::new(config);
-        
-        router.register_process(
-            "process-1".to_string(),
-            Arc::new(Mutex::new(manager1)),
-        ).await;
-        
-        router.register_process(
-            "process-2".to_string(),
-            Arc::new(Mutex::new(manager2)),
-        ).await;
-        
+
+        router
+            .register_process("process-1".to_string(), Arc::new(Mutex::new(manager1)))
+            .await;
+
+        router
+            .register_process("process-2".to_string(), Arc::new(Mutex::new(manager2)))
+            .await;
+
         assert!(router.is_process_registered("process-1").await);
         assert!(router.is_process_registered("process-2").await);
         assert!(!router.is_process_registered("process-3").await);
@@ -138,12 +132,11 @@ mod tests {
         let router = MessageRouter::new();
         let config = ProcessConfig::default();
         let (manager, _) = ProcessManager::new(config);
-        
-        router.register_process(
-            "receiver".to_string(),
-            Arc::new(Mutex::new(manager)),
-        ).await;
-        
+
+        router
+            .register_process("receiver".to_string(), Arc::new(Mutex::new(manager)))
+            .await;
+
         let message = CoordinationMessage::new(
             "sender".to_string(),
             "receiver".to_string(),
@@ -152,9 +145,9 @@ mod tests {
                 description: "Test task".to_string(),
             },
         );
-        
+
         let response = router.route_message(message).await.unwrap();
-        
+
         match response {
             CoordinationResponse::Acknowledged { process_id } => {
                 assert_eq!(process_id, "receiver");
@@ -167,15 +160,14 @@ mod tests {
     async fn test_broadcast_message() {
         let router = MessageRouter::new();
         let config = ProcessConfig::default();
-        
+
         for i in 1..=3 {
             let (manager, _) = ProcessManager::new(config.clone());
-            router.register_process(
-                format!("process-{}", i),
-                Arc::new(Mutex::new(manager)),
-            ).await;
+            router
+                .register_process(format!("process-{i}"), Arc::new(Mutex::new(manager)))
+                .await;
         }
-        
+
         let message = CoordinationMessage::new(
             "process-1".to_string(),
             "".to_string(), // Broadcast doesn't need specific receiver
@@ -184,12 +176,12 @@ mod tests {
                 parameters: vec![],
             },
         );
-        
+
         let responses = router.broadcast_message(message, true).await;
-        
+
         // process-1を除外するので、2つのレスポンスが返るはず
         assert_eq!(responses.len(), 2);
-        
+
         for (process_id, response) in responses {
             assert_ne!(process_id, "process-1");
             assert!(response.is_ok());
@@ -201,23 +193,22 @@ mod tests {
         let router = MessageRouter::new();
         let config = ProcessConfig::default();
         let (manager, _) = ProcessManager::new(config);
-        
-        router.register_process(
-            "temp-process".to_string(),
-            Arc::new(Mutex::new(manager)),
-        ).await;
-        
+
+        router
+            .register_process("temp-process".to_string(), Arc::new(Mutex::new(manager)))
+            .await;
+
         assert!(router.is_process_registered("temp-process").await);
-        
+
         router.unregister_process("temp-process").await;
-        
+
         assert!(!router.is_process_registered("temp-process").await);
     }
 
     #[tokio::test]
     async fn test_route_to_nonexistent_process() {
         let router = MessageRouter::new();
-        
+
         let message = CoordinationMessage::new(
             "sender".to_string(),
             "nonexistent".to_string(),
@@ -226,7 +217,7 @@ mod tests {
                 description: "Test task".to_string(),
             },
         );
-        
+
         let result = router.route_message(message).await;
         assert!(result.is_err());
     }

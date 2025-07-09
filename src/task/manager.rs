@@ -1,52 +1,55 @@
 // WezTerm Multi-Process Development Framework - Task Manager
 // Central task management system with scheduling, execution, and tracking
 
-use super::types::{Task, TaskId, TaskStatus, TaskCategory, TaskFilter, TaskExecution};
-use super::queue::{TaskQueue, QueueConfig};
-use super::tracker::{TaskTracker};
-use super::{TaskConfig, TaskSystemStats, TaskError, TaskResult, current_timestamp};
-use crate::room::WorkspaceManager;
+use super::queue::{QueueConfig, TaskQueue};
+use super::tracker::TaskTracker;
+use super::types::{Task, TaskCategory, TaskExecution, TaskFilter, TaskId, TaskStatus};
+use super::{current_timestamp, TaskConfig, TaskError, TaskResult, TaskSystemStats};
 use crate::process::manager::ProcessManager;
+use crate::room::WorkspaceManager;
 
 use serde::{Deserialize, Serialize};
+
+/// Type alias for task event listeners
+type TaskEventListener = Box<dyn Fn(&TaskEvent) + Send + Sync>;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::{interval, sleep};
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
 /// Central task management system
 pub struct TaskManager {
     /// Task management configuration
     config: TaskConfig,
-    
+
     /// Task storage (all tasks)
     tasks: RwLock<HashMap<TaskId, Task>>,
-    
+
     /// Task queue for pending tasks
     queue: Arc<TaskQueue>,
-    
+
     /// Task tracker for time and progress tracking
     tracker: Arc<TaskTracker>,
-    
+
     /// Currently executing tasks
     executing_tasks: Arc<RwLock<HashMap<TaskId, ExecutingTask>>>,
-    
+
     /// Task templates for quick creation
     templates: RwLock<HashMap<String, TaskTemplate>>,
-    
+
     /// System statistics
     stats: RwLock<TaskSystemStats>,
-    
+
     /// Workspace manager reference
     workspace_manager: Option<Arc<WorkspaceManager>>,
-    
+
     /// Process manager reference
     process_manager: Option<Arc<ProcessManager>>,
-    
+
     /// Event listeners
-    event_listeners: RwLock<Vec<Box<dyn Fn(&TaskEvent) + Send + Sync>>>,
+    event_listeners: RwLock<Vec<TaskEventListener>>,
 }
 
 impl TaskManager {
@@ -56,10 +59,10 @@ impl TaskManager {
             max_size: config.max_concurrent_tasks * 10, // Queue can hold 10x concurrent limit
             ..Default::default()
         };
-        
+
         let queue = Arc::new(TaskQueue::new(queue_config));
         let tracker = Arc::new(TaskTracker::new());
-        
+
         Self {
             config,
             tasks: RwLock::new(HashMap::new()),
@@ -89,16 +92,16 @@ impl TaskManager {
     /// Start the task manager (background processing)
     pub async fn start(&self) -> TaskResult<tokio::task::JoinHandle<()>> {
         info!("Starting task manager");
-        
+
         let queue = Arc::clone(&self.queue);
         let executing_tasks = Arc::clone(&self.executing_tasks);
         let config = self.config.clone();
         let tracker = Arc::clone(&self.tracker);
-        
+
         let task_handle = tokio::spawn(async move {
             let mut processing_interval = interval(Duration::from_millis(100));
             let mut cleanup_interval = interval(Duration::from_secs(config.cleanup_interval));
-            
+
             loop {
                 tokio::select! {
                     _ = processing_interval.tick() => {
@@ -134,7 +137,7 @@ impl TaskManager {
         // Try to dequeue a ready task
         if let Some(mut task) = queue.dequeue().await {
             task.update_status(TaskStatus::InProgress);
-            
+
             let executing_task = ExecutingTask {
                 task_id: task.id.clone(),
                 started_at: current_timestamp(),
@@ -154,19 +157,19 @@ impl TaskManager {
             let task_id = task.id.clone();
             let executing_tasks_ref = Arc::clone(executing_tasks);
             let tracker_ref = Arc::clone(tracker);
-            
+
             tokio::spawn(async move {
                 let result = Self::execute_task(task).await;
-                
+
                 // Remove from executing
                 {
                     let mut executing = executing_tasks_ref.write().await;
                     executing.remove(&task_id);
                 }
-                
+
                 // Stop tracking
                 tracker_ref.stop_task(&task_id).await;
-                
+
                 debug!("Task {} execution completed: {:?}", task_id, result);
             });
         }
@@ -212,11 +215,11 @@ impl TaskManager {
     /// Execute a command for a task
     async fn execute_command(command: &str, task: &Task) -> TaskResult<String> {
         debug!("Executing command for task {}: {}", task.id, command);
-        
+
         // In a real implementation, this would execute the actual command
         // For now, we simulate success
         sleep(Duration::from_millis(100)).await;
-        
+
         Ok("Command executed successfully".to_string())
     }
 
@@ -253,34 +256,35 @@ impl TaskManager {
     /// Create a new task
     pub async fn create_task(&self, mut task: Task) -> TaskResult<TaskId> {
         let task_id = task.id.clone();
-        
+
         // Validate task
         self.validate_task(&task).await?;
-        
+
         // Set initial status
         task.update_status(TaskStatus::Todo);
-        
+
         // Store task
         {
             let mut tasks = self.tasks.write().await;
             tasks.insert(task_id.clone(), task.clone());
         }
-        
+
         // Add to queue if not blocked by dependencies
         if task.dependencies.is_empty() || self.are_dependencies_met(&task).await {
             self.queue.enqueue(task).await?;
         }
-        
+
         // Update statistics
         {
             let mut stats = self.stats.write().await;
             stats.total_tasks += 1;
             stats.update();
         }
-        
+
         // Notify listeners
-        self.notify_listeners(TaskEvent::TaskCreated(task_id.clone())).await;
-        
+        self.notify_listeners(TaskEvent::TaskCreated(task_id.clone()))
+            .await;
+
         info!("Task created: {}", task_id);
         Ok(task_id)
     }
@@ -294,8 +298,11 @@ impl TaskManager {
     ) -> TaskResult<TaskId> {
         let template = {
             let templates = self.templates.read().await;
-            templates.get(template_name)
-                .ok_or_else(|| TaskError::InvalidConfig(format!("Template '{}' not found", template_name)))?
+            templates
+                .get(template_name)
+                .ok_or_else(|| {
+                    TaskError::InvalidConfig(format!("Template '{template_name}' not found"))
+                })?
                 .clone()
         };
 
@@ -313,12 +320,12 @@ impl TaskManager {
     /// Update a task
     pub async fn update_task(&self, mut task: Task) -> TaskResult<()> {
         let task_id = task.id.clone();
-        
+
         // Validate task
         self.validate_task(&task).await?;
-        
+
         task.updated_at = current_timestamp();
-        
+
         // Update in storage
         {
             let mut tasks = self.tasks.write().await;
@@ -328,13 +335,14 @@ impl TaskManager {
                 return Err(TaskError::TaskNotFound(task_id));
             }
         }
-        
+
         // Update in queue if present
         let _ = self.queue.update_task(task).await;
-        
+
         // Notify listeners
-        self.notify_listeners(TaskEvent::TaskUpdated(task_id.clone())).await;
-        
+        self.notify_listeners(TaskEvent::TaskUpdated(task_id.clone()))
+            .await;
+
         debug!("Task updated: {}", task_id);
         Ok(())
     }
@@ -344,7 +352,9 @@ impl TaskManager {
         // Remove from storage
         let task = {
             let mut tasks = self.tasks.write().await;
-            tasks.remove(task_id).ok_or_else(|| TaskError::TaskNotFound(task_id.clone()))?
+            tasks
+                .remove(task_id)
+                .ok_or_else(|| TaskError::TaskNotFound(task_id.clone()))?
         };
 
         // Remove from queue
@@ -360,7 +370,8 @@ impl TaskManager {
         self.tracker.stop_task(task_id).await;
 
         // Notify listeners
-        self.notify_listeners(TaskEvent::TaskDeleted(task_id.clone())).await;
+        self.notify_listeners(TaskEvent::TaskDeleted(task_id.clone()))
+            .await;
 
         info!("Task deleted: {}", task_id);
         Ok(task)
@@ -394,23 +405,25 @@ impl TaskManager {
     /// Get task statistics
     pub async fn get_stats(&self) -> TaskSystemStats {
         let mut stats = self.stats.read().await.clone();
-        
+
         // Update real-time stats
         stats.active_tasks = {
             let executing = self.executing_tasks.read().await;
             executing.len()
         };
-        
+
         stats.queued_tasks = self.queue.size().await;
         stats.update();
-        
+
         stats
     }
 
     /// Validate task data
     async fn validate_task(&self, task: &Task) -> TaskResult<()> {
         if task.title.trim().is_empty() {
-            return Err(TaskError::InvalidConfig("Task title cannot be empty".to_string()));
+            return Err(TaskError::InvalidConfig(
+                "Task title cannot be empty".to_string(),
+            ));
         }
 
         // Validate dependencies exist
@@ -460,9 +473,7 @@ impl TaskManager {
         }
 
         if !filter.tags.is_empty() {
-            tasks.retain(|task| {
-                filter.tags.iter().all(|tag| task.tags.contains(tag))
-            });
+            tasks.retain(|task| filter.tags.iter().all(|tag| task.tags.contains(tag)));
         }
 
         if filter.overdue_only {
@@ -472,8 +483,11 @@ impl TaskManager {
         if let Some(search_text) = filter.search_text {
             let search_lower = search_text.to_lowercase();
             tasks.retain(|task| {
-                task.title.to_lowercase().contains(&search_lower) ||
-                task.description.as_ref().map_or(false, |desc| desc.to_lowercase().contains(&search_lower))
+                task.title.to_lowercase().contains(&search_lower)
+                    || task
+                        .description
+                        .as_ref()
+                        .is_some_and(|desc| desc.to_lowercase().contains(&search_lower))
             });
         }
 
@@ -481,7 +495,7 @@ impl TaskManager {
     }
 
     /// Add task event listener
-    pub async fn add_event_listener(&self, listener: Box<dyn Fn(&TaskEvent) + Send + Sync>) {
+    pub async fn add_event_listener(&self, listener: TaskEventListener) {
         let mut listeners = self.event_listeners.write().await;
         listeners.push(listener);
     }
@@ -511,12 +525,20 @@ impl TaskManager {
     }
 
     /// Generate productivity report for time range
-    pub async fn generate_productivity_report(&self, since_timestamp: Option<u64>) -> super::tracker::ProductivityReport {
-        self.tracker.generate_enhanced_productivity_report(since_timestamp).await
+    pub async fn generate_productivity_report(
+        &self,
+        since_timestamp: Option<u64>,
+    ) -> super::tracker::ProductivityReport {
+        self.tracker
+            .generate_enhanced_productivity_report(since_timestamp)
+            .await
     }
 
     /// Get productivity insights for a specific task
-    pub async fn get_task_insights(&self, task_id: &TaskId) -> Option<super::tracker::TaskInsights> {
+    pub async fn get_task_insights(
+        &self,
+        task_id: &TaskId,
+    ) -> Option<super::tracker::TaskInsights> {
         self.tracker.get_task_insights(task_id).await
     }
 
@@ -575,7 +597,6 @@ pub enum TaskEvent {
     TaskFailed(TaskId),
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -599,7 +620,7 @@ mod tests {
     async fn test_task_manager_creation() {
         let config = create_test_config();
         let manager = TaskManager::new(config);
-        
+
         let stats = manager.get_stats().await;
         assert_eq!(stats.total_tasks, 0);
         assert_eq!(stats.active_tasks, 0);
@@ -609,16 +630,16 @@ mod tests {
     async fn test_create_task() {
         let config = create_test_config();
         let manager = TaskManager::new(config);
-        
+
         let task = Task::new("Test Task".to_string(), TaskCategory::Development);
         let task_id = manager.create_task(task).await.unwrap();
-        
+
         assert!(!task_id.is_empty());
-        
+
         let retrieved_task = manager.get_task(&task_id).await;
         assert!(retrieved_task.is_some());
         assert_eq!(retrieved_task.unwrap().title, "Test Task");
-        
+
         let stats = manager.get_stats().await;
         assert_eq!(stats.total_tasks, 1);
     }
@@ -627,17 +648,17 @@ mod tests {
     async fn test_update_task() {
         let config = create_test_config();
         let manager = TaskManager::new(config);
-        
+
         let task = Task::new("Test Task".to_string(), TaskCategory::Development);
         let task_id = manager.create_task(task).await.unwrap();
-        
+
         let mut updated_task = manager.get_task(&task_id).await.unwrap();
         updated_task.title = "Updated Task".to_string();
         updated_task.priority = TaskPriority::High;
-        
+
         let result = manager.update_task(updated_task).await;
         assert!(result.is_ok());
-        
+
         let retrieved_task = manager.get_task(&task_id).await.unwrap();
         assert_eq!(retrieved_task.title, "Updated Task");
         assert_eq!(retrieved_task.priority, TaskPriority::High);
@@ -647,13 +668,13 @@ mod tests {
     async fn test_delete_task() {
         let config = create_test_config();
         let manager = TaskManager::new(config);
-        
+
         let task = Task::new("Test Task".to_string(), TaskCategory::Development);
         let task_id = manager.create_task(task).await.unwrap();
-        
+
         let deleted_task = manager.delete_task(&task_id).await.unwrap();
         assert_eq!(deleted_task.title, "Test Task");
-        
+
         let retrieved_task = manager.get_task(&task_id).await;
         assert!(retrieved_task.is_none());
     }
@@ -662,33 +683,33 @@ mod tests {
     async fn test_list_tasks_with_filter() {
         let config = create_test_config();
         let manager = TaskManager::new(config);
-        
+
         // Create tasks with different priorities
         let mut high_task = Task::new("High Priority Task".to_string(), TaskCategory::Development);
         high_task.priority = TaskPriority::High;
-        
+
         let mut low_task = Task::new("Low Priority Task".to_string(), TaskCategory::Testing);
         low_task.priority = TaskPriority::Low;
-        
+
         manager.create_task(high_task).await.unwrap();
         manager.create_task(low_task).await.unwrap();
-        
+
         // Filter by priority
         let filter = TaskFilter {
             priority: Some(TaskPriority::High),
             ..Default::default()
         };
-        
+
         let filtered_tasks = manager.list_tasks(Some(filter)).await;
         assert_eq!(filtered_tasks.len(), 1);
         assert_eq!(filtered_tasks[0].title, "High Priority Task");
-        
+
         // Filter by category
         let filter = TaskFilter {
             category: Some(TaskCategory::Testing),
             ..Default::default()
         };
-        
+
         let filtered_tasks = manager.list_tasks(Some(filter)).await;
         assert_eq!(filtered_tasks.len(), 1);
         assert_eq!(filtered_tasks[0].title, "Low Priority Task");
@@ -698,7 +719,7 @@ mod tests {
     async fn test_task_template() {
         let config = create_test_config();
         let manager = TaskManager::new(config);
-        
+
         let template = TaskTemplate {
             name: "Bug Fix Template".to_string(),
             description: Some("Standard bug fix template".to_string()),
@@ -708,15 +729,20 @@ mod tests {
             execution: TaskExecution::default(),
             tags: vec!["bug".to_string(), "urgent".to_string()],
         };
-        
-        manager.register_template("bug_fix".to_string(), template).await;
-        
-        let task_id = manager.create_task_from_template(
-            "bug_fix",
-            "Fix login issue".to_string(),
-            Some("frontend".to_string())
-        ).await.unwrap();
-        
+
+        manager
+            .register_template("bug_fix".to_string(), template)
+            .await;
+
+        let task_id = manager
+            .create_task_from_template(
+                "bug_fix",
+                "Fix login issue".to_string(),
+                Some("frontend".to_string()),
+            )
+            .await
+            .unwrap();
+
         let task = manager.get_task(&task_id).await.unwrap();
         assert_eq!(task.title, "Fix login issue");
         assert_eq!(task.category, TaskCategory::BugFix);

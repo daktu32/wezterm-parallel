@@ -1,8 +1,8 @@
 use super::broadcast::BroadcastManager;
-use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
 use futures_util::{SinkExt, StreamExt};
+use log::{error, info, warn};
 use std::sync::Arc;
-use log::{info, warn, error};
+use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 pub async fn handle_websocket<S>(
     ws_stream: WebSocketStream<S>,
@@ -23,7 +23,7 @@ where
         while let Ok(message) = receiver.recv().await {
             let mut sender = ws_sender_for_broadcast.lock().await;
             if let Err(e) = sender.send(Message::Text(message)).await {
-                error!("Failed to send message to WebSocket: {}", e);
+                error!("Failed to send message to WebSocket: {e}");
                 break;
             }
         }
@@ -34,7 +34,7 @@ where
         while let Some(msg) = ws_receiver.next().await {
             match msg {
                 Ok(Message::Text(text)) => {
-                    info!("Received WebSocket message: {}", text);
+                    info!("Received WebSocket message: {text}");
                     // Handle incoming commands here
                 }
                 Ok(Message::Close(_)) => {
@@ -42,7 +42,7 @@ where
                     break;
                 }
                 Err(e) => {
-                    warn!("WebSocket receive error: {}", e);
+                    warn!("WebSocket receive error: {e}");
                     break;
                 }
                 _ => {}

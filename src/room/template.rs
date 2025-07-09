@@ -1,8 +1,8 @@
 // WezTerm Multi-Process Development Framework - Workspace Template System
 
+use crate::room::state::{LayoutConfig, LayoutType, SplitDirection, WorkspaceConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::room::state::{WorkspaceConfig, LayoutConfig, LayoutType, SplitDirection};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorkspaceTemplate {
@@ -44,7 +44,7 @@ impl TemplateEngine {
         let mut engine = Self {
             templates: HashMap::new(),
         };
-        
+
         // Register built-in templates
         engine.register_builtin_templates();
         engine
@@ -62,9 +62,14 @@ impl TemplateEngine {
         self.templates.values().collect()
     }
 
-    pub fn apply_template(&self, template_name: &str, workspace_name: &str) -> Result<WorkspaceConfig, String> {
-        let template = self.get_template(template_name)
-            .ok_or_else(|| format!("Template '{}' not found", template_name))?;
+    pub fn apply_template(
+        &self,
+        template_name: &str,
+        workspace_name: &str,
+    ) -> Result<WorkspaceConfig, String> {
+        let template = self
+            .get_template(template_name)
+            .ok_or_else(|| format!("Template '{template_name}' not found"))?;
 
         let mut config = WorkspaceConfig {
             name: workspace_name.to_string(),
@@ -76,7 +81,8 @@ impl TemplateEngine {
                 .to_string_lossy()
                 .to_string(),
             environment_vars: template.environment_vars.clone(),
-            startup_commands: template.default_commands
+            startup_commands: template
+                .default_commands
                 .iter()
                 .filter(|cmd| cmd.auto_start)
                 .map(|cmd| cmd.command.clone())
@@ -106,16 +112,14 @@ impl TemplateEngine {
                 pane_sizes: vec![100.0],
                 auto_balance: false,
             },
-            default_commands: vec![
-                CommandTemplate {
-                    name: "claude-code".to_string(),
-                    command: "claude-code".to_string(),
-                    working_directory: None,
-                    pane_position: None,
-                    auto_start: true,
-                    restart_on_exit: true,
-                }
-            ],
+            default_commands: vec![CommandTemplate {
+                name: "claude-code".to_string(),
+                command: "claude-code".to_string(),
+                working_directory: None,
+                pane_position: None,
+                auto_start: true,
+                restart_on_exit: true,
+            }],
             environment_vars: HashMap::new(),
             required_tools: vec!["claude-code".to_string()],
             startup_script: None,
@@ -138,7 +142,11 @@ impl TemplateEngine {
                     name: "frontend-claude".to_string(),
                     command: "claude-code --workspace=frontend".to_string(),
                     working_directory: Some("./frontend".to_string()),
-                    pane_position: Some(PaneTemplatePosition { row: 0, col: 0, size_percentage: 25.0 }),
+                    pane_position: Some(PaneTemplatePosition {
+                        row: 0,
+                        col: 0,
+                        size_percentage: 25.0,
+                    }),
                     auto_start: true,
                     restart_on_exit: true,
                 },
@@ -146,7 +154,11 @@ impl TemplateEngine {
                     name: "backend-claude".to_string(),
                     command: "claude-code --workspace=backend".to_string(),
                     working_directory: Some("./backend".to_string()),
-                    pane_position: Some(PaneTemplatePosition { row: 0, col: 1, size_percentage: 25.0 }),
+                    pane_position: Some(PaneTemplatePosition {
+                        row: 0,
+                        col: 1,
+                        size_percentage: 25.0,
+                    }),
                     auto_start: true,
                     restart_on_exit: true,
                 },
@@ -154,7 +166,11 @@ impl TemplateEngine {
                     name: "dev-server".to_string(),
                     command: "npm run dev".to_string(),
                     working_directory: Some("./frontend".to_string()),
-                    pane_position: Some(PaneTemplatePosition { row: 1, col: 0, size_percentage: 25.0 }),
+                    pane_position: Some(PaneTemplatePosition {
+                        row: 1,
+                        col: 0,
+                        size_percentage: 25.0,
+                    }),
                     auto_start: false,
                     restart_on_exit: false,
                 },
@@ -162,10 +178,14 @@ impl TemplateEngine {
                     name: "logs".to_string(),
                     command: "tail -f logs/app.log".to_string(),
                     working_directory: Some("./backend".to_string()),
-                    pane_position: Some(PaneTemplatePosition { row: 1, col: 1, size_percentage: 25.0 }),
+                    pane_position: Some(PaneTemplatePosition {
+                        row: 1,
+                        col: 1,
+                        size_percentage: 25.0,
+                    }),
                     auto_start: false,
                     restart_on_exit: false,
-                }
+                },
             ],
             environment_vars: {
                 let mut env = HashMap::new();
@@ -177,7 +197,7 @@ impl TemplateEngine {
                 "claude-code".to_string(),
                 "npm".to_string(),
                 "node".to_string(),
-                "cargo".to_string()
+                "cargo".to_string(),
             ],
             startup_script: Some("./scripts/setup-dev-env.sh".to_string()),
             keybindings: {
@@ -192,7 +212,9 @@ impl TemplateEngine {
         // Parallel development template
         let parallel_dev_template = WorkspaceTemplate {
             name: "parallel_dev".to_string(),
-            description: "High-performance parallel development with multiple Claude Code instances".to_string(),
+            description:
+                "High-performance parallel development with multiple Claude Code instances"
+                    .to_string(),
             layout: LayoutConfig {
                 layout_type: LayoutType::ThreePaneHorizontal,
                 primary_direction: SplitDirection::Horizontal,
@@ -204,7 +226,11 @@ impl TemplateEngine {
                     name: "claude-main".to_string(),
                     command: "claude-code --workspace=main --priority=high".to_string(),
                     working_directory: None,
-                    pane_position: Some(PaneTemplatePosition { row: 0, col: 0, size_percentage: 33.3 }),
+                    pane_position: Some(PaneTemplatePosition {
+                        row: 0,
+                        col: 0,
+                        size_percentage: 33.3,
+                    }),
                     auto_start: true,
                     restart_on_exit: true,
                 },
@@ -212,7 +238,11 @@ impl TemplateEngine {
                     name: "claude-test".to_string(),
                     command: "claude-code --workspace=test --priority=medium".to_string(),
                     working_directory: None,
-                    pane_position: Some(PaneTemplatePosition { row: 0, col: 1, size_percentage: 33.3 }),
+                    pane_position: Some(PaneTemplatePosition {
+                        row: 0,
+                        col: 1,
+                        size_percentage: 33.3,
+                    }),
                     auto_start: true,
                     restart_on_exit: true,
                 },
@@ -220,10 +250,14 @@ impl TemplateEngine {
                     name: "claude-docs".to_string(),
                     command: "claude-code --workspace=docs --priority=low".to_string(),
                     working_directory: None,
-                    pane_position: Some(PaneTemplatePosition { row: 0, col: 2, size_percentage: 33.4 }),
+                    pane_position: Some(PaneTemplatePosition {
+                        row: 0,
+                        col: 2,
+                        size_percentage: 33.4,
+                    }),
                     auto_start: true,
                     restart_on_exit: true,
-                }
+                },
             ],
             environment_vars: {
                 let mut env = HashMap::new();
@@ -259,7 +293,11 @@ impl TemplateEngine {
                     name: "claude-research".to_string(),
                     command: "claude-code --mode=research".to_string(),
                     working_directory: None,
-                    pane_position: Some(PaneTemplatePosition { row: 0, col: 0, size_percentage: 70.0 }),
+                    pane_position: Some(PaneTemplatePosition {
+                        row: 0,
+                        col: 0,
+                        size_percentage: 70.0,
+                    }),
                     auto_start: true,
                     restart_on_exit: true,
                 },
@@ -267,10 +305,14 @@ impl TemplateEngine {
                     name: "notes".to_string(),
                     command: "vim notes.md".to_string(),
                     working_directory: None,
-                    pane_position: Some(PaneTemplatePosition { row: 1, col: 0, size_percentage: 30.0 }),
+                    pane_position: Some(PaneTemplatePosition {
+                        row: 1,
+                        col: 0,
+                        size_percentage: 30.0,
+                    }),
                     auto_start: false,
                     restart_on_exit: false,
-                }
+                },
             ],
             environment_vars: {
                 let mut env = HashMap::new();
@@ -310,10 +352,10 @@ mod tests {
     fn test_template_engine_creation() {
         let engine = TemplateEngine::new();
         let templates = engine.list_templates();
-        
+
         // Should have built-in templates
         assert!(templates.len() >= 4);
-        
+
         let template_names: Vec<&str> = templates.iter().map(|t| t.name.as_str()).collect();
         assert!(template_names.contains(&"basic"));
         assert!(template_names.contains(&"web_dev"));
@@ -324,9 +366,9 @@ mod tests {
     #[test]
     fn test_template_application() {
         let engine = TemplateEngine::new();
-        
+
         let config = engine.apply_template("basic", "my-workspace").unwrap();
-        
+
         assert_eq!(config.name, "my-workspace");
         assert_eq!(config.template, "basic");
         assert!(config.auto_start_processes);
@@ -337,9 +379,9 @@ mod tests {
     #[test]
     fn test_web_dev_template() {
         let engine = TemplateEngine::new();
-        
+
         let template = engine.get_template("web_dev").unwrap();
-        
+
         assert_eq!(template.name, "web_dev");
         assert_eq!(template.default_commands.len(), 4);
         assert!(template.environment_vars.contains_key("NODE_ENV"));
@@ -349,12 +391,12 @@ mod tests {
     #[test]
     fn test_parallel_dev_template() {
         let engine = TemplateEngine::new();
-        
+
         let template = engine.get_template("parallel_dev").unwrap();
-        
+
         assert_eq!(template.name, "parallel_dev");
         assert_eq!(template.default_commands.len(), 3);
-        
+
         // Check that all Claude Code commands auto-start
         for cmd in &template.default_commands {
             assert!(cmd.auto_start);
@@ -365,7 +407,7 @@ mod tests {
     #[test]
     fn test_custom_template_registration() {
         let mut engine = TemplateEngine::new();
-        
+
         let custom_template = WorkspaceTemplate {
             name: "custom".to_string(),
             description: "Custom test template".to_string(),
@@ -377,9 +419,9 @@ mod tests {
             keybindings: HashMap::new(),
             theme: None,
         };
-        
+
         engine.register_template(custom_template);
-        
+
         let retrieved = engine.get_template("custom");
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().name, "custom");
@@ -388,7 +430,7 @@ mod tests {
     #[test]
     fn test_nonexistent_template() {
         let engine = TemplateEngine::new();
-        
+
         let result = engine.apply_template("nonexistent", "test");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));

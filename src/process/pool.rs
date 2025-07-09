@@ -1,13 +1,13 @@
 // WezTerm Multi-Process Development Framework - Process Pool
 
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::time::SystemTime;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
-use crate::room::state::{ProcessInfo, ProcessStatus, TaskState};
 use super::manager::ProcessManager;
+use crate::room::state::{ProcessInfo, ProcessStatus, TaskState};
 
 #[derive(Debug)]
 pub struct ProcessPool {
@@ -29,10 +29,10 @@ struct QueuedTask {
 pub struct PoolConfig {
     pub min_processes: usize,
     pub max_processes: usize,
-    pub scale_up_threshold: f32,    // CPU/Memory threshold to scale up
-    pub scale_down_threshold: f32,  // CPU/Memory threshold to scale down
-    pub idle_timeout_secs: u64,     // Time before idle process is terminated
-    pub task_timeout_secs: u64,     // Maximum time for task execution
+    pub scale_up_threshold: f32,      // CPU/Memory threshold to scale up
+    pub scale_down_threshold: f32,    // CPU/Memory threshold to scale down
+    pub idle_timeout_secs: u64,       // Time before idle process is terminated
+    pub task_timeout_secs: u64,       // Maximum time for task execution
     pub rebalance_interval_secs: u64, // How often to rebalance load
 }
 
@@ -61,8 +61,8 @@ impl Default for PoolConfig {
             max_processes: 8,
             scale_up_threshold: 0.8,
             scale_down_threshold: 0.3,
-            idle_timeout_secs: 300, // 5 minutes
-            task_timeout_secs: 600,  // 10 minutes
+            idle_timeout_secs: 300,      // 5 minutes
+            task_timeout_secs: 600,      // 10 minutes
             rebalance_interval_secs: 60, // 1 minute
         }
     }
@@ -74,8 +74,10 @@ impl ProcessPool {
         config: PoolConfig,
         strategy: AllocationStrategy,
     ) -> Self {
-        info!("Creating process pool with min={}, max={}, strategy={:?}", 
-              config.min_processes, config.max_processes, strategy);
+        info!(
+            "Creating process pool with min={}, max={}, strategy={:?}",
+            config.min_processes, config.max_processes, strategy
+        );
 
         let pool = Self {
             manager,
@@ -112,7 +114,7 @@ impl ProcessPool {
 
     pub async fn process_queue(&self) {
         let mut queue = self.task_queue.write().await;
-        
+
         if queue.is_empty() {
             return;
         }
@@ -125,7 +127,7 @@ impl ProcessPool {
         if available_processes.is_empty() {
             debug!("No available processes, checking if we can scale up");
             drop(queue); // Release lock before async call
-            
+
             if self.can_scale_up().await {
                 self.scale_up().await;
             }
@@ -137,7 +139,10 @@ impl ProcessPool {
         let mut remaining_queue = VecDeque::new();
 
         while let Some(mut queued_task) = queue.pop_front() {
-            if let Some(process_id) = self.select_process_for_task(&queued_task.task, &available_processes).await {
+            if let Some(process_id) = self
+                .select_process_for_task(&queued_task.task, &available_processes)
+                .await
+            {
                 queued_task.assigned_process = Some(process_id.clone());
                 tasks_to_assign.push(queued_task);
             } else {
@@ -151,12 +156,17 @@ impl ProcessPool {
         // Assign tasks to processes
         for queued_task in tasks_to_assign {
             if let Some(ref process_id) = queued_task.assigned_process {
-                info!("Assigning task '{}' to process '{}'", queued_task.task.id, process_id);
-                
+                info!(
+                    "Assigning task '{}' to process '{}'",
+                    queued_task.task.id, process_id
+                );
+
                 // TODO: Send task to process via IPC
                 // For now, we'll just log the assignment
-                debug!("Task '{}' assigned to process '{}' in workspace '{}'", 
-                       queued_task.task.id, process_id, queued_task.task.workspace);
+                debug!(
+                    "Task '{}' assigned to process '{}' in workspace '{}'",
+                    queued_task.task.id, process_id, queued_task.task.workspace
+                );
             }
         }
     }
@@ -170,9 +180,9 @@ impl ProcessPool {
     }
 
     async fn select_process_for_task(
-        &self, 
-        task: &TaskState, 
-        available_processes: &[ProcessInfo]
+        &self,
+        task: &TaskState,
+        available_processes: &[ProcessInfo],
     ) -> Option<String> {
         if available_processes.is_empty() {
             return None;
@@ -190,8 +200,8 @@ impl ProcessPool {
             }
             AllocationStrategy::Random => {
                 use rand::seq::SliceRandom;
-                let mut rng = rand::thread_rng();
-                available_processes.choose(&mut rng).map(|p| p.id.clone())
+                rand::thread_rng();
+                available_processes.choose(&mut ()).map(|p| p.id.clone())
             }
             AllocationStrategy::WorkspaceAffinity => {
                 // Prefer processes in the same workspace
@@ -222,19 +232,30 @@ impl ProcessPool {
 
     async fn scale_up(&self) {
         let current_count = self.manager.get_process_count().await;
-        
+
         if current_count >= self.pool_config.max_processes {
-            warn!("Cannot scale up: already at maximum processes ({})", self.pool_config.max_processes);
+            warn!(
+                "Cannot scale up: already at maximum processes ({})",
+                self.pool_config.max_processes
+            );
             return;
         }
 
-        info!("Scaling up process pool: {} -> {}", current_count, current_count + 1);
+        info!(
+            "Scaling up process pool: {} -> {}",
+            current_count,
+            current_count + 1
+        );
 
         let process_id = format!("claude-pool-{}", current_count + 1);
         let workspace = "default".to_string(); // TODO: Make this configurable
         let args = vec!["--pool-mode".to_string()];
 
-        if let Err(e) = self.manager.spawn_process(process_id, workspace, args).await {
+        if let Err(e) = self
+            .manager
+            .spawn_process(process_id, workspace, args)
+            .await
+        {
             warn!("Failed to scale up: {}", e);
         }
     }
@@ -253,7 +274,10 @@ impl ProcessPool {
 
         let current_count = processes.len();
         if current_count <= self.pool_config.min_processes {
-            debug!("Cannot scale down: already at minimum processes ({})", self.pool_config.min_processes);
+            debug!(
+                "Cannot scale down: already at minimum processes ({})",
+                self.pool_config.min_processes
+            );
             return;
         }
 
@@ -263,7 +287,10 @@ impl ProcessPool {
             .min_by_key(|p| p.last_heartbeat)
             .unwrap();
 
-        info!("Scaling down process pool: terminating process '{}'", process_to_terminate.id);
+        info!(
+            "Scaling down process pool: terminating process '{}'",
+            process_to_terminate.id
+        );
 
         if let Err(e) = self.manager.kill_process(&process_to_terminate.id).await {
             warn!("Failed to scale down: {}", e);
@@ -272,13 +299,17 @@ impl ProcessPool {
 
     async fn ensure_min_processes(&self) {
         let current_count = self.manager.get_process_count().await;
-        
+
         for i in current_count..self.pool_config.min_processes {
             let process_id = format!("claude-pool-{}", i + 1);
             let workspace = "default".to_string();
             let args = vec!["--pool-mode".to_string()];
 
-            if let Err(e) = self.manager.spawn_process(process_id, workspace, args).await {
+            if let Err(e) = self
+                .manager
+                .spawn_process(process_id, workspace, args)
+                .await
+            {
                 warn!("Failed to start minimum process: {}", e);
                 break;
             }
@@ -297,10 +328,16 @@ impl ProcessPool {
 
         // Decide if we need to scale up or down
         let utilization = self.calculate_utilization(&processes).await;
-        
-        if utilization > self.pool_config.scale_up_threshold && queue_length > 0 && self.can_scale_up().await {
+
+        if utilization > self.pool_config.scale_up_threshold
+            && queue_length > 0
+            && self.can_scale_up().await
+        {
             self.scale_up().await;
-        } else if utilization < self.pool_config.scale_down_threshold && queue_length == 0 && self.can_scale_down().await {
+        } else if utilization < self.pool_config.scale_down_threshold
+            && queue_length == 0
+            && self.can_scale_down().await
+        {
             self.scale_down().await;
         }
 
@@ -328,11 +365,13 @@ impl ProcessPool {
             queue.len()
         };
 
-        let running_count = processes.iter()
+        let running_count = processes
+            .iter()
             .filter(|p| matches!(p.status, ProcessStatus::Running | ProcessStatus::Busy))
             .count();
 
-        let idle_count = processes.iter()
+        let idle_count = processes
+            .iter()
             .filter(|p| matches!(p.status, ProcessStatus::Idle))
             .count();
 
@@ -346,8 +385,9 @@ impl ProcessPool {
     }
 
     pub async fn start_rebalance_loop(&self) {
-        let rebalance_interval = std::time::Duration::from_secs(self.pool_config.rebalance_interval_secs);
-        
+        let rebalance_interval =
+            std::time::Duration::from_secs(self.pool_config.rebalance_interval_secs);
+
         loop {
             tokio::time::sleep(rebalance_interval).await;
             self.rebalance().await;
@@ -356,7 +396,7 @@ impl ProcessPool {
 
     pub async fn shutdown(&self) {
         info!("Shutting down process pool");
-        
+
         // Cancel all queued tasks
         {
             let mut queue = self.task_queue.write().await;
@@ -405,7 +445,7 @@ mod tests {
             max_processes: 4,
             ..ProcessConfig::default()
         };
-        
+
         let (manager, _receiver) = ProcessManager::new(process_config);
         let pool_config = PoolConfig {
             min_processes: 2,
@@ -414,10 +454,10 @@ mod tests {
         };
 
         let pool = ProcessPool::new(manager, pool_config, AllocationStrategy::RoundRobin).await;
-        
+
         // Give time for processes to start
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        
+
         let status = pool.get_pool_status().await;
         assert!(status.total_processes >= 2); // Should have at least min_processes
     }
@@ -429,7 +469,7 @@ mod tests {
             max_processes: 2,
             ..ProcessConfig::default()
         };
-        
+
         let (manager, _receiver) = ProcessManager::new(process_config);
         let pool_config = PoolConfig {
             min_processes: 1,
@@ -438,10 +478,10 @@ mod tests {
         };
 
         let pool = ProcessPool::new(manager, pool_config, AllocationStrategy::RoundRobin).await;
-        
+
         let task = create_test_task("test-task", "test-workspace");
         let result = pool.submit_task(task).await;
-        
+
         assert!(result.is_ok());
     }
 
@@ -452,7 +492,7 @@ mod tests {
             max_processes: 4,
             ..ProcessConfig::default()
         };
-        
+
         let (manager, _receiver) = ProcessManager::new(process_config);
         let pool_config = PoolConfig {
             min_processes: 2,
@@ -460,11 +500,12 @@ mod tests {
             ..PoolConfig::default()
         };
 
-        let pool = ProcessPool::new(manager, pool_config, AllocationStrategy::WorkspaceAffinity).await;
-        
+        let pool =
+            ProcessPool::new(manager, pool_config, AllocationStrategy::WorkspaceAffinity).await;
+
         let task = create_test_task("test-task", "specific-workspace");
         let result = pool.submit_task(task).await;
-        
+
         assert!(result.is_ok());
     }
 }
@@ -476,14 +517,13 @@ mod rand {
         pub trait SliceRandom<T> {
             fn choose<R>(&self, rng: &mut R) -> Option<&T>;
         }
-        
+
         impl<T> SliceRandom<T> for [T] {
             fn choose<R>(&self, _rng: &mut R) -> Option<&T> {
                 self.first() // Just return first element as fallback
             }
         }
     }
-    
-    pub fn thread_rng() {
-    }
+
+    pub fn thread_rng() {}
 }

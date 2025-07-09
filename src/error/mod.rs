@@ -22,7 +22,7 @@ impl Default for LogLevel {
         modules.insert("wezterm_parallel::room".to_string(), "debug".to_string());
         modules.insert("wezterm_parallel::error".to_string(), "debug".to_string());
         modules.insert("wezterm_parallel::process".to_string(), "info".to_string());
-        
+
         Self {
             default: "warn".to_string(),
             modules,
@@ -113,8 +113,8 @@ impl UserError {
     pub fn room_not_found(room_name: &str) -> Self {
         Self {
             error_type: ErrorType::RoomError,
-            message_jp: format!("Room '{}' が見つかりません", room_name),
-            message_en: format!("Room '{}' not found", room_name),
+            message_jp: format!("Room '{room_name}' が見つかりません"),
+            message_en: format!("Room '{room_name}' not found"),
             guidance: "Room名を確認するか、新しいRoomを作成してください".to_string(),
             recovery_actions: vec![
                 RecoveryAction {
@@ -135,16 +135,14 @@ impl UserError {
     pub fn room_creation_failed(room_name: &str, reason: &str) -> Self {
         Self {
             error_type: ErrorType::RoomError,
-            message_jp: format!("Room '{}' の作成に失敗しました: {}", room_name, reason),
-            message_en: format!("Failed to create room '{}': {}", room_name, reason),
+            message_jp: format!("Room '{room_name}' の作成に失敗しました: {reason}"),
+            message_en: format!("Failed to create room '{room_name}': {reason}"),
             guidance: "Room名に使用できない文字が含まれていないか確認してください".to_string(),
-            recovery_actions: vec![
-                RecoveryAction {
-                    description: "異なるRoom名で再試行".to_string(),
-                    command: None,
-                    automatic: false,
-                },
-            ],
+            recovery_actions: vec![RecoveryAction {
+                description: "異なるRoom名で再試行".to_string(),
+                command: None,
+                automatic: false,
+            }],
             error_code: "ROOM_002".to_string(),
         }
     }
@@ -152,8 +150,8 @@ impl UserError {
     pub fn claude_code_startup_failed(reason: &str) -> Self {
         Self {
             error_type: ErrorType::ProcessError,
-            message_jp: format!("Claude Codeの起動に失敗しました: {}", reason),
-            message_en: format!("Failed to start Claude Code: {}", reason),
+            message_jp: format!("Claude Codeの起動に失敗しました: {reason}"),
+            message_en: format!("Failed to start Claude Code: {reason}"),
             guidance: "Claude Codeが正しくインストールされているか確認してください".to_string(),
             recovery_actions: vec![
                 RecoveryAction {
@@ -174,16 +172,14 @@ impl UserError {
     pub fn process_communication_failed(process_id: &str) -> Self {
         Self {
             error_type: ErrorType::ProcessError,
-            message_jp: format!("プロセス '{}' との通信に失敗しました", process_id),
-            message_en: format!("Failed to communicate with process '{}'", process_id),
+            message_jp: format!("プロセス '{process_id}' との通信に失敗しました"),
+            message_en: format!("Failed to communicate with process '{process_id}'"),
             guidance: "プロセスが正常に動作しているか確認してください".to_string(),
-            recovery_actions: vec![
-                RecoveryAction {
-                    description: "プロセスを再起動".to_string(),
-                    command: None,
-                    automatic: true,
-                },
-            ],
+            recovery_actions: vec![RecoveryAction {
+                description: "プロセスを再起動".to_string(),
+                command: None,
+                automatic: true,
+            }],
             error_code: "PROC_002".to_string(),
         }
     }
@@ -191,8 +187,8 @@ impl UserError {
     pub fn config_load_failed(file_path: &str, reason: &str) -> Self {
         Self {
             error_type: ErrorType::ConfigError,
-            message_jp: format!("設定ファイルの読み込みに失敗しました: {} ({})", file_path, reason),
-            message_en: format!("Failed to load config file: {} ({})", file_path, reason),
+            message_jp: format!("設定ファイルの読み込みに失敗しました: {file_path} ({reason})"),
+            message_en: format!("Failed to load config file: {file_path} ({reason})"),
             guidance: "設定ファイルの形式が正しいか確認してください".to_string(),
             recovery_actions: vec![
                 RecoveryAction {
@@ -213,16 +209,14 @@ impl UserError {
     pub fn file_operation_failed(operation: &str, file_path: &str, reason: &str) -> Self {
         Self {
             error_type: ErrorType::FileError,
-            message_jp: format!("ファイル操作に失敗しました ({}): {} - {}", operation, file_path, reason),
-            message_en: format!("File operation failed ({}): {} - {}", operation, file_path, reason),
+            message_jp: format!("ファイル操作に失敗しました ({operation}): {file_path} - {reason}"),
+            message_en: format!("File operation failed ({operation}): {file_path} - {reason}"),
             guidance: "ファイルのアクセス権限と存在を確認してください".to_string(),
-            recovery_actions: vec![
-                RecoveryAction {
-                    description: "ディレクトリを作成".to_string(),
-                    command: None,
-                    automatic: true,
-                },
-            ],
+            recovery_actions: vec![RecoveryAction {
+                description: "ディレクトリを作成".to_string(),
+                command: None,
+                automatic: true,
+            }],
             error_code: "FILE_001".to_string(),
         }
     }
@@ -230,16 +224,14 @@ impl UserError {
     pub fn system_resource_exhausted(resource: &str) -> Self {
         Self {
             error_type: ErrorType::SystemError,
-            message_jp: format!("システムリソースが不足しています: {}", resource),
-            message_en: format!("System resource exhausted: {}", resource),
+            message_jp: format!("システムリソースが不足しています: {resource}"),
+            message_en: format!("System resource exhausted: {resource}"),
             guidance: "システムの負荷を下げるか、不要なプロセスを終了してください".to_string(),
-            recovery_actions: vec![
-                RecoveryAction {
-                    description: "古いプロセスを自動停止".to_string(),
-                    command: None,
-                    automatic: true,
-                },
-            ],
+            recovery_actions: vec![RecoveryAction {
+                description: "古いプロセスを自動停止".to_string(),
+                command: None,
+                automatic: true,
+            }],
             error_code: "SYS_001".to_string(),
         }
     }
@@ -247,16 +239,14 @@ impl UserError {
     pub fn task_not_found(task_id: &str) -> Self {
         Self {
             error_type: ErrorType::ProcessError,
-            message_jp: format!("タスク '{}' が見つかりません", task_id),
-            message_en: format!("Task '{}' not found", task_id),
+            message_jp: format!("タスク '{task_id}' が見つかりません"),
+            message_en: format!("Task '{task_id}' not found"),
             guidance: "タスクIDが正しいか確認するか、タスク一覧を確認してください".to_string(),
-            recovery_actions: vec![
-                RecoveryAction {
-                    description: "アクティブなタスク一覧を表示".to_string(),
-                    command: None,
-                    automatic: false,
-                },
-            ],
+            recovery_actions: vec![RecoveryAction {
+                description: "アクティブなタスク一覧を表示".to_string(),
+                command: None,
+                automatic: false,
+            }],
             error_code: "TASK_001".to_string(),
         }
     }
@@ -266,7 +256,8 @@ impl UserError {
             error_type: ErrorType::ProcessError,
             message_jp: "タスクキューが満杯です".to_string(),
             message_en: "Task queue is full".to_string(),
-            guidance: "既存のタスクが完了するまで待つか、タスクをキャンセルしてください".to_string(),
+            guidance: "既存のタスクが完了するまで待つか、タスクをキャンセルしてください"
+                .to_string(),
             recovery_actions: vec![
                 RecoveryAction {
                     description: "完了済みタスクを自動クリーンアップ".to_string(),
@@ -286,9 +277,10 @@ impl UserError {
     pub fn task_timeout(task_id: &str, timeout_duration: std::time::Duration) -> Self {
         Self {
             error_type: ErrorType::ProcessError,
-            message_jp: format!("タスク '{}' がタイムアウトしました ({:?})", task_id, timeout_duration),
-            message_en: format!("Task '{}' timed out ({:?})", task_id, timeout_duration),
-            guidance: "タスクの処理時間を確認し、必要に応じてタイムアウト値を調整してください".to_string(),
+            message_jp: format!("タスク '{task_id}' がタイムアウトしました ({timeout_duration:?})"),
+            message_en: format!("Task '{task_id}' timed out ({timeout_duration:?})"),
+            guidance: "タスクの処理時間を確認し、必要に応じてタイムアウト値を調整してください"
+                .to_string(),
             recovery_actions: vec![
                 RecoveryAction {
                     description: "タスクを再実行".to_string(),
@@ -308,16 +300,16 @@ impl UserError {
     pub fn task_dependency_failed(task_id: &str, dependency: &str) -> Self {
         Self {
             error_type: ErrorType::ProcessError,
-            message_jp: format!("タスク '{}' の依存関係 '{}' が満たされていません", task_id, dependency),
-            message_en: format!("Task '{}' dependency '{}' not met", task_id, dependency),
+            message_jp: format!(
+                "タスク '{task_id}' の依存関係 '{dependency}' が満たされていません"
+            ),
+            message_en: format!("Task '{task_id}' dependency '{dependency}' not met"),
             guidance: "依存するタスクまたはリソースが利用可能か確認してください".to_string(),
-            recovery_actions: vec![
-                RecoveryAction {
-                    description: "依存関係を自動解決".to_string(),
-                    command: None,
-                    automatic: true,
-                },
-            ],
+            recovery_actions: vec![RecoveryAction {
+                description: "依存関係を自動解決".to_string(),
+                command: None,
+                automatic: true,
+            }],
             error_code: "TASK_004".to_string(),
         }
     }
@@ -340,33 +332,46 @@ impl UserError {
     /// デバッグ情報付きエラーメッセージを生成
     pub fn with_debug_info(&self, config: &DebugConfig) -> String {
         let mut message = format!("[{}] {}", self.error_code, self.message_jp);
-        
+
         if config.verbose_errors {
             message.push_str(&format!("\n英語メッセージ: {}", self.message_en));
             message.push_str(&format!("\nエラータイプ: {:?}", self.error_type));
             message.push_str(&format!("\n重要度: {:?}", self.severity()));
         }
-        
+
         if config.stack_traces && config.enabled {
             message.push_str("\nスタックトレース: (実装中)");
         }
-        
+
         message.push_str(&format!("\nガイダンス: {}", self.guidance));
-        
+
         if !self.recovery_actions.is_empty() {
             message.push_str("\n回復アクション:");
             for (i, action) in self.recovery_actions.iter().enumerate() {
-                message.push_str(&format!("\n  {}. {} (自動: {})", i + 1, action.description, action.automatic));
+                message.push_str(&format!(
+                    "\n  {}. {} (自動: {})",
+                    i + 1,
+                    action.description,
+                    action.automatic
+                ));
             }
         }
-        
+
         message
     }
 
     /// パフォーマンス情報を追加
-    pub fn with_performance_info(&self, duration: std::time::Duration, memory_usage: u64) -> String {
-        format!("{}\n[パフォーマンス] 処理時間: {:?}, メモリ使用量: {}MB", 
-                self.message_jp, duration, memory_usage / 1024 / 1024)
+    pub fn with_performance_info(
+        &self,
+        duration: std::time::Duration,
+        memory_usage: u64,
+    ) -> String {
+        format!(
+            "{}\n[パフォーマンス] 処理時間: {:?}, メモリ使用量: {}MB",
+            self.message_jp,
+            duration,
+            memory_usage / 1024 / 1024
+        )
     }
 }
 
@@ -389,7 +394,10 @@ macro_rules! safe_unwrap {
             Ok(val) => val,
             Err(e) => {
                 log::error!("Operation failed: {} - {}", $error_msg, e);
-                return Err(UserError::system_resource_exhausted(&format!("{}: {}", $error_msg, e)));
+                return Err(UserError::system_resource_exhausted(&format!(
+                    "{}: {}",
+                    $error_msg, e
+                )));
             }
         }
     };
@@ -405,6 +413,7 @@ macro_rules! safe_unwrap {
 }
 
 /// 安全なファイル操作ヘルパー
+#[allow(clippy::result_large_err)]
 pub fn safe_file_operation<F, T>(operation: &str, file_path: &str, f: F) -> Result<T>
 where
     F: FnOnce() -> std::result::Result<T, std::io::Error>,
@@ -412,13 +421,18 @@ where
     match f() {
         Ok(result) => Ok(result),
         Err(e) => {
-            log::error!("File operation '{}' failed for '{}': {}", operation, file_path, e);
-            Err(UserError::file_operation_failed(operation, file_path, &e.to_string()))
+            log::error!("File operation '{operation}' failed for '{file_path}': {e}");
+            Err(UserError::file_operation_failed(
+                operation,
+                file_path,
+                &e.to_string(),
+            ))
         }
     }
 }
 
 /// 安全なプロセス操作ヘルパー
+#[allow(clippy::result_large_err)]
 pub fn safe_process_operation<F, T>(process_id: &str, f: F) -> Result<T>
 where
     F: FnOnce() -> std::result::Result<T, Box<dyn std::error::Error>>,
@@ -426,13 +440,14 @@ where
     match f() {
         Ok(result) => Ok(result),
         Err(e) => {
-            log::error!("Process operation failed for '{}': {}", process_id, e);
+            log::error!("Process operation failed for '{process_id}': {e}");
             Err(UserError::process_communication_failed(process_id))
         }
     }
 }
 
 /// ロック競合を安全に処理するヘルパー
+#[allow(clippy::result_large_err)]
 pub fn safe_lock_operation<T, F, R>(operation_name: &str, f: F) -> std::result::Result<R, UserError>
 where
     F: FnOnce() -> std::result::Result<R, T>,
@@ -440,8 +455,10 @@ where
     match f() {
         Ok(result) => Ok(result),
         Err(_) => {
-            log::error!("Lock contention in operation: {}", operation_name);
-            Err(UserError::system_resource_exhausted(&format!("Lock contention: {}", operation_name)))
+            log::error!("Lock contention in operation: {operation_name}");
+            Err(UserError::system_resource_exhausted(&format!(
+                "Lock contention: {operation_name}"
+            )))
         }
     }
 }
@@ -455,8 +472,10 @@ where
     match f().await {
         Ok(result) => Ok(result),
         Err(e) => {
-            log::error!("Async operation '{}' failed: {}", operation_name, e);
-            Err(UserError::system_resource_exhausted(&format!("{}: {}", operation_name, e)))
+            log::error!("Async operation '{operation_name}' failed: {e}");
+            Err(UserError::system_resource_exhausted(&format!(
+                "{operation_name}: {e}"
+            )))
         }
     }
 }
@@ -485,13 +504,27 @@ impl From<crate::task::TaskError> for UserError {
         match err {
             crate::task::TaskError::TaskNotFound(id) => Self::task_not_found(&id),
             crate::task::TaskError::QueueFull => Self::task_queue_full(),
-            crate::task::TaskError::Timeout(id) => Self::task_timeout(&id, std::time::Duration::from_secs(300)),
-            crate::task::TaskError::DependencyNotMet(dep) => Self::task_dependency_failed("unknown", &dep),
-            crate::task::TaskError::ExecutionFailed(msg) => Self::system_resource_exhausted(&format!("Task execution: {}", msg)),
-            crate::task::TaskError::InvalidConfig(msg) => Self::config_load_failed("Task configuration", &msg),
-            crate::task::TaskError::ResourceUnavailable(res) => Self::system_resource_exhausted(&res),
-            crate::task::TaskError::PersistenceError(msg) => Self::file_operation_failed("persistence", "task_data", &msg),
-            crate::task::TaskError::SerializationError(msg) => Self::config_load_failed("Task serialization", &msg),
+            crate::task::TaskError::Timeout(id) => {
+                Self::task_timeout(&id, std::time::Duration::from_secs(300))
+            }
+            crate::task::TaskError::DependencyNotMet(dep) => {
+                Self::task_dependency_failed("unknown", &dep)
+            }
+            crate::task::TaskError::ExecutionFailed(msg) => {
+                Self::system_resource_exhausted(&format!("Task execution: {msg}"))
+            }
+            crate::task::TaskError::InvalidConfig(msg) => {
+                Self::config_load_failed("Task configuration", &msg)
+            }
+            crate::task::TaskError::ResourceUnavailable(res) => {
+                Self::system_resource_exhausted(&res)
+            }
+            crate::task::TaskError::PersistenceError(msg) => {
+                Self::file_operation_failed("persistence", "task_data", &msg)
+            }
+            crate::task::TaskError::SerializationError(msg) => {
+                Self::config_load_failed("Task serialization", &msg)
+            }
         }
     }
 }
@@ -539,7 +572,7 @@ mod tests {
             performance_metrics: true,
             memory_tracking: true,
         };
-        
+
         let debug_message = error.with_debug_info(&debug_config);
         assert!(debug_message.contains("ROOM_001"));
         assert!(debug_message.contains("test-room"));
@@ -552,7 +585,7 @@ mod tests {
         let error = UserError::room_not_found("test");
         let duration = std::time::Duration::from_millis(100);
         let memory_usage = 1024 * 1024 * 50; // 50MB
-        
+
         let perf_message = error.with_performance_info(duration, memory_usage);
         assert!(perf_message.contains("処理時間"));
         assert!(perf_message.contains("50MB"));
