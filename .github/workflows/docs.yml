@@ -85,7 +85,7 @@ jobs:
       run: |
         echo "Checking README links..."
         # リンク検証ロジック
-        grep -o 'http[s]*://[^)]*' README.md || echo "No external links found"
+        grep -o "http[s]*://[^)]*" README.md || echo "No external links found"
 
   spell-check:
     name: Spell Check
