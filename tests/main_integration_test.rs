@@ -13,28 +13,28 @@ use wezterm_parallel::Message;
 async fn test_main_process_startup() {
     // Test main process startup and basic functionality
     let socket_path = "/tmp/wezterm-parallel-test-startup.sock";
-    
+
     // Clean up any existing socket
     let _ = std::fs::remove_file(socket_path);
-    
+
     // This test verifies the main process can start successfully
     // by checking argument parsing and basic initialization
-    
+
     // Test version argument
     let output = Command::new("cargo")
         .args(["run", "--bin", "wezterm-parallel", "--", "--version"])
         .output()
         .expect("Failed to run version command");
-    
+
     let version_output = String::from_utf8_lossy(&output.stdout);
     assert!(version_output.contains("wezterm-parallel"));
-    
+
     // Test help argument
     let output = Command::new("cargo")
         .args(["run", "--bin", "wezterm-parallel", "--", "--help"])
         .output()
         .expect("Failed to run help command");
-    
+
     let help_output = String::from_utf8_lossy(&output.stdout);
     assert!(help_output.contains("WezTerm Multi-Process Development Framework"));
     assert!(help_output.contains("Usage:"));
@@ -44,13 +44,13 @@ async fn test_main_process_startup() {
 #[tokio::test]
 async fn test_main_process_ipc_server() {
     let socket_path = "/tmp/wezterm-parallel-test-ipc.sock";
-    
+
     // Clean up any existing socket
     let _ = std::fs::remove_file(socket_path);
-    
+
     // For this test, we'll create a mock IPC server similar to main.rs
     // but with simplified initialization for testing
-    
+
     // Test IPC server startup and basic message handling
     let test_result = timeout(Duration::from_secs(30), async {
         // Initialize components similar to main.rs
@@ -68,47 +68,49 @@ async fn test_main_process_ipc_server() {
         };
         let task_manager = Arc::new(TaskManager::new(task_config));
         let template_engine = Arc::new(tokio::sync::Mutex::new(TemplateEngine::new()));
-        
+
         // Start task manager
         let _task_handle = task_manager.start().await.unwrap();
-        
+
         // Test that components are initialized correctly
         assert!(workspace_manager.get_workspace_count().await > 0);
         assert!(task_manager.list_tasks(None).await.is_empty());
-        
+
         // Clean up existing workspaces to avoid hitting the limit
         let workspace_list = workspace_manager.list_workspaces().await;
         for workspace in workspace_list {
             let _ = workspace_manager.delete_workspace(&workspace).await;
         }
-        
+
         // Test workspace creation (simulating main.rs behavior)
         // First, get available templates
         let engine = template_engine.lock().await;
         let templates = engine.list_templates();
         assert!(!templates.is_empty());
-        
+
         // Use the first available template
         let template_name = templates[0].name.clone();
         drop(engine); // Release the lock
-        
+
         // Generate a unique workspace name to avoid conflicts
         let workspace_name = format!("test-workspace-{}", std::process::id());
-        let result = workspace_manager.create_workspace(&workspace_name, &template_name).await;
+        let result = workspace_manager
+            .create_workspace(&workspace_name, &template_name)
+            .await;
         match result {
             Ok(_) => {
                 // Clean up after successful test
                 let _ = workspace_manager.delete_workspace(&workspace_name).await;
-            },
+            }
             Err(e) => {
                 eprintln!("Failed to create workspace: {:?}", e);
                 assert!(false, "Workspace creation failed: {:?}", e);
             }
         }
-        
+
         Ok::<(), Box<dyn std::error::Error>>(())
     });
-    
+
     assert!(test_result.await.is_ok());
 }
 
@@ -130,9 +132,9 @@ async fn test_main_process_message_handling() {
     let task_manager = Arc::new(TaskManager::new(task_config));
     let template_engine = Arc::new(tokio::sync::Mutex::new(TemplateEngine::new()));
     let _task_handle = task_manager.start().await.unwrap();
-    
+
     // Test message types handled in main.rs
-    
+
     // Test Ping message
     let ping_message = Message::Ping;
     let response = handle_message_test(
@@ -140,15 +142,16 @@ async fn test_main_process_message_handling() {
         &workspace_manager,
         &task_manager,
         &template_engine,
-    ).await;
+    )
+    .await;
     assert!(matches!(response, Message::Pong));
-    
+
     // Clean up existing workspaces to avoid hitting the limit
     let workspace_list = workspace_manager.list_workspaces().await;
     for workspace in workspace_list {
         let _ = workspace_manager.delete_workspace(&workspace).await;
     }
-    
+
     // Test WorkspaceCreate message
     let create_message = Message::WorkspaceCreate {
         name: "test-workspace".to_string(),
@@ -159,9 +162,10 @@ async fn test_main_process_message_handling() {
         &workspace_manager,
         &task_manager,
         &template_engine,
-    ).await;
+    )
+    .await;
     assert!(matches!(response, Message::StatusUpdate { .. }));
-    
+
     // Test TemplateList message
     let template_list_message = Message::TemplateList;
     let response = handle_message_test(
@@ -169,9 +173,10 @@ async fn test_main_process_message_handling() {
         &workspace_manager,
         &task_manager,
         &template_engine,
-    ).await;
+    )
+    .await;
     assert!(matches!(response, Message::TemplateListResponse { .. }));
-    
+
     // Test TaskQueue message
     let task_queue_message = Message::TaskQueue {
         id: "test-task-1".to_string(),
@@ -183,7 +188,8 @@ async fn test_main_process_message_handling() {
         &workspace_manager,
         &task_manager,
         &template_engine,
-    ).await;
+    )
+    .await;
     assert!(matches!(response, Message::StatusUpdate { .. }));
 }
 
@@ -195,9 +201,9 @@ async fn handle_message_test(
     template_engine: &Arc<tokio::sync::Mutex<wezterm_parallel::room::template::TemplateEngine>>,
 ) -> Message {
     use wezterm_parallel::logging::LogContext;
-    use wezterm_parallel::{log_info, log_error, log_warn};
     use wezterm_parallel::TemplateInfo;
-    
+    use wezterm_parallel::{log_error, log_info, log_warn};
+
     match message {
         Message::Ping => {
             let ping_context = LogContext::new("ipc", "ping_receive");
@@ -351,11 +357,11 @@ async fn handle_message_test(
 #[tokio::test]
 async fn test_main_process_performance_initialization() {
     // Test performance components initialization from main.rs
-    use wezterm_parallel::performance::{PerformanceConfig, PerformanceManager};
-    use wezterm_parallel::performance::startup::StartupOptimizer;
     use wezterm_parallel::performance::memory::MemoryMonitor;
     use wezterm_parallel::performance::metrics::MetricsCollector;
-    
+    use wezterm_parallel::performance::startup::StartupOptimizer;
+    use wezterm_parallel::performance::{PerformanceConfig, PerformanceManager};
+
     let perf_config = PerformanceConfig {
         lazy_initialization: true,
         max_preload_modules: 5,
@@ -365,26 +371,26 @@ async fn test_main_process_performance_initialization() {
         cpu_limit_percent: 80.0,
         memory_limit_mb: 512,
     };
-    
+
     // Test startup optimizer
     let mut startup_optimizer = StartupOptimizer::new(perf_config.clone());
     let result = startup_optimizer.fast_init_core_modules().await;
     assert!(result.is_ok());
-    
+
     let result = startup_optimizer.preload_critical_resources().await;
     assert!(result.is_ok());
-    
+
     // Test performance manager
     let perf_manager = Arc::new(std::sync::Mutex::new(PerformanceManager::new(
         perf_config.clone(),
     )));
     assert!(perf_manager.lock().unwrap().generate_report().len() > 0);
-    
+
     // Test memory monitor
     let mut memory_monitor = MemoryMonitor::new(perf_config.memory_limit_mb);
     let result = memory_monitor.check_memory_usage().await;
     assert!(result.is_ok());
-    
+
     // Test metrics collector
     let metrics_collector = Arc::new(tokio::sync::RwLock::new(MetricsCollector::new(
         100,
@@ -394,12 +400,14 @@ async fn test_main_process_performance_initialization() {
         let mut collector = metrics_collector.write().await;
         collector.start_collection();
     }
-    
+
     // Test metrics updates
     {
         let metrics = metrics_collector.read().await;
         metrics.update_cpu_usage(25.0).await;
-        metrics.update_memory_usage(64 * 1024 * 1024, 128 * 1024 * 1024).await;
+        metrics
+            .update_memory_usage(64 * 1024 * 1024, 128 * 1024 * 1024)
+            .await;
     }
 }
 
@@ -408,7 +416,7 @@ async fn test_main_process_websocket_dashboard() {
     // Test WebSocket dashboard initialization from main.rs
     use wezterm_parallel::dashboard::{DashboardConfig, WebSocketServer};
     use wezterm_parallel::task::{TaskConfig, TaskManager};
-    
+
     let dashboard_config = DashboardConfig {
         port: 19999, // Use different port to avoid conflicts
         enabled: true,
@@ -418,7 +426,7 @@ async fn test_main_process_websocket_dashboard() {
         auth_token: None,
         compression: true,
     };
-    
+
     let task_config = TaskConfig {
         max_concurrent_tasks: 10,
         default_timeout: 3600,
@@ -430,18 +438,18 @@ async fn test_main_process_websocket_dashboard() {
         cleanup_interval: 600,
         max_task_history: 1000,
     };
-    
+
     let task_manager = Arc::new(TaskManager::new(task_config));
     let _task_handle = task_manager.start().await.unwrap();
-    
+
     let (websocket_server, _metrics_tx) = WebSocketServer::new(dashboard_config);
     let websocket_server = Arc::new(websocket_server.with_task_manager(Arc::clone(&task_manager)));
-    
+
     // Test WebSocket server creation
     // Note: WebSocketServer doesn't have is_enabled method, test creation instead
     let _state = websocket_server.get_state();
     // Just verify the server was created successfully (no panic)
-    
+
     // Note: We don't start the server here to avoid port conflicts in tests
     // The server initialization is tested, which covers the main.rs functionality
 }
@@ -450,9 +458,9 @@ async fn test_main_process_websocket_dashboard() {
 async fn test_main_process_file_sync_initialization() {
     // Test file sync manager initialization from main.rs
     use wezterm_parallel::sync::FileSyncManager;
-    
+
     let file_sync_manager = Arc::new(tokio::sync::Mutex::new(FileSyncManager::new()));
-    
+
     // Test file sync manager creation
     {
         let sync_manager = file_sync_manager.lock().await;
@@ -460,14 +468,14 @@ async fn test_main_process_file_sync_initialization() {
         // Test the manager creation instead
         assert!(sync_manager.get_performance_stats().total_changes_applied == 0);
     }
-    
+
     // Test file watching startup (similar to main.rs)
     {
         let mut sync_manager = file_sync_manager.lock().await;
         // We test with a temporary directory to avoid interfering with the actual project
         let temp_dir = tempfile::tempdir().unwrap();
         let temp_path = temp_dir.path().to_str().unwrap();
-        
+
         let result = sync_manager.start_watching(temp_path);
         // The result depends on the platform and permissions, but should not panic
         assert!(result.is_ok() || result.is_err());

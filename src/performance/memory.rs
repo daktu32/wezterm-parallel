@@ -506,8 +506,8 @@ mod tests {
         let mut pool = MemoryPool::new(4);
 
         // 異なるサイズのアロケート
-        let buffer1 = pool.allocate(100);  // 128に正規化される
-        let buffer2 = pool.allocate(200);  // 256に正規化される
+        let buffer1 = pool.allocate(100); // 128に正規化される
+        let buffer2 = pool.allocate(200); // 256に正規化される
         let buffer3 = pool.allocate(1000); // 1024に正規化される
 
         assert_eq!(buffer1.capacity(), 128);
@@ -533,7 +533,7 @@ mod tests {
 
         let buffer2 = pool.allocate(1024);
         let capacity2 = buffer2.capacity();
-        
+
         // 同じ容量が再利用されるべき
         assert_eq!(capacity1, capacity2);
 
@@ -591,7 +591,7 @@ mod tests {
 
         let buffer1 = pool.allocate(1024);
         let peak1 = pool.get_stats().peak_usage;
-        
+
         let buffer2 = pool.allocate(2048);
         let peak2 = pool.get_stats().peak_usage;
 
@@ -654,7 +654,7 @@ mod tests {
         // 文字列をintern
         let s1 = interner.intern("persistent");
         let s2 = interner.intern("temporary");
-        
+
         // s2を削除（参照カウントを1にする）
         drop(s2);
 
@@ -706,16 +706,16 @@ mod tests {
     #[tokio::test]
     async fn test_memory_monitor_get_memory_pool() {
         let monitor = MemoryMonitor::new(256);
-        
+
         // メモリプールへの参照を取得
         let pool = monitor.get_memory_pool();
-        
+
         // プールを使用
         {
             let mut pool_guard = pool.write().await;
             let buffer = pool_guard.allocate(1024);
             pool_guard.deallocate(buffer);
-            
+
             let stats = pool_guard.get_stats();
             assert_eq!(stats.total_allocated, stats.total_deallocated);
         }
@@ -724,18 +724,18 @@ mod tests {
     #[tokio::test]
     async fn test_memory_monitor_get_string_interner() {
         let monitor = MemoryMonitor::new(256);
-        
+
         // 文字列インターナーへの参照を取得
         let interner = monitor.get_string_interner();
-        
+
         // インターナーを使用
         {
             let mut interner_guard = interner.write().await;
             let s1 = interner_guard.intern("test");
             let s2 = interner_guard.intern("test");
-            
+
             assert!(Arc::ptr_eq(&s1, &s2));
-            
+
             let (count, hits, misses, _) = interner_guard.get_stats();
             assert_eq!(count, 1);
             assert_eq!(hits, 1);
@@ -751,7 +751,7 @@ mod tests {
         {
             let pool = monitor.get_memory_pool();
             let mut pool_guard = pool.write().await;
-            
+
             for _ in 0..4 {
                 let buffer = pool_guard.allocate(1024);
                 pool_guard.deallocate(buffer);
@@ -761,7 +761,7 @@ mod tests {
         {
             let interner = monitor.get_string_interner();
             let mut interner_guard = interner.write().await;
-            
+
             for i in 0..4 {
                 interner_guard.intern(&format!("test_{}", i));
             }
@@ -786,26 +786,32 @@ mod tests {
 
         // 通常のチェック
         let status1 = monitor.check_memory_usage().await.unwrap();
-        
+
         // 緊急クリーンアップ実行後のチェック
         monitor.emergency_cleanup().await;
         let status2 = monitor.check_memory_usage().await.unwrap();
-        
+
         // 両方とも有効なステータスを返す
-        assert!(matches!(status1, MemoryStatus::Normal | MemoryStatus::Warning));
-        assert!(matches!(status2, MemoryStatus::Normal | MemoryStatus::Warning));
+        assert!(matches!(
+            status1,
+            MemoryStatus::Normal | MemoryStatus::Warning
+        ));
+        assert!(matches!(
+            status2,
+            MemoryStatus::Normal | MemoryStatus::Warning
+        ));
     }
 
     #[test]
     fn test_memory_pool_stats_clone() {
         let mut pool = MemoryPool::new(4);
-        
+
         let buffer = pool.allocate(1024);
         pool.deallocate(buffer);
-        
+
         let stats = pool.get_stats();
         let stats_clone = stats.clone();
-        
+
         assert_eq!(stats.total_allocated, stats_clone.total_allocated);
         assert_eq!(stats.total_deallocated, stats_clone.total_deallocated);
         assert_eq!(stats.active_allocation, stats_clone.active_allocation);
@@ -817,13 +823,13 @@ mod tests {
     #[test]
     fn test_memory_pool_stats_debug() {
         let mut pool = MemoryPool::new(4);
-        
+
         let buffer = pool.allocate(1024);
         pool.deallocate(buffer);
-        
+
         let stats = pool.get_stats();
         let debug_output = format!("{:?}", stats);
-        
+
         // Debug出力に重要な情報が含まれている
         assert!(debug_output.contains("total_allocated"));
         assert!(debug_output.contains("total_deallocated"));

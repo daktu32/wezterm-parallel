@@ -54,7 +54,7 @@ impl ConfigValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{DashboardConfig, ThemeConfig, KeybindingConfig};
+    use crate::config::{DashboardConfig, KeybindingConfig, ThemeConfig};
 
     fn create_valid_config() -> Config {
         Config {
@@ -130,7 +130,7 @@ mod tests {
     fn test_validate_server_config_empty_socket_path() {
         let mut config = create_valid_config();
         config.server.socket_path = String::new();
-        
+
         let result = ConfigValidator::validate(&config);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Socket path cannot be empty");
@@ -140,7 +140,7 @@ mod tests {
     fn test_validate_server_config_zero_max_connections() {
         let mut config = create_valid_config();
         config.server.max_connections = 0;
-        
+
         let result = ConfigValidator::validate(&config);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Maximum connections cannot be 0");
@@ -155,7 +155,7 @@ mod tests {
             enable_metrics: true,
             health_check_interval: 10,
         };
-        
+
         let result = ConfigValidator::validate_server_config(&server_config);
         assert!(result.is_ok());
     }
@@ -164,7 +164,7 @@ mod tests {
     fn test_validate_workspace_config_zero_max_workspaces() {
         let mut config = create_valid_config();
         config.workspace.max_workspaces = 0;
-        
+
         let result = ConfigValidator::validate(&config);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Maximum workspaces cannot be 0");
@@ -174,7 +174,7 @@ mod tests {
     fn test_validate_workspace_config_empty_default_template() {
         let mut config = create_valid_config();
         config.workspace.default_template = String::new();
-        
+
         let result = ConfigValidator::validate(&config);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Default template cannot be empty");
@@ -189,7 +189,7 @@ mod tests {
             auto_save_interval: 30,
             templates_dir: std::path::PathBuf::from("/tmp/templates"),
         };
-        
+
         let result = ConfigValidator::validate_workspace_config(&workspace_config);
         assert!(result.is_ok());
     }
@@ -198,10 +198,13 @@ mod tests {
     fn test_validate_process_config_zero_max_processes() {
         let mut config = create_valid_config();
         config.process.max_processes_per_workspace = 0;
-        
+
         let result = ConfigValidator::validate(&config);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Maximum processes per workspace cannot be 0");
+        assert_eq!(
+            result.unwrap_err(),
+            "Maximum processes per workspace cannot be 0"
+        );
     }
 
     #[test]
@@ -215,7 +218,7 @@ mod tests {
             environment: std::collections::HashMap::new(),
             working_dir_template: "~/projects/{{workspace_name}}".to_string(),
         };
-        
+
         let result = ConfigValidator::validate_process_config(&process_config);
         assert!(result.is_ok());
     }
@@ -248,7 +251,7 @@ mod tests {
                 dashboard_prefix: "CTRL+SHIFT".to_string(),
             },
         };
-        
+
         let result = ConfigValidator::validate_ui_config(&ui_config);
         assert!(result.is_ok());
     }
@@ -256,7 +259,7 @@ mod tests {
     #[test]
     fn test_validate_logging_config_valid_levels() {
         let valid_levels = vec!["error", "warn", "info", "debug", "trace"];
-        
+
         for level in valid_levels {
             let logging_config = LoggingConfig {
                 level: level.to_string(),
@@ -266,7 +269,7 @@ mod tests {
                 max_files: 5,
                 format: "json".to_string(),
             };
-            
+
             let result = ConfigValidator::validate_logging_config(&logging_config);
             assert!(result.is_ok(), "Level '{}' should be valid", level);
         }
@@ -282,7 +285,7 @@ mod tests {
             max_files: 5,
             format: "json".to_string(),
         };
-        
+
         let result = ConfigValidator::validate_logging_config(&logging_config);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Invalid log level: invalid");
@@ -298,7 +301,7 @@ mod tests {
             max_files: 5,
             format: "json".to_string(),
         };
-        
+
         let result = ConfigValidator::validate_logging_config(&logging_config);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Invalid log level: INFO");
@@ -311,10 +314,10 @@ mod tests {
         config.workspace.max_workspaces = 0;
         config.process.max_processes_per_workspace = 0;
         config.logging.level = "invalid".to_string();
-        
+
         let result = ConfigValidator::validate(&config);
         assert!(result.is_err());
-        
+
         // The validation should fail on the first error encountered
         assert_eq!(result.unwrap_err(), "Socket path cannot be empty");
     }
@@ -322,7 +325,7 @@ mod tests {
     #[test]
     fn test_validate_individual_components() {
         let config = create_valid_config();
-        
+
         // Test each component individually
         assert!(ConfigValidator::validate_server_config(&config.server).is_ok());
         assert!(ConfigValidator::validate_workspace_config(&config.workspace).is_ok());
@@ -338,7 +341,7 @@ mod tests {
         config.server.max_connections = 1;
         config.workspace.max_workspaces = 1;
         config.process.max_processes_per_workspace = 1;
-        
+
         let result = ConfigValidator::validate(&config);
         assert!(result.is_ok());
     }
@@ -346,12 +349,12 @@ mod tests {
     #[test]
     fn test_validate_boundary_values() {
         let mut config = create_valid_config();
-        
+
         // Test with very large valid values
         config.server.max_connections = usize::MAX;
         config.workspace.max_workspaces = usize::MAX;
         config.process.max_processes_per_workspace = usize::MAX;
-        
+
         let result = ConfigValidator::validate(&config);
         assert!(result.is_ok());
     }

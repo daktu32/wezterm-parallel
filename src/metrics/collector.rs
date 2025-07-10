@@ -486,7 +486,7 @@ mod tests {
 
         assert_eq!(metrics.len(), 1);
         let process_metrics = &metrics[0];
-        
+
         assert_eq!(process_metrics.process_id, "test-process");
         assert!(process_metrics.timestamp > 0);
         // memory_usage is u64, so always >= 0
@@ -621,10 +621,10 @@ mod tests {
         let mut collector = MetricsCollector::new(config);
 
         let metrics1 = collector.collect_system_metrics().unwrap();
-        
+
         // Sleep briefly to ensure timestamp difference
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-        
+
         let metrics2 = collector.collect_system_metrics().unwrap();
 
         assert!(metrics2.timestamp >= metrics1.timestamp);
@@ -646,11 +646,26 @@ mod tests {
         let collector = MetricsCollector::new(config.clone());
 
         assert_eq!(collector.config.enabled, config.enabled);
-        assert_eq!(collector.config.collect_system_metrics, config.collect_system_metrics);
-        assert_eq!(collector.config.collect_process_metrics, config.collect_process_metrics);
-        assert_eq!(collector.config.collection_interval, config.collection_interval);
-        assert_eq!(collector.config.max_history_points, config.max_history_points);
-        assert_eq!(collector.config.collect_network_metrics, config.collect_network_metrics);
+        assert_eq!(
+            collector.config.collect_system_metrics,
+            config.collect_system_metrics
+        );
+        assert_eq!(
+            collector.config.collect_process_metrics,
+            config.collect_process_metrics
+        );
+        assert_eq!(
+            collector.config.collection_interval,
+            config.collection_interval
+        );
+        assert_eq!(
+            collector.config.max_history_points,
+            config.max_history_points
+        );
+        assert_eq!(
+            collector.config.collect_network_metrics,
+            config.collect_network_metrics
+        );
         assert_eq!(collector.config.retention_hours, config.retention_hours);
         assert_eq!(collector.config.enable_profiling, config.enable_profiling);
     }
@@ -664,12 +679,13 @@ mod tests {
 
         // Memory percentage should be calculated correctly
         if metrics.total_memory > 0 {
-            let expected_percentage = (metrics.memory_usage as f64 / metrics.total_memory as f64) * 100.0;
+            let expected_percentage =
+                (metrics.memory_usage as f64 / metrics.total_memory as f64) * 100.0;
             assert!((metrics.memory_percentage - expected_percentage).abs() < 0.01);
         }
     }
 
-    #[tokio::test] 
+    #[tokio::test]
     async fn test_system_metrics_consistency() {
         let config = MetricsConfig::default();
         let mut collector = MetricsCollector::new(config);
