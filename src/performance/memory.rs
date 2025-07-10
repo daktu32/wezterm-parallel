@@ -637,7 +637,7 @@ mod tests {
 
         // 異なる文字列を1回ずつ
         for i in 0..5 {
-            interner.intern(&format!("unique_{}", i));
+            interner.intern(&format!("unique_{i}"));
         }
 
         let (count, hits, misses, hit_rate) = interner.get_stats();
@@ -763,7 +763,7 @@ mod tests {
             let mut interner_guard = interner.write().await;
 
             for i in 0..4 {
-                interner_guard.intern(&format!("test_{}", i));
+                interner_guard.intern(&format!("test_{i}"));
             }
         }
 
@@ -828,7 +828,7 @@ mod tests {
         pool.deallocate(buffer);
 
         let stats = pool.get_stats();
-        let debug_output = format!("{:?}", stats);
+        let debug_output = format!("{stats:?}");
 
         // Debug出力に重要な情報が含まれている
         assert!(debug_output.contains("total_allocated"));

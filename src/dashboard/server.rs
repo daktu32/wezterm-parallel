@@ -142,7 +142,7 @@ mod tests {
         let server = DashboardServer::new(config);
 
         let port = find_available_port().await;
-        let addr = format!("127.0.0.1:{}", port);
+        let addr = format!("127.0.0.1:{port}");
 
         // サーバーが正常に起動できることを確認（タイムアウト付き）
         let result = timeout(Duration::from_millis(100), server.start_with_address(&addr)).await;
@@ -160,7 +160,7 @@ mod tests {
         let server = DashboardServer::new(config);
 
         let port = find_available_port().await;
-        let addr = format!("127.0.0.1:{}", port);
+        let addr = format!("127.0.0.1:{port}");
 
         // ポートを先に使用する
         let _listener = TcpListener::bind(&addr).await.unwrap();
@@ -176,7 +176,7 @@ mod tests {
         let server = DashboardServer::new(config);
 
         let port = find_available_port().await;
-        let addr = format!("127.0.0.1:{}", port);
+        let addr = format!("127.0.0.1:{port}");
 
         // TCPリスナーが正常に作成できることを確認
         let listener = TcpListener::bind(&addr).await;
@@ -242,7 +242,7 @@ mod tests {
         let server = DashboardServer::new(config);
 
         let port = find_available_port().await;
-        let addr = format!("127.0.0.1:{}", port);
+        let addr = format!("127.0.0.1:{port}");
 
         // 同時に複数のサーバーを起動しようとする
         let addr_clone = addr.clone();

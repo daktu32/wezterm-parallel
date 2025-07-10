@@ -103,8 +103,8 @@ async fn test_main_process_ipc_server() {
                 let _ = workspace_manager.delete_workspace(&workspace_name).await;
             }
             Err(e) => {
-                eprintln!("Failed to create workspace: {:?}", e);
-                assert!(false, "Workspace creation failed: {:?}", e);
+                eprintln!("Failed to create workspace: {e:?}");
+                panic!("Workspace creation failed: {e:?}");
             }
         }
 
@@ -384,7 +384,7 @@ async fn test_main_process_performance_initialization() {
     let perf_manager = Arc::new(std::sync::Mutex::new(PerformanceManager::new(
         perf_config.clone(),
     )));
-    assert!(perf_manager.lock().unwrap().generate_report().len() > 0);
+    assert!(!perf_manager.lock().unwrap().generate_report().is_empty());
 
     // Test memory monitor
     let mut memory_monitor = MemoryMonitor::new(perf_config.memory_limit_mb);

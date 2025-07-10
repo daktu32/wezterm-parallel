@@ -271,7 +271,7 @@ mod tests {
             };
 
             let result = ConfigValidator::validate_logging_config(&logging_config);
-            assert!(result.is_ok(), "Level '{}' should be valid", level);
+            assert!(result.is_ok(), "Level '{level}' should be valid");
         }
     }
 

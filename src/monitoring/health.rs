@@ -678,7 +678,7 @@ mod tests {
         let health_check = result.unwrap();
         // WebSocketサーバーが稼働していない場合は Unhealthy になる可能性があるが、
         // テストでは各コンポーネントチェックが実行されることを確認
-        assert!(health_check.components.len() > 0);
+        assert!(!health_check.components.is_empty());
     }
 
     // === 個別コンポーネントチェックテスト ===
