@@ -5,10 +5,17 @@ set -e
 
 echo "🚀 WezTerm Parallel デモセットアップ開始"
 
+# プロジェクトルートディレクトリを特定
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# wezterm-parallel バイナリのパスを決定
+BINARY_PATH="${PROJECT_ROOT}/target/release/wezterm-parallel"
+
 # 前提条件チェック
-if ! command -v wezterm-parallel &> /dev/null; then
+if [[ ! -x "${BINARY_PATH}" ]]; then
     echo "❌ wezterm-parallel が見つかりません。先にビルドしてください："
-    echo "   cd /Users/aiq/work/wezterm-parallel"
+    echo "   cd ${PROJECT_ROOT}"
     echo "   cargo build --release"
     exit 1
 fi
@@ -30,7 +37,7 @@ sleep 2
 
 # 2. フレームワーク起動
 echo "🚀 WezTerm Parallel フレームワーク起動中..."
-wezterm-parallel &
+"${BINARY_PATH}" &
 FRAMEWORK_PID=$!
 echo "フレームワーク PID: $FRAMEWORK_PID"
 
